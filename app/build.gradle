@@ -23,6 +23,9 @@ dependencies {
 
     // This dependency is used by the application.
     implementation libs.guava
+    
+    // Add PicoCLI for command line interface
+    implementation libs.picocli
 }
 
 // Apply a specific Java toolchain to ease working on different environments.
