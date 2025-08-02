@@ -26,6 +26,8 @@ dependencies {
     
     // Add PicoCLI for command line interface
     implementation libs.picocli
+    implementation libs.slf4j.api
+    implementation libs.logback.classic
 }
 
 // Apply a specific Java toolchain to ease working on different environments.
