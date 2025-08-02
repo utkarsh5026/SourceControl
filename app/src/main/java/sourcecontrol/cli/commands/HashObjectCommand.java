@@ -12,7 +12,7 @@ import picocli.CommandLine.Parameters;
 
 import sourcecontrol.cli.mixins.GlobalOptionsMixin;
 import sourcecontrol.cli.mixins.RepositoryMixin;
-import sourcecontrol.core.objects.impl.GitBlob;
+import sourcecontrol.core.objects.blob.GitBlob;
 import sourcecontrol.core.repository.GitRepository;
 import sourcecontrol.utils.io.FileUtils;
 

@@ -10,9 +10,9 @@ import picocli.CommandLine.Parameters;
 
 import sourcecontrol.cli.mixins.GlobalOptionsMixin;
 import sourcecontrol.cli.mixins.RepositoryMixin;
-import sourcecontrol.core.objects.impl.GitBlob;
 import sourcecontrol.core.repository.GitRepository;
 import sourcecontrol.core.objects.GitObject;
+import sourcecontrol.core.objects.blob.GitBlob;
 
 @Command(name = "cat-file", description = "Provide content or type and size information for repository objects", mixinStandardHelpOptions = true, header = "Display information about Git objects", footer = {
         "",
