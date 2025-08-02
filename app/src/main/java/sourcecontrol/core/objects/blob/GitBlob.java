@@ -1,4 +1,4 @@
-package sourcecontrol.core.objects.impl;
+package sourcecontrol.core.objects.blob;
 
 import java.nio.charset.StandardCharsets;
 import sourcecontrol.core.objects.GitObject;

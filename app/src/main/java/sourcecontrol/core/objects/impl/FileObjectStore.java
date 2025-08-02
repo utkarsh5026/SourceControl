@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.util.zip.DataFormatException;
 
 import sourcecontrol.core.objects.ObjectType;
+import sourcecontrol.core.objects.blob.GitBlob;
 import sourcecontrol.core.objects.ObjectStore;
 import sourcecontrol.core.objects.GitObject;
 import sourcecontrol.exceptions.ObjectException;
