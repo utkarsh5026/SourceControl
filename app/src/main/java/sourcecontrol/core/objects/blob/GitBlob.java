@@ -75,23 +75,6 @@ public final class GitBlob implements GitObject {
     }
 
     @Override
-    public byte[] serialize() throws ObjectException {
-        try {
-            String typeName = getType().getTypeName();
-            String header = typeName + " " + content.length + "\0";
-            byte[] headerBytes = header.getBytes(StandardCharsets.UTF_8);
-
-            byte[] result = new byte[headerBytes.length + content.length];
-            System.arraycopy(headerBytes, 0, result, 0, headerBytes.length); // Copy header to result
-            System.arraycopy(content, 0, result, headerBytes.length, content.length); // Copy content to result
-
-            return result;
-        } catch (Exception e) {
-            throw new ObjectException("Failed to serialize blob", e);
-        }
-    }
-
-    @Override
     public void deserialize(byte[] data) throws ObjectException {
         try {
             int nullIndex = -1;
