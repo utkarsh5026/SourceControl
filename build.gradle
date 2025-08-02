@@ -1,0 +1,16 @@
+// Root build script - manages common configuration
+subprojects {
+    apply plugin: 'java'
+    
+    repositories {
+        mavenCentral()
+    }
+    
+    java {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    
+    group = 'com.sourcecontrol'
+    version = '1.0.0-SNAPSHOT'
+}
