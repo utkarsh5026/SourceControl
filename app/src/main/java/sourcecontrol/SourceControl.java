@@ -13,7 +13,8 @@ import sourcecontrol.cli.exceptions.GitParameterExceptionHandler;
 
 @Command(name = "source-control", description = "A production-grade Git implementation from scratch in Java", version = "Source Control 1.0.0-SNAPSHOT", versionProvider = VersionProvider.class, mixinStandardHelpOptions = true, subcommands = {
         HashObjectCommand.class,
-        CommandLine.HelpCommand.class
+        CommandLine.HelpCommand.class,
+        CatFileCommand.class
 }, header = {
         "@|bold,cyan  ╔═══════════════════════════════════════════════════════════╗|@",
         "@|bold,cyan  ║                                                           ║|@",
@@ -50,7 +51,6 @@ public class SourceControl implements Runnable {
     private String changeDirectory;
 
     public static void main(String[] args) {
-        // Configure CommandLine with custom exception handler and execution strategy
         CommandLine commandLine = new CommandLine(new SourceControl())
                 .setColorScheme(CommandLine.Help.defaultColorScheme(CommandLine.Help.Ansi.AUTO))
                 .setExecutionExceptionHandler(new GitExecutionExceptionHandler())
