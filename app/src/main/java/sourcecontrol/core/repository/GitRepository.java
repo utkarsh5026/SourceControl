@@ -11,6 +11,31 @@ import sourcecontrol.exceptions.ObjectException;
 import sourcecontrol.exceptions.RepositoryException;
 import sourcecontrol.utils.io.FileUtils;
 
+/**
+ * Git repository implementation that manages the complete Git repository
+ * structure
+ * and provides access to Git objects, references, and configuration.
+ * 
+ * This class represents a standard Git repository with the following structure:
+ * ┌─ <working-directory>/
+ * │ ├─ .git/ ← Git metadata directory
+ * │ │ ├─ objects/ ← Object storage (blobs, trees, commits, tags)
+ * │ │ │ ├─ ab/ ← Object subdirectories (first 2 chars of SHA)
+ * │ │ │ │ └─ cdef123... ← Object files (remaining 38 chars of SHA)
+ * │ │ │ └─ ...
+ * │ │ ├─ refs/ ← References (branches and tags)
+ * │ │ │ ├─ heads/ ← Branch references
+ * │ │ │ └─ tags/ ← Tag references
+ * │ │ ├─ HEAD ← Current branch pointer
+ * │ │ ├─ config ← Repository configuration
+ * │ │ └─ description ← Repository description
+ * │ ├─ file1.txt ← Working directory files
+ * │ ├─ file2.txt
+ * │ └─ ...
+ * 
+ * The repository manages both the working directory (user files) and the Git
+ * directory (metadata and object storage).
+ */
 public final class GitRepository implements Repository {
     private Path workingDirectory;
     private Path gitDirectory;
