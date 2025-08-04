@@ -14,7 +14,7 @@ export abstract class GitObject {
   /**
    * Get the SHA-1 hash of this object
    */
-  abstract sha(): string;
+  abstract sha(): Promise<string>;
 
   /**
    * Get the size of the object content in bytes
@@ -24,7 +24,7 @@ export abstract class GitObject {
   /**
    * Deserialize object from raw data
    */
-  abstract deserialize(data: Uint8Array): void;
+  abstract deserialize(data: Uint8Array): Promise<void>;
 
   /**
    * Serialize object to byte array for storage (with header)
