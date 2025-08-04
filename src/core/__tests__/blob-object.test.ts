@@ -1,4 +1,4 @@
-import { BlobObject } from '../blob-object';
+import { BlobObject } from '@/core/objects';
 import { ObjectType } from '@/core/objects/base';
 import { ObjectException } from '@/core/exceptions';
 
