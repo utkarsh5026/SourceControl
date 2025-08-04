@@ -5,23 +5,16 @@ import { CreateItemDialog, RenameItemDialog } from "./file-operations";
 import { useFileStore } from "../store/use-file-store";
 import FileTree from "./file-tree";
 
-interface DirectoryViewProps {
-  onFileSelect?: (fileId: string) => void;
-  onFileDelete?: (fileId: string) => void;
-  selectedFileId?: string;
-}
-
-const DirectoryView: React.FC<DirectoryViewProps> = ({
-  onFileSelect,
-  onFileDelete,
-  selectedFileId,
-}) => {
+const DirectoryView: React.FC = () => {
   const {
     fileTree,
     createFile,
     renameFile,
     toggleDirectory,
     initializeFileTree,
+    activeFileId,
+    closeFile,
+    setActiveFile,
   } = useFileStore();
 
   useEffect(() => {
@@ -100,12 +93,12 @@ const DirectoryView: React.FC<DirectoryViewProps> = ({
         <FileTree
           node={fileTree}
           depth={0}
-          selectedFileId={selectedFileId || ""}
+          selectedFileId={activeFileId || ""}
           toggleDirectory={toggleDirectory}
-          handleFileSelect={onFileSelect || (() => {})}
+          handleFileSelect={setActiveFile}
           openCreateDialog={openCreateDialog}
           openRenameDialog={openRenameDialog}
-          handleDelete={onFileDelete || (() => {})}
+          handleDelete={closeFile}
         />
       </div>
 
