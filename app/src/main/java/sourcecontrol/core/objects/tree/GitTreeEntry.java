@@ -157,6 +157,69 @@ public final class GitTreeEntry implements Comparable<GitTreeEntry> {
     }
 
     /**
+     * Parses a tree entry from binary data starting at the given offset.
+     * Returns the entry and the next offset to read from.
+     */
+    public static ParseResult parseFrom(byte[] data, int offset) {
+        if (offset >= data.length) {
+            throw new IllegalArgumentException("Offset beyond data length");
+        }
+
+        int spaceIndex = -1;
+        for (int i = offset; i < data.length; i++) {
+            if (data[i] == ' ') {
+                spaceIndex = i;
+                break;
+            }
+        }
+
+        if (spaceIndex == -1) {
+            throw new IllegalArgumentException("Invalid tree entry: no space found");
+        }
+
+        // Extract mode
+        String mode = new String(data, offset, spaceIndex - offset, StandardCharsets.UTF_8);
+
+        // Find null terminator (end of name)
+        int nullIndex = -1;
+        for (int i = spaceIndex + 1; i < data.length; i++) {
+            if (data[i] == 0) {
+                nullIndex = i;
+                break;
+            }
+        }
+
+        if (nullIndex == -1) {
+            throw new IllegalArgumentException("Invalid tree entry: no null terminator found");
+        }
+
+        // Extract name
+        String name = new String(data, spaceIndex + 1, nullIndex - spaceIndex - 1, StandardCharsets.UTF_8);
+
+        // Extract SHA (next 20 bytes)
+        if (nullIndex + 20 >= data.length) {
+            throw new IllegalArgumentException("Invalid tree entry: insufficient data for SHA");
+        }
+
+        byte[] shaBytes = new byte[20];
+        System.arraycopy(data, nullIndex + 1, shaBytes, 0, 20);
+        String sha = bytesToHex(shaBytes);
+
+        GitTreeEntry entry = new GitTreeEntry(mode, name, sha);
+        int nextOffset = nullIndex + 21; // null byte + 20 SHA bytes
+
+        return new ParseResult(entry, nextOffset);
+    }
+
+    private static String bytesToHex(byte[] bytes) {
+        StringBuilder result = new StringBuilder();
+        for (byte b : bytes) {
+            result.append(String.format("%02x", b));
+        }
+        return result.toString();
+    }
+
+    /**
      * Validates and normalizes the mode string.
      */
     private String validateAndNormalizeMode(String mode) {
@@ -206,5 +269,19 @@ public final class GitTreeEntry implements Comparable<GitTreeEntry> {
             result[i] = (byte) Integer.parseInt(hex.substring(index, index + 2), 16);
         }
         return result;
+    }
+
+    /**
+     * Result class for parsing operations that need to return both the parsed entry
+     * and the next offset in the data.
+     */
+    public static class ParseResult {
+        public final GitTreeEntry entry;
+        public final int nextOffset;
+
+        public ParseResult(GitTreeEntry entry, int nextOffset) {
+            this.entry = entry;
+            this.nextOffset = nextOffset;
+        }
     }
 }
