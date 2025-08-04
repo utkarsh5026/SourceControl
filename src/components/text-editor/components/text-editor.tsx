@@ -106,7 +106,7 @@ const TextEditor: React.FC = () => {
   }
 
   return (
-    <div className="h-full flex flex-col bg-background">
+    <div className="h-full flex flex-col bg-background max-h-full">
       {/* File Tabs */}
       <div className="border-b border-border flex items-center overflow-x-auto">
         {openFiles.map((fileId) => {

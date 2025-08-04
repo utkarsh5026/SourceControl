@@ -75,6 +75,86 @@
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: #d1d9e0;
   --sidebar-ring: #0969da;
+
+  /* GitHub Light Theme Colors */
+  /* GitHub Brand Colors */
+  --github-brand-green: #2da44e;
+  --github-brand-blue: #0969da;
+  --github-brand-purple: #8250df;
+  --github-brand-pink: #bf8700;
+  --github-brand-red: #cf222e;
+  --github-brand-orange: #fd7e14;
+  --github-brand-yellow: #fb8500;
+  
+  /* GitHub Semantic Colors */
+  --github-success: #1a7f37;
+  --github-success-emphasis: #2da44e;
+  --github-success-muted: #dafbe1;
+  --github-success-subtle: #dcffe4;
+  
+  --github-warning: #9a6700;
+  --github-warning-emphasis: #bf8700;
+  --github-warning-muted: #fff8c5;
+  --github-warning-subtle: #fff8c5;
+  
+  --github-danger: #d1242f;
+  --github-danger-emphasis: #cf222e;
+  --github-danger-muted: #ffebe9;
+  --github-danger-subtle: #ffebe9;
+  
+  --github-info: #0969da;
+  --github-info-emphasis: #0969da;
+  --github-info-muted: #ddf4ff;
+  --github-info-subtle: #ddf4ff;
+  
+  /* GitHub Canvas Colors */
+  --github-canvas-default: #ffffff;
+  --github-canvas-overlay: #ffffff;
+  --github-canvas-inset: #f6f8fa;
+  --github-canvas-subtle: #f6f8fa;
+  
+  /* GitHub Foreground Colors */
+  --github-fg-default: #1f2328;
+  --github-fg-muted: #656d76;
+  --github-fg-subtle: #6e7781;
+  --github-fg-on-emphasis: #ffffff;
+  
+  /* GitHub Border Colors */
+  --github-border-default: #d1d9e0;
+  --github-border-muted: #d8dee4;
+  --github-border-subtle: #f6f8fa;
+  
+  /* GitHub Button Colors */
+  --github-btn-text: #24292f;
+  --github-btn-bg: #f6f8fa;
+  --github-btn-border: #d1d9e0;
+  --github-btn-hover-bg: #f3f4f6;
+  --github-btn-hover-border: #d1d9e0;
+  --github-btn-active-bg: #ebecf0;
+  --github-btn-active-border: #d1d9e0;
+  
+  --github-btn-primary-text: #ffffff;
+  --github-btn-primary-bg: #2da44e;
+  --github-btn-primary-border: #2da44e;
+  --github-btn-primary-hover-bg: #2c974b;
+  --github-btn-primary-hover-border: #2c974b;
+  
+  /* GitHub Input Colors */
+  --github-input-bg: #ffffff;
+  --github-input-border: #d1d9e0;
+  --github-input-contrast-bg: #f6f8fa;
+  
+  /* GitHub Neutral Colors */
+  --github-neutral-emphasis-plus: #24292f;
+  --github-neutral-emphasis: #656d76;
+  --github-neutral-muted: #afb8c1;
+  --github-neutral-subtle: #f6f8fa;
+  
+  /* GitHub Accent Colors */
+  --github-accent-fg: #0969da;
+  --github-accent-emphasis: #0969da;
+  --github-accent-muted: #b6e3ff;
+  --github-accent-subtle: #ddf4ff;
 }
 
 /* VS Code GitHub Dark Theme */
@@ -127,6 +207,190 @@
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: #30363d;
   --sidebar-ring: #388bfd;
+
+  /* GitHub Dark Theme Colors */
+  /* GitHub Brand Colors (Dark) */
+  --github-brand-green: #238636;
+  --github-brand-blue: #1f6feb;
+  --github-brand-purple: #a855f7;
+  --github-brand-pink: #f778ba;
+  --github-brand-red: #da3633;
+  --github-brand-orange: #fb8500;
+  --github-brand-yellow: #fbbf24;
+  
+  /* GitHub Semantic Colors (Dark) */
+  --github-success: #238636;
+  --github-success-emphasis: #2ea043;
+  --github-success-muted: rgba(46, 160, 67, 0.15);
+  --github-success-subtle: rgba(46, 160, 67, 0.1);
+  
+  --github-warning: #d29922;
+  --github-warning-emphasis: #fb8500;
+  --github-warning-muted: rgba(187, 128, 9, 0.15);
+  --github-warning-subtle: rgba(187, 128, 9, 0.1);
+  
+  --github-danger: #f85149;
+  --github-danger-emphasis: #da3633;
+  --github-danger-muted: rgba(248, 81, 73, 0.15);
+  --github-danger-subtle: rgba(248, 81, 73, 0.1);
+  
+  --github-info: #79c0ff;
+  --github-info-emphasis: #1f6feb;
+  --github-info-muted: rgba(56, 139, 253, 0.15);
+  --github-info-subtle: rgba(56, 139, 253, 0.1);
+  
+  /* GitHub Canvas Colors (Dark) */
+  --github-canvas-default: #0d1117;
+  --github-canvas-overlay: #161b22;
+  --github-canvas-inset: #010409;
+  --github-canvas-subtle: #161b22;
+  
+  /* GitHub Foreground Colors (Dark) */
+  --github-fg-default: #f0f6fc;
+  --github-fg-muted: #8d96a0;
+  --github-fg-subtle: #6e7681;
+  --github-fg-on-emphasis: #ffffff;
+  
+  /* GitHub Border Colors (Dark) */
+  --github-border-default: #30363d;
+  --github-border-muted: #21262d;
+  --github-border-subtle: #21262d;
+  
+  /* GitHub Button Colors (Dark) */
+  --github-btn-text: #f0f6fc;
+  --github-btn-bg: #21262d;
+  --github-btn-border: #30363d;
+  --github-btn-hover-bg: #30363d;
+  --github-btn-hover-border: #8b949e;
+  --github-btn-active-bg: #282e33;
+  --github-btn-active-border: #8b949e;
+  
+  --github-btn-primary-text: #ffffff;
+  --github-btn-primary-bg: #238636;
+  --github-btn-primary-border: #238636;
+  --github-btn-primary-hover-bg: #2ea043;
+  --github-btn-primary-hover-border: #2ea043;
+  
+  /* GitHub Input Colors (Dark) */
+  --github-input-bg: #0d1117;
+  --github-input-border: #30363d;
+  --github-input-contrast-bg: #161b22;
+  
+  /* GitHub Neutral Colors (Dark) */
+  --github-neutral-emphasis-plus: #f0f6fc;
+  --github-neutral-emphasis: #8d96a0;
+  --github-neutral-muted: #484f58;
+  --github-neutral-subtle: #161b22;
+  
+  /* GitHub Accent Colors (Dark) */
+  --github-accent-fg: #79c0ff;
+  --github-accent-emphasis: #1f6feb;
+  --github-accent-muted: rgba(56, 139, 253, 0.4);
+  --github-accent-subtle: rgba(56, 139, 253, 0.15);
+  
+  /* GitHub Syntax Colors (Dark) */
+  --github-syntax-comment: #8b949e;
+  --github-syntax-constant: #79c0ff;
+  --github-syntax-entity: #d2a8ff;
+  --github-syntax-keyword: #ff7b72;
+  --github-syntax-storage: #ff7b72;
+  --github-syntax-string: #a5d6ff;
+  --github-syntax-support: #79c0ff;
+  --github-syntax-variable: #ffa657;
+  --github-syntax-invalid: #f85149;
+  --github-syntax-deprecated: #ffa657;
+  --github-syntax-header: #1f6feb;
+  --github-syntax-markup-bold: #f0f6fc;
+  --github-syntax-markup-italic: #f0f6fc;
+  --github-syntax-markup-quote: #8d96a0;
+  
+  /* GitHub Git Colors (Dark) */
+  --github-git-added: #238636;
+  --github-git-modified: #d29922;
+  --github-git-removed: #f85149;
+  --github-git-renamed: #a5d6ff;
+  --github-git-ignored: #6e7681;
+  --github-git-untracked: #6e7681;
+  
+  /* GitHub Editor Colors (Dark) */
+  --github-editor-line-highlight: rgba(56, 139, 253, 0.12);
+  --github-editor-selection: rgba(56, 139, 253, 0.24);
+  --github-editor-word-highlight: rgba(240, 246, 252, 0.1);
+  --github-editor-find-match: rgba(255, 199, 54, 0.2);
+  --github-editor-current-line: #21262d;
+  --github-editor-cursor: #79c0ff;
+  --github-editor-invisible: #484f58;
+  
+  /* GitHub Terminal ANSI Colors (Dark) */
+  --github-ansi-black: #484f58;
+  --github-ansi-red: #ff7b72;
+  --github-ansi-green: #7ee787;
+  --github-ansi-yellow: #ffa657;
+  --github-ansi-blue: #79c0ff;
+  --github-ansi-magenta: #d2a8ff;
+  --github-ansi-cyan: #a5d6ff;
+  --github-ansi-white: #f0f6fc;
+  --github-ansi-bright-black: #6e7681;
+  --github-ansi-bright-red: #ffa198;
+  --github-ansi-bright-green: #56d364;
+  --github-ansi-bright-yellow: #ffdf5d;
+  --github-ansi-bright-blue: #79c0ff;
+  --github-ansi-bright-magenta: #d2a8ff;
+  --github-ansi-bright-cyan: #56d4dd;
+  --github-ansi-bright-white: #f0f6fc;
+  
+  /* GitHub UI Element Colors (Dark) */
+  --github-badge-bg: #1f6feb;
+  --github-badge-fg: #ffffff;
+  --github-label-bg: #30363d;
+  --github-label-fg: #f0f6fc;
+  --github-timeline-badge-bg: #21262d;
+  --github-avatar-border: #30363d;
+  --github-tooltip-bg: #161b22;
+  --github-tooltip-fg: #f0f6fc;
+  --github-dropdown-bg: #161b22;
+  --github-dropdown-border: #30363d;
+  --github-menu-bg: #161b22;
+  --github-menu-border: #30363d;
+  --github-overlay-bg: #161b22;
+  --github-overlay-border: #30363d;
+  --github-header-bg: #161b22;
+  --github-header-border: #30363d;
+  --github-footer-bg: #161b22;
+  
+  /* GitHub State Colors (Dark) */
+  --github-state-open: #238636;
+  --github-state-closed: #f85149;
+  --github-state-merged: #a855f7;
+  --github-state-draft: #6e7681;
+  
+  /* GitHub Priority Colors (Dark) */
+  --github-priority-high: #f85149;
+  --github-priority-medium: #ffa657;
+  --github-priority-low: #7ee787;
+  
+  /* GitHub Role Colors (Dark) */
+  --github-role-owner: #ffa657;
+  --github-role-admin: #f85149;
+  --github-role-member: #79c0ff;
+  --github-role-collaborator: #a5d6ff;
+  
+  /* GitHub Sponsor Colors (Dark) */
+  --github-sponsor-tier-1: #db61a2;
+  --github-sponsor-tier-2: #f778ba;
+  --github-sponsor-tier-3: #ffa198;
+  --github-sponsor-tier-4: #ffdf5d;
+  
+  /* GitHub Marketplace Colors (Dark) */
+  --github-marketplace-verified: #238636;
+  --github-marketplace-unverified: #6e7681;
+  
+  /* GitHub Security Colors (Dark) */
+  --github-security-critical: #f85149;
+  --github-security-high: #ffa657;
+  --github-security-medium: #ffdf5d;
+  --github-security-low: #7ee787;
+  --github-security-info: #79c0ff;
 }
 
 @layer base {

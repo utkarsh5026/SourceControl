@@ -1,11 +1,11 @@
 import React from "react";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import {
   Collapsible,
   CollapsibleContent,
@@ -16,7 +16,6 @@ import {
   FolderOpen,
   FilePlus,
   FolderPlus,
-  MoreHorizontal,
   Trash2,
   Edit3,
   ChevronRight,
@@ -103,18 +102,19 @@ const FileSelect: React.FC<FileSelectProps> = ({
 }) => {
   return (
     <div key={node.id}>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
           <div
-            className={`flex items-center gap-2 px-2 py-1.5 hover:bg-gray-100 cursor-pointer rounded-sm group transition-colors ${
-              isSelected ? "bg-blue-100 text-blue-800" : ""
+            className={`flex items-center gap-2 px-2 py-1.5 hover:bg-sidebar-accent cursor-pointer rounded-sm group transition-colors text-sidebar-foreground ${
+              isSelected
+                ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                : ""
             }`}
             style={{ paddingLeft: `${8 + depth * 16}px` }}
             onClick={(e) => {
               e.preventDefault();
               handleFileSelect(node.id);
             }}
-            onContextMenu={(e) => e.preventDefault()}
           >
             {/* Empty space for icon alignment */}
             <div className="w-4 h-4" />
@@ -125,7 +125,7 @@ const FileSelect: React.FC<FileSelectProps> = ({
             {/* Name */}
             <span
               className={`text-sm flex-1 ${
-                node.isModified ? "text-orange-600 font-medium" : ""
+                node.isModified ? "text-accent font-medium" : ""
               }`}
             >
               {node.name}
@@ -133,43 +133,35 @@ const FileSelect: React.FC<FileSelectProps> = ({
 
             {/* Modified indicator */}
             {node.isModified && (
-              <div className="w-2 h-2 bg-orange-500 rounded-full" />
+              <div className="w-2 h-2 bg-accent rounded-full" />
             )}
-
-            {/* Context menu trigger */}
-            <MoreHorizontal
-              size={14}
-              className="text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity"
-            />
           </div>
-        </DropdownMenuTrigger>
+        </ContextMenuTrigger>
 
-        <DropdownMenuContent align="start" className="w-48">
-          <DropdownMenuItem
-            onClick={() => openRenameDialog(node.id, node.name)}
-          >
+        <ContextMenuContent className="w-48">
+          <ContextMenuItem onClick={() => openRenameDialog(node.id, node.name)}>
             <Edit3 size={16} className="mr-2" />
             Rename
-          </DropdownMenuItem>
+          </ContextMenuItem>
 
-          <DropdownMenuItem
+          <ContextMenuItem
             onClick={() => navigator.clipboard.writeText(node.name)}
           >
             <Copy size={16} className="mr-2" />
             Copy Name
-          </DropdownMenuItem>
+          </ContextMenuItem>
 
-          <DropdownMenuSeparator />
+          <ContextMenuSeparator />
 
-          <DropdownMenuItem
+          <ContextMenuItem
             onClick={() => handleDelete(node.id)}
-            className="text-red-600 focus:text-red-600"
+            variant="destructive"
           >
             <Trash2 size={16} className="mr-2" />
             Delete
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
     </div>
   );
 };
@@ -199,7 +191,6 @@ const DirectorySelect: React.FC<DirectorySelectProps> = ({
   openCreateDialog,
   openRenameDialog,
   handleDelete,
-  getFileIcon,
 }: DirectorySelectProps) => {
   return (
     <Collapsible
@@ -208,37 +199,44 @@ const DirectorySelect: React.FC<DirectorySelectProps> = ({
       onOpenChange={() => toggleDirectory(node.id)}
     >
       <div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+        <ContextMenu>
+          <ContextMenuTrigger asChild>
             <CollapsibleTrigger asChild>
               <div
-                className={`flex items-center gap-2 px-2 py-1.5 hover:bg-gray-100 cursor-pointer rounded-sm group transition-colors w-full ${
-                  isSelected ? "bg-blue-100 text-blue-800" : ""
+                className={`flex items-center gap-2 px-2 py-1.5 hover:bg-sidebar-accent cursor-pointer rounded-sm group transition-colors w-full text-sidebar-foreground ${
+                  isSelected
+                    ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                    : ""
                 }`}
                 style={{ paddingLeft: `${8 + depth * 16}px` }}
-                onContextMenu={(e) => e.preventDefault()}
               >
                 {/* Expand/Collapse Icon */}
                 <div className="w-4 h-4 flex items-center justify-center">
                   {hasChildren &&
                     (node.isOpen ? (
-                      <ChevronDown size={14} />
+                      <ChevronDown
+                        size={14}
+                        className="text-sidebar-foreground"
+                      />
                     ) : (
-                      <ChevronRight size={14} />
+                      <ChevronRight
+                        size={14}
+                        className="text-sidebar-foreground"
+                      />
                     ))}
                 </div>
 
                 {/* Folder Icon */}
                 {node.isOpen ? (
-                  <FolderOpen size={16} className="text-blue-600" />
+                  <FolderOpen size={16} className="text-sidebar-accent" />
                 ) : (
-                  <Folder size={16} className="text-blue-600" />
+                  <Folder size={16} className="text-sidebar-accent" />
                 )}
 
                 {/* Name */}
                 <span
                   className={`text-sm flex-1 ${
-                    node.isModified ? "text-orange-600 font-medium" : ""
+                    node.isModified ? "text-accent font-medium" : ""
                   }`}
                 >
                   {node.name}
@@ -246,73 +244,64 @@ const DirectorySelect: React.FC<DirectorySelectProps> = ({
 
                 {/* Modified indicator */}
                 {node.isModified && (
-                  <div className="w-2 h-2 bg-orange-500 rounded-full" />
+                  <div className="w-2 h-2 bg-accent rounded-full" />
                 )}
-
-                {/* Context menu trigger */}
-                <MoreHorizontal
-                  size={14}
-                  className="text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                />
               </div>
             </CollapsibleTrigger>
-          </DropdownMenuTrigger>
+          </ContextMenuTrigger>
 
-          <DropdownMenuContent align="start" className="w-48">
-            <DropdownMenuItem onClick={() => openCreateDialog(node.id, "file")}>
+          <ContextMenuContent className="w-48">
+            <ContextMenuItem onClick={() => openCreateDialog(node.id, "file")}>
               <FilePlus size={16} className="mr-2" />
               New File
-            </DropdownMenuItem>
-            <DropdownMenuItem
+            </ContextMenuItem>
+            <ContextMenuItem
               onClick={() => openCreateDialog(node.id, "directory")}
             >
               <FolderPlus size={16} className="mr-2" />
               New Folder
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
+            </ContextMenuItem>
+            <ContextMenuSeparator />
 
-            <DropdownMenuItem
+            <ContextMenuItem
               onClick={() => openRenameDialog(node.id, node.name)}
             >
               <Edit3 size={16} className="mr-2" />
               Rename
-            </DropdownMenuItem>
+            </ContextMenuItem>
 
-            <DropdownMenuItem
+            <ContextMenuItem
               onClick={() => navigator.clipboard.writeText(node.name)}
             >
               <Copy size={16} className="mr-2" />
               Copy Name
-            </DropdownMenuItem>
+            </ContextMenuItem>
 
-            <DropdownMenuSeparator />
+            <ContextMenuSeparator />
 
-            <DropdownMenuItem
+            <ContextMenuItem
               onClick={() => handleDelete(node.id)}
-              className="text-red-600 focus:text-red-600"
+              variant="destructive"
             >
               <Trash2 size={16} className="mr-2" />
               Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
 
         {/* Render children with Collapsible animation */}
         <CollapsibleContent className="space-y-0">
           {node.children?.map((child) => (
-            <DirectorySelect
+            <FileTree
               key={child.id}
               node={child}
               depth={depth + 1}
-              isSelected={isSelected}
               selectedFileId={selectedFileId}
-              hasChildren={hasChildren}
               toggleDirectory={toggleDirectory}
               handleFileSelect={handleFileSelect}
               openCreateDialog={openCreateDialog}
               openRenameDialog={openRenameDialog}
               handleDelete={handleDelete}
-              getFileIcon={getFileIcon}
             />
           ))}
         </CollapsibleContent>
