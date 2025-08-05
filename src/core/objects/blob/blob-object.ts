@@ -58,41 +58,13 @@ export class BlobObject extends GitObject {
    * Deserialize the blob object from the given data.
    */
   override async deserialize(data: Uint8Array): Promise<void> {
-    const getNullIndex = () => {
-      let nullIndex = -1;
-      for (let i = 0; i < data.length; i++) {
-        if (data[i] == 0) {
-          nullIndex = i;
-          break;
-        }
-      }
-      return nullIndex;
-    };
     try {
-      const nullIndex = getNullIndex();
-      if (nullIndex === -1) {
-        throw new ObjectException('Invalid blob object: no null terminator found');
-      }
-
-      const header = new TextDecoder('utf-8').decode(data.slice(0, nullIndex));
-      const headerParts = header.split(' ');
-
-      const [type, size] = headerParts;
-      if (!size) {
-        throw new ObjectException('Invalid blob object: invalid size');
-      }
-
-      if (type !== ObjectType.BLOB.toString()) {
+      const { type, contentStartsAt, contentLength } = this.parseHeader(data);
+      if (type !== ObjectType.BLOB) {
         throw new ObjectException('Invalid blob object: invalid type');
       }
 
-      const contentLength = data.length - nullIndex - 1;
-
-      if (contentLength !== parseInt(size)) {
-        throw new ObjectException(`Content size mismatch expected: ${size}, got ${contentLength}`);
-      }
-
-      this._content = data.slice(nullIndex + 1, nullIndex + 1 + contentLength);
+      this._content = data.slice(contentStartsAt, contentStartsAt + contentLength);
       this._sha = await sha1Hex(this._content);
     } catch (e) {
       throw new ObjectException('Invalid blob object: ' + (e as Error).message);
