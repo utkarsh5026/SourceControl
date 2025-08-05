@@ -119,7 +119,14 @@ export class TreeEntry {
   compareTo(other: TreeEntry): number {
     const thisKey = this.isDirectory() ? this._name + '/' : this._name;
     const otherKey = other.isDirectory() ? other._name + '/' : other._name;
-    return thisKey.localeCompare(otherKey);
+
+    if (thisKey < otherKey) {
+      return -1;
+    }
+    if (thisKey > otherKey) {
+      return 1;
+    }
+    return 0;
   }
 
   /**
