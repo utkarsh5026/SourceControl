@@ -74,7 +74,7 @@ export class SourceRepository extends Repository {
       this._objectStore.initialize(this._gitDirectory);
       this.createInitialFiles();
     } catch (e) {
-      throw new RepositoryException('Failed to initialize repository', e as Error);
+      throw new RepositoryException('Failed to initialize repository');
     }
   }
 
@@ -112,7 +112,7 @@ export class SourceRepository extends Repository {
     try {
       return this._objectStore.readObject(sha);
     } catch (e) {
-      throw new RepositoryException('Failed to read object', e as Error);
+      throw new RepositoryException('Failed to read object');
     }
   }
 
@@ -123,7 +123,7 @@ export class SourceRepository extends Repository {
     try {
       return this._objectStore.writeObject(object);
     } catch (e) {
-      throw new RepositoryException('Failed to write object', e as Error);
+      throw new RepositoryException('Failed to write object');
     }
   }
 

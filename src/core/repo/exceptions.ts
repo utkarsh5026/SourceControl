@@ -1,9 +1,8 @@
 import { GitException } from '../exceptions';
 
 export class RepositoryException extends GitException {
-  constructor(message: string, cause?: Error) {
+  constructor(message: string) {
     super(message);
     this.name = 'RepositoryException';
-    this.cause = cause;
   }
 }
