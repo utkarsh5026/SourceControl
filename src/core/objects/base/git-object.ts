@@ -54,7 +54,7 @@ export abstract class GitObject {
    * For example, a blob containing "Hello World" becomes:
    * "blob 11\0Hello World" (where \0 is a null byte)
    */
-  protected serialize(): Uint8Array {
+  serialize(): Uint8Array {
     try {
       const content = this.content();
       const header = this.type().toString() + ' ' + content.length + '\0';
