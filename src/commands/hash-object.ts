@@ -1,5 +1,7 @@
 import { Command } from 'commander';
 import { PathScurry } from 'path-scurry';
+import chalk from 'chalk';
+import boxen from 'boxen';
 import { BlobObject } from '@/core/objects';
 import { Repository, SourceRepository } from '@/core/repo';
 import { FileUtils, logger } from '@/utils';
@@ -78,7 +80,7 @@ async function hashStdin(repository: Repository | null, options: HashObjectOptio
     process.stdin.on('end', async () => {
       try {
         const content = Buffer.concat(chunks);
-        await hashContent(new Uint8Array(content), repository, options);
+        await hashContent(new Uint8Array(content), repository, options, '<stdin>');
         resolve();
       } catch (error) {
         reject(error);
@@ -97,7 +99,7 @@ async function hashFiles(
   for (const fileName of fileList) {
     try {
       const content = await FileUtils.readFile(fileName);
-      await hashContent(new Uint8Array(content), repository, options);
+      await hashContent(new Uint8Array(content), repository, options, fileName);
     } catch (error) {
       logger.error(`cannot read '${fileName}': ${(error as Error).message}`);
       process.exit(1);
@@ -108,7 +110,8 @@ async function hashFiles(
 async function hashContent(
   content: Uint8Array,
   repository: Repository | null,
-  options: HashObjectOptions
+  options: HashObjectOptions,
+  source: string
 ): Promise<void> {
   const blob = new BlobObject(content);
   const hash = await blob.sha();
@@ -120,5 +123,48 @@ async function hashContent(
     }
   }
 
-  console.log(hash);
+  // Create pretty output
+  if (options.quiet) {
+    // Just print the hash if quiet mode
+    console.log(hash);
+  } else {
+    printPrettyResult(hash, source, content.length, options.write || false);
+  }
+}
+
+function printPrettyResult(hash: string, source: string, size: number, wasWritten: boolean): void {
+  const title = chalk.bold.blue('🔍 Object Hash Result');
+
+  const sourceLabel = chalk.gray('Source:');
+  const sourceValue = source === '<stdin>' ? chalk.yellow('📥 stdin') : chalk.cyan(`📄 ${source}`);
+
+  const hashLabel = chalk.gray('SHA-1 Hash:');
+  const hashValue = chalk.green.bold(hash);
+
+  const sizeLabel = chalk.gray('Size:');
+  const sizeValue = chalk.magenta(`${size} bytes`);
+
+  const statusLabel = chalk.gray('Status:');
+  const statusValue = wasWritten
+    ? chalk.green('✅ Written to object store')
+    : chalk.yellow('📋 Hash computed only');
+
+  const content = [
+    `${sourceLabel} ${sourceValue}`,
+    `${hashLabel} ${hashValue}`,
+    `${sizeLabel} ${sizeValue}`,
+    `${statusLabel} ${statusValue}`,
+  ].join('\n');
+
+  const box = boxen(content, {
+    title,
+    titleAlignment: 'center',
+    padding: 1,
+    margin: { top: 1, bottom: 1, right: 1, left: 1 },
+    borderStyle: 'round',
+    borderColor: 'blue',
+    backgroundColor: 'black',
+  });
+
+  console.log(box);
 }
