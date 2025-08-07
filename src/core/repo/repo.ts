@@ -3,6 +3,12 @@ import fs from 'fs-extra';
 import type { GitObject } from '../objects/base';
 import type { ObjectStore } from '../object-store/store';
 
+/**
+ * Abstract base class for Git repositories
+ *
+ * This class provides a common interface for interacting with Git repositories,
+ * regardless of the underlying implementation.
+ */
 export abstract class Repository {
   /**
    * Initialize a new repository at the given path
