@@ -35,7 +35,7 @@ export class SourceRepository extends Repository {
   private _gitDirectory: Path | null = null;
   private _objectStore: ObjectStore;
 
-  private static DEFAULT_GIT_DIR = '.git';
+  private static DEFAULT_GIT_DIR = '.source';
   private static DEFAULT_OBJECTS_DIR = 'objects';
   private static DEFAULT_REFS_DIR = 'refs';
   private static DEFAULT_HEAD_FILE = 'HEAD';

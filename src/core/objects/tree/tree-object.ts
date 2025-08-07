@@ -38,7 +38,7 @@ export class TreeObject extends GitObject {
   private _entries: TreeEntry[];
   private _sha: string | null;
 
-  constructor(entries: TreeEntry[]) {
+  constructor(entries: TreeEntry[] = []) {
     super();
     this._entries = entries;
     this._sha = null;
