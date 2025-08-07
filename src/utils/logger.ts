@@ -1,5 +1,6 @@
 import chalk from 'chalk';
-import { LogLevel } from '../types';
+
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'silent';
 
 class Logger {
   private _level: LogLevel = 'info';
