@@ -4,7 +4,7 @@ import chalk from 'chalk';
 import boxen from 'boxen';
 import ora from 'ora';
 import { SourceRepository } from '@/core/repo';
-import { logger } from '@/utils';
+import { display, logger } from '@/utils';
 import path from 'path';
 
 interface InitOptions {
@@ -108,17 +108,9 @@ const initializeRepositoryWithFeedback = async (
  * Display initialization header
  */
 const displayHeader = () => {
-  const title = chalk.bold.blue('🚀 Source Control Repository Initialization');
-  const separator = chalk.gray('━'.repeat(60));
-
-  console.log(
-    boxen(`${title}\n${separator}`, {
-      padding: 1,
-      margin: { top: 0, bottom: 1, left: 1, right: 1 },
-      borderStyle: 'round',
-      borderColor: 'blue',
-      backgroundColor: 'black',
-    })
+  display.info(
+    '🚀 Source Control Repository Initialization',
+    'Source Control Repository Initialization'
   );
 };
 
