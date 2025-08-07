@@ -2,6 +2,6 @@ import { FileUtils } from './file';
 import { HashUtils } from './hash';
 import { CompressionUtils } from './compress';
 import { logger } from './logger';
-import { DisplayUtils } from './display';
+import { display } from './display';
 
-export { FileUtils, HashUtils, CompressionUtils, logger, DisplayUtils };
+export { FileUtils, HashUtils, CompressionUtils, logger, display };

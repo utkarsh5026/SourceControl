@@ -70,7 +70,7 @@ export const createSeparator = (length: number = 50, char: string = '─'): stri
 /**
  * Pre-configured display functions for common use cases
  */
-export const DisplayUtils = {
+export const display = {
   /**
    * Display success message with green theme
    */
