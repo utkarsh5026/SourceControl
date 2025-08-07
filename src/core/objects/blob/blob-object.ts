@@ -1,5 +1,4 @@
 import { GitObject, ObjectType } from '../base';
-import { HashUtils } from '@/utils';
 import { ObjectException } from '@/core/exceptions';
 
 /**
