@@ -1,5 +1,9 @@
 import ora, { Ora } from 'ora';
-import { SpinnerOptions } from '../types';
+
+export interface SpinnerOptions {
+  text: string;
+  color?: 'black' | 'red' | 'green' | 'yellow' | 'blue' | 'magenta' | 'cyan' | 'white' | 'gray';
+}
 
 export class SpinnerManager {
   private spinner: Ora | null = null;
