@@ -1,3 +1,4 @@
+import { HashUtils } from '@/utils';
 import { ObjectType, ObjectTypeHelper } from './object-type';
 import { ObjectException } from '@/core/exceptions';
 
@@ -33,7 +34,14 @@ export abstract class GitObject {
   /**
    * Get the SHA-1 hash of this object
    */
-  abstract sha(): Promise<string>;
+  sha(): Promise<string> {
+    try {
+      const serialized = this.serialize();
+      return HashUtils.sha1Hex(serialized);
+    } catch (e) {
+      throw new ObjectException('Failed to calculate SHA-1 hash');
+    }
+  }
 
   /**
    * Get the size of the object content in bytes
@@ -126,5 +134,24 @@ export abstract class GitObject {
       contentStartsAt: nullIndex + 1,
       contentLength,
     };
+  }
+
+  /**
+   * Validates the SHA-1 hash of the object
+   */
+  protected validateSha(sha: string): string {
+    if (sha.length !== 40) {
+      throw new ObjectException(
+        `Invalid ${this.type().toString().toLowerCase()} object: invalid SHA-1 hash`
+      );
+    }
+
+    if (!/^[0-9a-fA-F]{40}$/.test(sha)) {
+      throw new ObjectException(
+        `Invalid ${this.type().toString().toLowerCase()} object: invalid SHA-1 hash`
+      );
+    }
+
+    return sha;
   }
 }
