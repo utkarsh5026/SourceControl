@@ -149,9 +149,9 @@ const displayVersion = (): void => {
     `  ${chalk.gray('Description:')} ${chalk.white(pkg.description)}`,
     '',
     `${chalk.gray('Links:')}`,
-    `  ${chalk.blue('🔗 Repository:')} ${chalk.underline('https://github.com/your-repo/sourcecontrol')}`,
+    `  ${chalk.blue('🔗 Repository:')} ${chalk.underline('https://github.com/utkarsh5026/SourceControl.git')}`,
     `  ${chalk.blue('📝 Documentation:')} ${chalk.underline('https://docs.sourcecontrol.dev')}`,
-    `  ${chalk.blue('🐛 Report Issues:')} ${chalk.underline('https://github.com/your-repo/sourcecontrol/issues')}`,
+    `  ${chalk.blue('🐛 Report Issues:')} ${chalk.underline('https://github.com/utkarsh5026/SourceControl/issues')}`,
   ].join('\n');
 
   const box = boxen(systemInfo, {
