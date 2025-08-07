@@ -1,71 +1,17 @@
-import { Command } from 'commander';
-import { PathScurry } from 'path-scurry';
+import { display } from '@/utils';
 import chalk from 'chalk';
-import { SourceRepository } from '@/core/repo';
-import { display, logger } from '@/utils';
-import path from 'path';
 
-interface InitOptions {
+export interface InitOptions {
   bare?: boolean;
   template?: string;
   shared?: boolean | string;
   verbose?: boolean;
 }
 
-export const initCommand = new Command('init')
-  .description('Create an empty Git repository or reinitialize an existing one')
-  .option('--bare', 'Create a bare repository')
-  .option('--template <template>', 'Directory from which templates will be used')
-  .option('--shared[=<permissions>]', 'Specify that the Git repository is to be shared', false)
-  .option('-q, --quiet', 'Only print error and warning messages')
-  .argument('[directory]', 'Directory to initialize (defaults to current directory)', '.')
-  .action(async (directory: string, options: InitOptions) => {
-    try {
-      const globalOptions = options as any;
-      if (globalOptions.verbose) {
-        logger.level = 'debug';
-      }
-
-      const targetPath = path.resolve(directory);
-      const pathScurry = new PathScurry(targetPath);
-
-      await initializeRepositoryWithFeedback(pathScurry.cwd, options);
-    } catch (error) {
-      handleInitError(error as Error);
-      process.exit(1);
-    }
-  });
-
-/**
- * Initialize a repository with rich feedback using chalk, boxen, and ora
- */
-const initializeRepositoryWithFeedback = async (
-  targetPath: PathScurry['cwd'],
-  options: InitOptions
-) => {
-  displayHeader();
-  const existingRepo = await SourceRepository.findRepository(targetPath);
-  if (existingRepo) {
-    displayReinitializationInfo(existingRepo.workingDirectory().toString());
-    return;
-  }
-
-  try {
-    const repository = new SourceRepository();
-    await repository.init(targetPath);
-
-    displaySuccessMessage(targetPath.fullpath(), options);
-    displayRepositoryStructure();
-    displayNextSteps();
-  } catch (error) {
-    throw error;
-  }
-};
-
 /**
  * Display initialization header
  */
-const displayHeader = () => {
+export const displayHeader = () => {
   display.info(
     '🚀 Source Control Repository Initialization',
     'Source Control Repository Initialization'
@@ -75,7 +21,7 @@ const displayHeader = () => {
 /**
  * Display success message with repository information
  */
-const displaySuccessMessage = (repoPath: string, options: InitOptions) => {
+export const displaySuccessMessage = (repoPath: string, options: InitOptions) => {
   const title = chalk.bold.green('✅ Repository Created Successfully!');
 
   const details = [
@@ -91,7 +37,7 @@ const displaySuccessMessage = (repoPath: string, options: InitOptions) => {
 /**
  * Display the created repository structure
  */
-const displayRepositoryStructure = () => {
+export const displayRepositoryStructure = () => {
   const title = chalk.yellow('📂 Repository Structure Created');
 
   const structure = [
@@ -111,7 +57,7 @@ const displayRepositoryStructure = () => {
 /**
  * Display next steps for the user
  */
-const displayNextSteps = () => {
+export const displayNextSteps = () => {
   const title = chalk.magenta('🎯 Next Steps');
 
   const steps = [
@@ -129,7 +75,7 @@ const displayNextSteps = () => {
 /**
  * Display reinitialization information when repository already exists
  */
-const displayReinitializationInfo = (repoPath: string) => {
+export const displayReinitializationInfo = (repoPath: string) => {
   const message = [
     `The directory ${chalk.white(repoPath)} already contains a source control repository.`,
     '',
@@ -144,7 +90,7 @@ const displayReinitializationInfo = (repoPath: string) => {
 /**
  * Handle initialization errors with styled output
  */
-const handleInitError = (error: Error) => {
+export const displayInitError = (error: Error) => {
   const title = chalk.red('❌ Initialization Failed');
 
   const errorDetails = [
