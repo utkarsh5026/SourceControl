@@ -1,10 +1,10 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { Repository } from '@/core/repo';
+import type { Repository } from '@/core/repo';
 import { TreeObject, ObjectType, CommitObject } from '@/core/objects';
 import { display, logger } from '@/utils';
 import { getRepo } from '@/utils/helpers';
-import { TreeEntry } from '@/core/objects/tree/tree-entry';
+import type { TreeEntry } from '@/core/objects/tree/tree-entry';
 
 interface LsTreeOptions {
   recursive?: boolean;
@@ -32,12 +32,12 @@ export const lsTreeCommand = new Command('ls-tree')
     }
   });
 
-async function listTree(
+const listTree = async (
   repository: Repository,
   treeish: string,
   options: LsTreeOptions,
   prefix: string = ''
-): Promise<void> {
+): Promise<void> => {
   try {
     const obj = await repository.readObject(treeish);
 
@@ -47,20 +47,27 @@ async function listTree(
 
     let treeObj: TreeObject;
 
-    if (obj.type() === ObjectType.COMMIT) {
-      const commitObj = obj as CommitObject;
-      if (!commitObj.treeSha) {
-        throw new Error('commit has no tree');
+    switch (obj.type()) {
+      case ObjectType.COMMIT: {
+        const { treeSha } = obj as CommitObject;
+        if (!treeSha) throw new Error('commit has no tree');
+
+        const treeFromCommit = await repository.readObject(treeSha);
+        if (!treeFromCommit || treeFromCommit.type() !== ObjectType.TREE)
+          throw new Error('invalid tree object in commit');
+
+        treeObj = treeFromCommit as TreeObject;
+        break;
       }
-      const treeFromCommit = await repository.readObject(commitObj.treeSha);
-      if (!treeFromCommit || treeFromCommit.type() !== ObjectType.TREE) {
-        throw new Error('invalid tree object in commit');
+
+      case ObjectType.TREE: {
+        treeObj = obj as TreeObject;
+        break;
       }
-      treeObj = treeFromCommit as TreeObject;
-    } else if (obj.type() === ObjectType.TREE) {
-      treeObj = obj as TreeObject;
-    } else {
-      throw new Error(`object ${treeish} is not a tree or commit`);
+
+      default: {
+        throw new Error(`object ${treeish} is not a tree or commit`);
+      }
     }
 
     displayTreeHeader(treeish, prefix || '<root>');
@@ -80,11 +87,8 @@ async function listTree(
 
       const fullPath = prefix ? `${prefix}/${entry.name}` : entry.name;
 
-      if (options.nameOnly) {
-        console.log(fullPath);
-      } else {
-        await displayTreeEntry(repository, entry, options);
-      }
+      if (options.nameOnly) console.log(fullPath);
+      else await displayTreeEntry(repository, entry, options);
 
       if (options.recursive && isTree) {
         await listTree(repository, entry.sha, options, fullPath);
@@ -93,7 +97,7 @@ async function listTree(
   } catch (error) {
     throw new Error(`cannot list tree ${treeish}: ${(error as Error).message}`);
   }
-}
+};
 
 const displayTreeEntry = async (
   repository: Repository,
