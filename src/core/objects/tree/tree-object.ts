@@ -1,7 +1,7 @@
 import { GitObject } from '../base';
 import { TreeEntry } from './tree-entry';
 import { ObjectType } from '../base';
-import { sha1Hex } from '@/utils/hash';
+import { HashUtils } from '@/utils';
 import { ObjectException } from '@/core/exceptions';
 
 /**
@@ -59,7 +59,7 @@ export class TreeObject extends GitObject {
 
   override async sha(): Promise<string> {
     if (this._sha) return this._sha;
-    this._sha = await sha1Hex(this.content());
+    this._sha = await HashUtils.sha1Hex(this.content());
     return this._sha;
   }
 
@@ -79,7 +79,7 @@ export class TreeObject extends GitObject {
     const content = data.slice(contentStartsAt, contentStartsAt + contentLength);
     this._entries = this.parseEntries(content, contentStartsAt, contentLength);
     this.sortEntries();
-    this._sha = await sha1Hex(this.content());
+    this._sha = await HashUtils.sha1Hex(this.content());
   }
 
   isEmpty(): boolean {
