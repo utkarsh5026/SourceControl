@@ -43,19 +43,19 @@ export class TreeEntry {
     this._sha = this.validateSha(sha);
   }
 
-  mode(): string {
+  get mode(): string {
     return this._mode;
   }
 
-  name(): string {
+  get name(): string {
     return this._name;
   }
 
-  sha(): string {
+  get sha(): string {
     return this._sha;
   }
 
-  entryType(): EntryType {
+  get entryType(): EntryType {
     return TreeEntry.fromMode(this._mode);
   }
 
@@ -68,24 +68,24 @@ export class TreeEntry {
   }
 
   isDirectory(): boolean {
-    return this.entryType() === EntryType.DIRECTORY;
+    return this.entryType === EntryType.DIRECTORY;
   }
 
   isFile(): boolean {
-    const type = this.entryType();
+    const type = this.entryType;
     return type === EntryType.REGULAR_FILE || type === EntryType.EXECUTABLE_FILE;
   }
 
   isExecutable(): boolean {
-    return this.entryType() === EntryType.EXECUTABLE_FILE;
+    return this.entryType === EntryType.EXECUTABLE_FILE;
   }
 
   isSymbolicLink(): boolean {
-    return this.entryType() === EntryType.SYMBOLIC_LINK;
+    return this.entryType === EntryType.SYMBOLIC_LINK;
   }
 
   isSubmodule(): boolean {
-    return this.entryType() === EntryType.SUBMODULE;
+    return this.entryType === EntryType.SUBMODULE;
   }
 
   /**

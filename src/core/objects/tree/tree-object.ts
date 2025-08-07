@@ -60,6 +60,10 @@ export class TreeObject extends GitObject {
     return this._sha || (this._sha = await super.sha());
   }
 
+  get entries(): TreeEntry[] {
+    return this._entries;
+  }
+
   private sortEntries(): void {
     this._entries.sort((a, b) => a.compareTo(b));
   }
