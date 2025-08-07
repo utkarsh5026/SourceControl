@@ -1,9 +1,9 @@
-import { hashObjectCommand } from './hash-object';
+import { hashObjectCommand } from './hash-object/hash-object';
 import { catFileCommand } from './cat-file/cat-file';
-import { initCommand } from './init';
+import { initCommand } from './init/init';
 import { destroyCommand } from './destroy/destroy';
-import { lsTreeCommand } from './ls-tree';
-import { writeTreeCommand } from './write-tree';
+import { lsTreeCommand } from './ls-tree/ls-tree';
+import { writeTreeCommand } from './write-tree/write-tree';
 import { checkoutTreeCommand } from './checkout-tree';
 
 export {
