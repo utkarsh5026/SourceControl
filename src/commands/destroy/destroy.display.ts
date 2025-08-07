@@ -1,80 +1,17 @@
-import { Command } from 'commander';
-import { PathScurry } from 'path-scurry';
+import { display } from '@/utils';
 import chalk from 'chalk';
-import fs from 'fs-extra';
-import { SourceRepository } from '@/core/repo';
-import { display, logger } from '@/utils';
-import path from 'path';
-
-interface DestroyOptions {
-  force?: boolean;
-  verbose?: boolean;
-}
-
-export const destroyCommand = new Command('destroy')
-  .description('Remove a Git repository completely')
-  .option('-f, --force', 'Force removal without confirmation')
-  .option('-q, --quiet', 'Only print error and warning messages')
-  .argument(
-    '[directory]',
-    'Directory to destroy repository in (defaults to current directory)',
-    '.'
-  )
-  .action(async (directory: string, options: DestroyOptions) => {
-    try {
-      const globalOptions = options as any;
-      if (globalOptions.verbose) {
-        logger.level = 'debug';
-      }
-
-      const targetPath = path.resolve(directory);
-      const pathScurry = new PathScurry(targetPath);
-
-      await destroyRepositoryWithFeedback(pathScurry.cwd);
-    } catch (error) {
-      handleDestroyError(error as Error);
-      process.exit(1);
-    }
-  });
-
-/**
- * Destroy a repository with rich feedback using chalk, boxen, and ora
- */
-const destroyRepositoryWithFeedback = async (targetPath: PathScurry['cwd']) => {
-  displayHeader();
-
-  const existingRepo = await SourceRepository.findRepository(targetPath);
-  if (!existingRepo) {
-    displayNoRepositoryInfo(targetPath.toString());
-    return;
-  }
-
-  const repoPath = existingRepo.workingDirectory().toString();
-  const gitPath = existingRepo.gitDirectory().toString();
-
-  await displayConfirmationPrompt(repoPath);
-
-  try {
-    // Remove the .source directory
-    await fs.remove(gitPath);
-    displaySuccessMessage(repoPath);
-    displayWarningMessage();
-  } catch (error) {
-    throw error;
-  }
-};
 
 /**
  * Display destruction header
  */
-const displayHeader = () => {
+export const displayHeader = () => {
   display.info('💥 Source Control Repository Destruction', 'Source Control Repository Destruction');
 };
 
 /**
  * Display success message with repository information
  */
-const displaySuccessMessage = (repoPath: string) => {
+export const displaySuccessMessage = (repoPath: string) => {
   const title = chalk.bold.green('✅ Repository Destroyed Successfully!');
 
   const details = [
@@ -90,7 +27,7 @@ const displaySuccessMessage = (repoPath: string) => {
 /**
  * Display warning message about data loss
  */
-const displayWarningMessage = () => {
+export const displayWarningMessage = () => {
   const title = chalk.yellow('⚠️  Important Notice');
 
   const warning = [
@@ -105,7 +42,7 @@ const displayWarningMessage = () => {
 /**
  * Display confirmation prompt for repository destruction
  */
-const displayConfirmationPrompt = async (repoPath: string): Promise<void> => {
+export const displayConfirmationPrompt = async (repoPath: string): Promise<void> => {
   const title = chalk.red('⚠️  Confirm Repository Destruction');
 
   const warning = [
@@ -129,7 +66,7 @@ const displayConfirmationPrompt = async (repoPath: string): Promise<void> => {
 /**
  * Display no repository information when repository doesn't exist
  */
-const displayNoRepositoryInfo = (targetPath: string) => {
+export const displayNoRepositoryInfo = (targetPath: string) => {
   const title = chalk.yellow('ℹ️  No Repository Found');
 
   const message = [
@@ -144,7 +81,7 @@ const displayNoRepositoryInfo = (targetPath: string) => {
 /**
  * Handle destruction errors with styled output
  */
-const handleDestroyError = (error: Error) => {
+export const displayDestroyError = (error: Error) => {
   const title = chalk.red('❌ Destruction Failed');
 
   const errorDetails = [
