@@ -16,4 +16,4 @@ fi
 echo "🔄 Starting development server with auto-restart..."
 npx concurrently \
     "npm run build:watch" \
-    "npx nodemon --watch dist --exec 'node dist/cli.js'"
+    "npx nodemon --watch dist --exec 'node ../dist/cli.js'"
