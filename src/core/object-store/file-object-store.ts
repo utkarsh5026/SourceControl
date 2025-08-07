@@ -40,7 +40,7 @@ export class FileObjectStore implements ObjectStore {
   async initialize(gitDir: Path): Promise<void> {
     this.objectsPath = gitDir.resolve('objects');
     try {
-      await FileUtils.createDirectories(this.objectsPath.toString());
+      await FileUtils.createDirectories(this.objectsPath.fullpath());
     } catch (error) {
       throw new ObjectException('Failed to initialize object store');
     }
