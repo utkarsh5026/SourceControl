@@ -5,7 +5,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from './utils/logger';
 import { ConfigManager } from './utils/config';
-import { hashObjectCommand } from './commands';
+import { hashObjectCommand, catFileCommand } from './commands';
 
 const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '../package.json'), 'utf8'));
 
@@ -33,6 +33,7 @@ program
   });
 
 program.addCommand(hashObjectCommand);
+program.addCommand(catFileCommand);
 
 program.exitOverride();
 
