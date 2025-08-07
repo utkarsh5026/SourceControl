@@ -1,10 +1,9 @@
 import { Command } from 'commander';
 import { PathScurry } from 'path-scurry';
 import chalk from 'chalk';
-import boxen from 'boxen';
 import { GitObject, ObjectType, BlobObject } from '@/core/objects';
 import { Repository, SourceRepository } from '@/core/repo';
-import { logger } from '@/utils';
+import { display, logger } from '@/utils';
 
 interface CatFileOptions {
   prettyPrint?: boolean;
@@ -31,7 +30,6 @@ export const catFileCommand = new Command('cat-file')
         logger.level = 'silent';
       }
 
-      // Validate that exactly one action is specified
       const actionCount = [options.prettyPrint, options.type, options.size, options.exists].filter(
         Boolean
       ).length;
@@ -41,7 +39,6 @@ export const catFileCommand = new Command('cat-file')
         process.exit(1);
       }
 
-      // Get repository
       let repository: Repository | null = null;
       try {
         const pathScurry = new PathScurry(process.cwd());
@@ -53,9 +50,7 @@ export const catFileCommand = new Command('cat-file')
 
       const obj = await repository?.readObject(objectId);
       if (!obj) {
-        if (!options.exists) {
-          logger.error(`fatal: Not a valid object name ${objectId}`);
-        }
+        if (!options.exists) logger.error(`fatal: Not a valid object name ${objectId}`);
         process.exit(1);
       }
 
@@ -63,20 +58,13 @@ export const catFileCommand = new Command('cat-file')
       if (options.exists) {
         process.exit(0);
       } else if (options.type) {
-        if (options.quiet) {
-          console.log(obj.type());
-        } else {
-          printPrettyType(objectId, obj.type());
-        }
+        if (options.quiet) console.log(obj.type());
+        else printPrettyType(objectId, obj.type());
       } else if (options.size) {
-        if (options.quiet) {
-          console.log(obj.size());
-        } else {
-          printPrettySize(objectId, obj.size());
-        }
-      } else if (options.prettyPrint) {
+        if (options.quiet) console.log(obj.size());
+        else printPrettySize(objectId, obj.size());
+      } else if (options.prettyPrint)
         await prettyPrintObject(obj, objectId, options.quiet || false);
-      }
     } catch (error) {
       logger.error(`fatal: ${(error as Error).message}`);
       if (logger.level === 'debug') {
@@ -132,18 +120,7 @@ const printPrettyType = (objectId: string, type: ObjectType): void => {
   const typeValue = chalk.green.bold(type);
 
   const content = [`${objectLabel} ${objectValue}`, `${typeLabel} ${typeValue}`].join('\n');
-
-  const box = boxen(content, {
-    title,
-    titleAlignment: 'center',
-    padding: 1,
-    margin: { top: 1, bottom: 1, right: 1, left: 1 },
-    borderStyle: 'round',
-    borderColor: 'blue',
-    backgroundColor: 'black',
-  });
-
-  console.log(box);
+  display.info(content, title);
 };
 
 const printPrettySize = (objectId: string, size: number): void => {
@@ -156,18 +133,7 @@ const printPrettySize = (objectId: string, size: number): void => {
   const sizeValue = chalk.magenta(`${size} bytes`);
 
   const content = [`${objectLabel} ${objectValue}`, `${sizeLabel} ${sizeValue}`].join('\n');
-
-  const box = boxen(content, {
-    title,
-    titleAlignment: 'center',
-    padding: 1,
-    margin: { top: 1, bottom: 1, right: 1, left: 1 },
-    borderStyle: 'round',
-    borderColor: 'blue',
-    backgroundColor: 'black',
-  });
-
-  console.log(box);
+  display.info(content, title);
 };
 
 const printPrettyContent = (objectId: string, type: ObjectType, content: string): void => {
@@ -192,15 +158,5 @@ const printPrettyContent = (objectId: string, type: ObjectType, content: string)
     chalk.gray('─'.repeat(50)),
   ].join('\n');
 
-  const box = boxen(header + '\n' + content, {
-    title,
-    titleAlignment: 'center',
-    padding: 1,
-    margin: { top: 1, bottom: 1, right: 1, left: 1 },
-    borderStyle: 'round',
-    borderColor: 'blue',
-    backgroundColor: 'black',
-  });
-
-  console.log(box);
+  display.info(header + '\n' + content, title);
 };
