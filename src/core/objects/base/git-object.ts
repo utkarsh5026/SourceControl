@@ -66,9 +66,8 @@ export abstract class GitObject {
 
       return result;
     } catch (e) {
-      throw new Error(
-        'Failed to serialize ' + ObjectTypeHelper.getTypeName(this.type()).toLowerCase(),
-        e as Error
+      throw new ObjectException(
+        'Failed to serialize ' + ObjectTypeHelper.getTypeName(this.type()).toLowerCase()
       );
     }
   }
