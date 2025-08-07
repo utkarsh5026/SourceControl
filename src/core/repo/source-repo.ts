@@ -38,8 +38,6 @@ export class SourceRepository extends Repository {
   private static DEFAULT_GIT_DIR = '.source';
   private static DEFAULT_OBJECTS_DIR = 'objects';
   private static DEFAULT_REFS_DIR = 'refs';
-  private static DEFAULT_HEAD_FILE = 'HEAD';
-  private static DEFAULT_DESCRIPTION_FILE = 'description';
   private static DEFAULT_CONFIG_FILE = 'config';
 
   constructor() {
@@ -60,16 +58,12 @@ export class SourceRepository extends Repository {
       }
       const gitDir = this._gitDirectory;
 
-      FileUtils.createDirectories(gitDir.toString());
-      FileUtils.createDirectories(gitDir.resolve(SourceRepository.DEFAULT_OBJECTS_DIR).toString());
-      FileUtils.createDirectories(gitDir.resolve(SourceRepository.DEFAULT_REFS_DIR).toString());
+      this.createDirectories(gitDir);
+      this.createDirectories(gitDir.resolve(SourceRepository.DEFAULT_OBJECTS_DIR));
+      this.createDirectories(gitDir.resolve(SourceRepository.DEFAULT_REFS_DIR));
 
-      FileUtils.createDirectories(
-        gitDir.resolve(SourceRepository.DEFAULT_REFS_DIR).resolve('heads').toString()
-      );
-      FileUtils.createDirectories(
-        gitDir.resolve(SourceRepository.DEFAULT_REFS_DIR).resolve('tags').toString()
-      );
+      this.createDirectories(gitDir.resolve(SourceRepository.DEFAULT_REFS_DIR).resolve('heads'));
+      this.createDirectories(gitDir.resolve(SourceRepository.DEFAULT_REFS_DIR).resolve('tags'));
 
       this._objectStore.initialize(this._gitDirectory);
       this.createInitialFiles();
@@ -160,26 +154,25 @@ export class SourceRepository extends Repository {
     }
 
     const headContent = 'ref: refs/heads/master\n';
-    await FileUtils.createFile(
-      this._gitDirectory.resolve(SourceRepository.DEFAULT_HEAD_FILE).toString(),
-      headContent
-    );
+    await this.createFile(this._gitDirectory.resolve('HEAD'), headContent);
 
     const description =
       "Unnamed repository; edit this file 'description' to name the repository.\n";
-    await FileUtils.createFile(
-      this._gitDirectory.resolve(SourceRepository.DEFAULT_DESCRIPTION_FILE).toString(),
-      description
-    );
+    await this.createFile(this._gitDirectory.resolve('description'), description);
 
     const config =
       '[core]\n' +
       '    repositoryformatversion = 0\n' +
       '    filemode = false\n' +
       '    bare = false\n';
-    await FileUtils.createFile(
-      this._gitDirectory.resolve(SourceRepository.DEFAULT_CONFIG_FILE).toString(),
-      config
-    );
+    await this.createFile(this._gitDirectory.resolve(SourceRepository.DEFAULT_CONFIG_FILE), config);
+  }
+
+  private createDirectories(path: Path) {
+    FileUtils.createDirectories(path.fullpath());
+  }
+
+  private async createFile(path: Path, content: string) {
+    FileUtils.createFile(path.fullpath(), content);
   }
 }
