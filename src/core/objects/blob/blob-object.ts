@@ -28,10 +28,10 @@ export class BlobObject extends GitObject {
   private _content: Uint8Array;
   private _sha: string | null;
 
-  constructor(content?: Uint8Array, sha?: string) {
+  constructor(content?: Uint8Array) {
     super();
     this._content = content?.slice() || new Uint8Array();
-    this._sha = sha || null;
+    this._sha = null;
   }
 
   override type(): ObjectType {
@@ -43,11 +43,7 @@ export class BlobObject extends GitObject {
   }
 
   override async sha(): Promise<string> {
-    if (this._sha) {
-      return this._sha;
-    }
-    this._sha = await HashUtils.sha1Hex(this._content);
-    return this._sha;
+    return this._sha || (this._sha = await super.sha());
   }
 
   override size(): number {
@@ -65,7 +61,7 @@ export class BlobObject extends GitObject {
       }
 
       this._content = data.slice(contentStartsAt, contentStartsAt + contentLength);
-      this._sha = await HashUtils.sha1Hex(this._content);
+      this._sha = null;
     } catch (e) {
       throw new ObjectException('Invalid blob object: ' + (e as Error).message);
     }

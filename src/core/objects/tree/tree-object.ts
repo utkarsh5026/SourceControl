@@ -1,7 +1,6 @@
 import { GitObject } from '../base';
 import { TreeEntry } from './tree-entry';
 import { ObjectType } from '../base';
-import { HashUtils } from '@/utils';
 import { ObjectException } from '@/core/exceptions';
 
 /**
@@ -58,9 +57,7 @@ export class TreeObject extends GitObject {
   }
 
   override async sha(): Promise<string> {
-    if (this._sha) return this._sha;
-    this._sha = await HashUtils.sha1Hex(this.content());
-    return this._sha;
+    return this._sha || (this._sha = await super.sha());
   }
 
   private sortEntries(): void {
@@ -70,7 +67,7 @@ export class TreeObject extends GitObject {
   /**
    * Deserialize a tree object from a byte array
    */
-  override async deserialize(data: Uint8Array): Promise<void> {
+  override async deserialize(data: Uint8Array) {
     const { type, contentStartsAt, contentLength } = this.parseHeader(data);
     if (type !== ObjectType.TREE) {
       throw new ObjectException('Invalid tree object: invalid type');
@@ -79,13 +76,16 @@ export class TreeObject extends GitObject {
     const content = data.slice(contentStartsAt, contentStartsAt + contentLength);
     this._entries = this.parseEntries(content, contentStartsAt, contentLength);
     this.sortEntries();
-    this._sha = await HashUtils.sha1Hex(this.content());
+    this._sha = null;
   }
 
-  isEmpty(): boolean {
+  get isEmpty(): boolean {
     return this._entries.length === 0;
   }
 
+  /**
+   * Serialize the content of the tree object
+   */
   private serializeContent(): Uint8Array {
     if (this._entries.length === 0) return new Uint8Array(0);
 
@@ -103,6 +103,9 @@ export class TreeObject extends GitObject {
     return serialized;
   }
 
+  /**
+   * Parse the entries of the tree object
+   */
   private parseEntries(content: Uint8Array, start: number, length: number): TreeEntry[] {
     const entries: TreeEntry[] = [];
     let offset = start;

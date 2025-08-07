@@ -34,7 +34,7 @@ export abstract class GitObject {
   /**
    * Get the SHA-1 hash of this object
    */
-  sha(): Promise<string> {
+  async sha(): Promise<string> {
     try {
       const serialized = this.serialize();
       return HashUtils.sha1Hex(serialized);
@@ -51,7 +51,7 @@ export abstract class GitObject {
   /**
    * Deserialize object from raw data
    */
-  abstract deserialize(data: Uint8Array): Promise<void>;
+  abstract deserialize(data: Uint8Array): void;
 
   /**
    * Converts this object into the Git storage format (header + content).
