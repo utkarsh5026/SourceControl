@@ -4,6 +4,7 @@ import { initCommand } from './init';
 import { destroyCommand } from './destroy';
 import { lsTreeCommand } from './ls-tree';
 import { writeTreeCommand } from './write-tree';
+import { checkoutTreeCommand } from './checkout-tree';
 
 export {
   hashObjectCommand,
@@ -12,4 +13,5 @@ export {
   destroyCommand,
   lsTreeCommand,
   writeTreeCommand,
+  checkoutTreeCommand,
 };
