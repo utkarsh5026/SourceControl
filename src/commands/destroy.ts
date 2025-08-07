@@ -1,8 +1,6 @@
 import { Command } from 'commander';
 import { PathScurry } from 'path-scurry';
 import chalk from 'chalk';
-import boxen from 'boxen';
-import ora from 'ora';
 import fs from 'fs-extra';
 import { SourceRepository } from '@/core/repo';
 import { display, logger } from '@/utils';
@@ -69,42 +67,15 @@ const destroyRepositoryWithFeedback = async (
     await displayConfirmationPrompt(repoPath);
   }
 
-  let spinner: any = null;
-  if (!options.quiet) {
-    spinner = ora({
-      text: chalk.red('Removing repository structure...'),
-      color: 'red',
-      spinner: 'dots',
-    }).start();
-  }
-
   try {
-    if (spinner) {
-      spinner.text = chalk.red('Removing .source directory...');
-      await sleep(200);
-    }
-
     // Remove the .source directory
     await fs.remove(gitPath);
-
-    if (spinner) {
-      spinner.text = chalk.red('Cleaning up metadata...');
-      await sleep(200);
-    }
-
-    if (spinner) {
-      spinner.succeed(chalk.green('Repository destroyed successfully!'));
-    }
-
     if (!options.quiet) {
       console.log();
       displaySuccessMessage(repoPath);
       displayWarningMessage();
     }
   } catch (error) {
-    if (spinner) {
-      spinner.fail(chalk.red('Repository destruction failed'));
-    }
     throw error;
   }
 };
@@ -167,16 +138,7 @@ const displayConfirmationPrompt = async (repoPath: string): Promise<void> => {
     `${chalk.green('sc destroy --force')}`,
   ].join('\n');
 
-  console.log(
-    boxen(`${title}\n\n${warning}`, {
-      padding: 1,
-      margin: { top: 1, bottom: 1, left: 1, right: 1 },
-      borderStyle: 'round',
-      borderColor: 'red',
-      backgroundColor: 'black',
-    })
-  );
-
+  display.warning(warning, title);
   process.exit(0);
 };
 
@@ -217,20 +179,5 @@ const handleDestroyError = (error: Error, quiet: boolean) => {
     `   ${chalk.gray('4.')} Verify that the repository exists and is accessible`,
   ];
 
-  if (logger.level === 'debug') {
-    errorDetails.push(
-      '',
-      `${chalk.red('🐛 Debug Information:')}`,
-      chalk.gray(error.stack || 'No stack trace available')
-    );
-  }
-
   display.error(errorDetails.join('\n'), title);
-};
-
-/**
- * Simple sleep utility for progress animation
- */
-const sleep = (ms: number): Promise<void> => {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 };
