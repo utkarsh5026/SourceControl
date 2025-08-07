@@ -4,7 +4,7 @@ import { initCommand } from './init/init';
 import { destroyCommand } from './destroy/destroy';
 import { lsTreeCommand } from './ls-tree/ls-tree';
 import { writeTreeCommand } from './write-tree/write-tree';
-import { checkoutTreeCommand } from './checkout-tree';
+import { checkoutTreeCommand } from './checkout-tree/checkout-tree';
 
 export {
   hashObjectCommand,
