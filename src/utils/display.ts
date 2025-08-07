@@ -9,6 +9,7 @@ const DEFAULT_BOX_OPTIONS: Partial<BoxenOptions> = {
   margin: { top: 1, bottom: 1, left: 1, right: 1 },
   borderStyle: 'round',
   backgroundColor: 'black',
+  titleAlignment: 'center',
 };
 
 /**
