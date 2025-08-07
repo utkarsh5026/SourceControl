@@ -8,7 +8,6 @@ import path from 'path';
 
 interface DestroyOptions {
   force?: boolean;
-  quiet?: boolean;
   verbose?: boolean;
 }
 
@@ -26,16 +25,14 @@ export const destroyCommand = new Command('destroy')
       const globalOptions = options as any;
       if (globalOptions.verbose) {
         logger.level = 'debug';
-      } else if (options.quiet) {
-        logger.level = 'error';
       }
 
       const targetPath = path.resolve(directory);
       const pathScurry = new PathScurry(targetPath);
 
-      await destroyRepositoryWithFeedback(pathScurry.cwd, options);
+      await destroyRepositoryWithFeedback(pathScurry.cwd);
     } catch (error) {
-      handleDestroyError(error as Error, options.quiet || false);
+      handleDestroyError(error as Error);
       process.exit(1);
     }
   });
@@ -43,38 +40,25 @@ export const destroyCommand = new Command('destroy')
 /**
  * Destroy a repository with rich feedback using chalk, boxen, and ora
  */
-const destroyRepositoryWithFeedback = async (
-  targetPath: PathScurry['cwd'],
-  options: DestroyOptions
-) => {
-  if (!options.quiet) {
-    console.log();
-    displayHeader();
-  }
+const destroyRepositoryWithFeedback = async (targetPath: PathScurry['cwd']) => {
+  displayHeader();
 
   const existingRepo = await SourceRepository.findRepository(targetPath);
   if (!existingRepo) {
-    if (!options.quiet) {
-      displayNoRepositoryInfo(targetPath.toString());
-    }
+    displayNoRepositoryInfo(targetPath.toString());
     return;
   }
 
   const repoPath = existingRepo.workingDirectory().toString();
   const gitPath = existingRepo.gitDirectory().toString();
 
-  if (!options.force && !options.quiet) {
-    await displayConfirmationPrompt(repoPath);
-  }
+  await displayConfirmationPrompt(repoPath);
 
   try {
     // Remove the .source directory
     await fs.remove(gitPath);
-    if (!options.quiet) {
-      console.log();
-      displaySuccessMessage(repoPath);
-      displayWarningMessage();
-    }
+    displaySuccessMessage(repoPath);
+    displayWarningMessage();
   } catch (error) {
     throw error;
   }
@@ -160,12 +144,7 @@ const displayNoRepositoryInfo = (targetPath: string) => {
 /**
  * Handle destruction errors with styled output
  */
-const handleDestroyError = (error: Error, quiet: boolean) => {
-  if (quiet) {
-    console.error(error.message);
-    return;
-  }
-
+const handleDestroyError = (error: Error) => {
   const title = chalk.red('❌ Destruction Failed');
 
   const errorDetails = [
