@@ -1,10 +1,9 @@
 import { Command } from 'commander';
 import { PathScurry } from 'path-scurry';
 import chalk from 'chalk';
-import boxen from 'boxen';
 import { BlobObject } from '@/core/objects';
 import { Repository, SourceRepository } from '@/core/repo';
-import { FileUtils, logger } from '@/utils';
+import { display, FileUtils, logger } from '@/utils';
 
 interface HashObjectOptions {
   write?: boolean;
@@ -123,16 +122,11 @@ async function hashContent(
     }
   }
 
-  // Create pretty output
-  if (options.quiet) {
-    // Just print the hash if quiet mode
-    console.log(hash);
-  } else {
-    printPrettyResult(hash, source, content.length, options.write || false);
-  }
+  if (options.quiet) console.log(hash);
+  else printPrettyResult(hash, source, content.length, options.write || false);
 }
 
-function printPrettyResult(hash: string, source: string, size: number, wasWritten: boolean): void {
+const printPrettyResult = (hash: string, source: string, size: number, wasWritten: boolean) => {
   const title = chalk.bold.blue('🔍 Object Hash Result');
 
   const sourceLabel = chalk.gray('Source:');
@@ -156,15 +150,5 @@ function printPrettyResult(hash: string, source: string, size: number, wasWritte
     `${statusLabel} ${statusValue}`,
   ].join('\n');
 
-  const box = boxen(content, {
-    title,
-    titleAlignment: 'center',
-    padding: 1,
-    margin: { top: 1, bottom: 1, right: 1, left: 1 },
-    borderStyle: 'round',
-    borderColor: 'blue',
-    backgroundColor: 'black',
-  });
-
-  console.log(box);
-}
+  display.info(content, title);
+};
