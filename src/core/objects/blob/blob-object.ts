@@ -1,5 +1,5 @@
 import { GitObject, ObjectType } from '../base';
-import { sha1Hex } from '@/utils/hash';
+import { HashUtils } from '@/utils';
 import { ObjectException } from '@/core/exceptions';
 
 /**
@@ -46,7 +46,7 @@ export class BlobObject extends GitObject {
     if (this._sha) {
       return this._sha;
     }
-    this._sha = await sha1Hex(this._content);
+    this._sha = await HashUtils.sha1Hex(this._content);
     return this._sha;
   }
 
@@ -65,7 +65,7 @@ export class BlobObject extends GitObject {
       }
 
       this._content = data.slice(contentStartsAt, contentStartsAt + contentLength);
-      this._sha = await sha1Hex(this._content);
+      this._sha = await HashUtils.sha1Hex(this._content);
     } catch (e) {
       throw new ObjectException('Invalid blob object: ' + (e as Error).message);
     }
