@@ -11,6 +11,7 @@ import {
   initCommand,
   destroyCommand,
   lsTreeCommand,
+  writeTreeCommand,
 } from './commands';
 import { formatHelp, displayVersion, displayError, displayWelcome } from './utils/cli';
 
@@ -47,7 +48,7 @@ program.addCommand(catFileCommand);
 program.addCommand(initCommand);
 program.addCommand(destroyCommand);
 program.addCommand(lsTreeCommand);
-
+program.addCommand(writeTreeCommand);
 program.exitOverride();
 
 try {
