@@ -2,7 +2,7 @@ import type { ObjectStore } from './store';
 import { ObjectException } from '../exceptions';
 import { CompressionUtils, FileUtils, HashUtils } from '@/utils';
 import { Path } from 'glob';
-import { GitObject, ObjectType, BlobObject, TreeObject } from '../objects';
+import { GitObject, ObjectType, BlobObject, TreeObject, CommitObject } from '../objects';
 
 /**
  * File-based implementation of Git object storage that mimics Git's internal
@@ -169,8 +169,7 @@ export class FileObjectStore implements ObjectStore {
       case ObjectType.TREE:
         return new TreeObject();
       case ObjectType.COMMIT:
-        // TODO: Implement GitCommit
-        throw new ObjectException('Commit objects not yet implemented');
+        return new CommitObject();
       case ObjectType.TAG:
         // TODO: Implement GitTag
         throw new ObjectException('Tag objects not yet implemented');
