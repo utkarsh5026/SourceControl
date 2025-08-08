@@ -129,11 +129,15 @@ export class IgnorePattern {
    * Match a path against a pattern using glob rules
    */
   private matchPattern(path: string, pattern: string): boolean {
-    // Handle special case: pattern with no wildcards
     if (!this.containsWildcard(pattern)) {
-      // For literal patterns, match basename or exact path
       const basename = path.split('/').pop() || '';
-      return basename === pattern || path === pattern;
+      const exactMatch = basename === pattern || path === pattern;
+
+      if (this.isDirectory && path.startsWith(pattern + '/')) {
+        return true;
+      }
+
+      return exactMatch;
     }
 
     // Use minimatch for glob pattern matching

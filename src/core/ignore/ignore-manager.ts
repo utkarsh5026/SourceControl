@@ -85,11 +85,9 @@ export class IgnoreManager {
   ): Promise<Map<string, boolean>> {
     const results = new Map<string, boolean>();
 
-    await Promise.all(
-      filePaths.map(async (filePath) => {
-        results.set(filePath, await this.isIgnored(filePath, isDirectory));
-      })
-    );
+    filePaths.forEach((filePath) => {
+      results.set(filePath, this.isIgnored(filePath, isDirectory));
+    });
 
     return results;
   }
@@ -97,7 +95,7 @@ export class IgnoreManager {
   /**
    * Check if a file should be ignored
    */
-  async isIgnored(filePath: string, isDirectory: boolean = false): Promise<boolean> {
+  public isIgnored(filePath: string, isDirectory: boolean = false): boolean {
     filePath = path.normalize(filePath).replace(/\\/g, '/');
 
     const cacheKey = `${filePath}:${isDirectory}`;
@@ -112,7 +110,8 @@ export class IgnoreManager {
     const checkOrder: Array<{ patterns: IgnorePatternSet; base: string }> = [];
 
     const dirPath = path.dirname(filePath);
-    this.getParentDirectories(dirPath).forEach((dir) => {
+    const parentDirs = this.getParentDirectories(dirPath);
+    parentDirs.forEach((dir) => {
       if (!this.directoryPatterns.has(dir)) return;
 
       checkOrder.push({
@@ -160,7 +159,7 @@ export class IgnoreManager {
   /**
    * Load global ignore patterns from user config
    */
-  private async loadGlobalPatterns() {
+  private async loadGlobalPatterns(): Promise<void> {
     const globalIgnorePath = this.getGlobalIgnorePath();
     if (!FileUtils.exists(globalIgnorePath)) return;
 
@@ -168,7 +167,7 @@ export class IgnoreManager {
       const content = await fs.readFile(globalIgnorePath, 'utf8');
       this.globalPatterns.addPatternsFromText(content, globalIgnorePath);
     } catch (error) {
-      console.warn('Failed to load global ignore patterns:', error);
+      logger.warn('Failed to load global ignore patterns:', error);
     }
   }
 
@@ -186,7 +185,7 @@ export class IgnoreManager {
       this.rootPatterns.clear();
       this.rootPatterns.addPatternsFromText(content, IgnorePattern.DEFAULT_SOURCE);
     } catch (error) {
-      console.warn('Failed to load root .sourceignore:', error);
+      logger.warn('Failed to load root .sourceignore:', error);
     }
   }
 
