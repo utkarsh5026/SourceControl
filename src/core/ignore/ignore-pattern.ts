@@ -1,5 +1,12 @@
 import { minimatch } from 'minimatch';
 
+interface PatternConfig {
+  isNegation: boolean;
+  isDirectory: boolean;
+  isRooted: boolean;
+  cleanedPattern: string;
+}
+
 /**
  * Represents a single ignore pattern from .sourceignore file
  *
@@ -47,16 +54,49 @@ export class IgnorePattern {
     this.source = source;
     this.lineNumber = lineNumber;
 
-    this.isNegation = pattern.startsWith('!');
-    if (this.isNegation) pattern = pattern.substring(1);
+    const { isNegation, isDirectory, isRooted, cleanedPattern } =
+      this.parsePatternConfiguration(pattern);
+    this.isNegation = isNegation;
+    this.isDirectory = isDirectory;
+    this.isRooted = isRooted;
+    this.pattern = this.unescapePattern(cleanedPattern);
+  }
 
-    this.isDirectory = pattern.endsWith('/');
-    if (this.isDirectory) pattern = pattern.slice(0, -1);
+  /**
+   * Parse the pattern configuration
+   */
+  private parsePatternConfiguration(pattern: string): PatternConfig {
+    const config: PatternConfig = {
+      isNegation: false,
+      isDirectory: false,
+      isRooted: false,
+      cleanedPattern: pattern,
+    };
 
-    this.isRooted = pattern.startsWith('/');
-    if (this.isRooted) pattern = pattern.substring(1);
+    const removePrefix = (str: string, prefix: string) => {
+      return str.startsWith(prefix) ? str.substring(prefix.length) : str;
+    };
 
-    this.pattern = this.unescapePattern(pattern);
+    const removeSuffix = (str: string, suffix: string) => {
+      return str.endsWith(suffix) ? str.substring(0, str.length - suffix.length) : str;
+    };
+
+    if (config.cleanedPattern.startsWith('!')) {
+      config.isNegation = true;
+      config.cleanedPattern = removePrefix(config.cleanedPattern, '!');
+    }
+
+    if (config.cleanedPattern.endsWith('/')) {
+      config.isDirectory = true;
+      config.cleanedPattern = removeSuffix(config.cleanedPattern, '/');
+    }
+
+    if (config.cleanedPattern.startsWith('/')) {
+      config.isRooted = true;
+      config.cleanedPattern = removePrefix(config.cleanedPattern, '/');
+    }
+
+    return config;
   }
 
   /**
