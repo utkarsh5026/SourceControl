@@ -7,6 +7,14 @@ import { DEFAULT_IGNORE_CONTENT } from './default-ignore';
 import { FileUtils } from '@/utils/file';
 import { logger } from '@/utils';
 
+export interface IgnoreStats {
+  globalPatterns: number;
+  rootPatterns: number;
+  directoryPatterns: number;
+  totalPatterns: number;
+  cacheSize: number;
+}
+
 /**
  * IgnoreManager handles all ignore pattern functionality for the repository.
  *
@@ -273,5 +281,26 @@ export class IgnoreManager {
     }
 
     return dirs;
+  }
+
+  /**
+   * Get statistics about loaded patterns
+   */
+  public getStats(): IgnoreStats {
+    let directoryPatternsCount = 0;
+    for (const patterns of this.directoryPatterns.values()) {
+      directoryPatternsCount += patterns.ignoredPatterns.length;
+    }
+
+    return {
+      globalPatterns: this.globalPatterns.ignoredPatterns.length,
+      rootPatterns: this.rootPatterns.ignoredPatterns.length,
+      directoryPatterns: directoryPatternsCount,
+      totalPatterns:
+        this.globalPatterns.ignoredPatterns.length +
+        this.rootPatterns.ignoredPatterns.length +
+        directoryPatternsCount,
+      cacheSize: this.cache.size,
+    };
   }
 }
