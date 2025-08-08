@@ -13,6 +13,7 @@ import {
   lsTreeCommand,
   writeTreeCommand,
   checkoutTreeCommand,
+  ignoreCommand,
 } from './commands';
 import { formatHelp, displayVersion, displayError, displayWelcome } from './utils/cli';
 
@@ -51,6 +52,7 @@ program.addCommand(destroyCommand);
 program.addCommand(lsTreeCommand);
 program.addCommand(writeTreeCommand);
 program.addCommand(checkoutTreeCommand);
+program.addCommand(ignoreCommand);
 program.exitOverride();
 
 try {
