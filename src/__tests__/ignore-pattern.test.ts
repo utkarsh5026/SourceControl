@@ -1,4 +1,3 @@
-// src/core/ignore/__tests__/ignore-pattern.test.ts
 import { IgnorePattern } from '../core/ignore';
 
 describe('IgnorePattern.fromLine', () => {
