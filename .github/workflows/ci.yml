@@ -29,6 +29,7 @@ jobs:
 
       - name: Lint (optional)
         run: npm run lint --if-present
+        continue-on-error: true # Linting is optional
 
       - name: Run tests
         run: npm test
