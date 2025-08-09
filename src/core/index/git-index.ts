@@ -57,7 +57,7 @@ export class GitIndex {
   /**
    * Read an index file from disk
    */
-  static async read(indexPath: string): Promise<GitIndex> {
+  public static async read(indexPath: string): Promise<GitIndex> {
     if (!(await FileUtils.exists(indexPath))) {
       return new GitIndex();
     }
@@ -69,7 +69,7 @@ export class GitIndex {
   /**
    * Write the index to disk
    */
-  async write(indexPath: string): Promise<void> {
+  public async write(indexPath: string): Promise<void> {
     const data = this.serialize();
     await FileUtils.createFile(indexPath, data);
   }
@@ -77,8 +77,30 @@ export class GitIndex {
   /**
    * Get all entry names
    */
-  entryNames(): string[] {
+  public entryNames(): string[] {
     return this.entries.map((e) => e.name);
+  }
+
+  /**
+   * Remove an entry from the index
+   */
+  public removeEntry(path: string): void {
+    this.entries = this.entries.filter((e) => e.name !== path);
+  }
+
+  /**
+   * Check if the index has an entry with the given path
+   */
+  public hasEntry(path: string): boolean {
+    return this.entries.some((e) => e.name === path);
+  }
+
+  public add(entry: IndexEntry): void {
+    this.entries.push(entry);
+  }
+
+  public getEntry(path: string): IndexEntry | undefined {
+    return this.entries.find((e) => e.name === path);
   }
 
   /**
