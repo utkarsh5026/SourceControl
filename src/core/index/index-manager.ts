@@ -173,7 +173,7 @@ export class IndexManager {
     const checkUntracked = async () => {
       const workingFiles = await this.getAllWorkingFiles(repoRoot);
       workingFiles.forEach((workingFile) => {
-        const relativePath = path.relative(repoRoot, workingFile).replace(/\\/g, '/');
+        const { relativePath } = this.createAbsAndRelPaths(workingFile);
         if (indexFiles.has(relativePath)) return;
 
         const isIgnored = this.ignoreManager.isIgnored(relativePath, false);
@@ -185,7 +185,7 @@ export class IndexManager {
 
     const checkStaged = async () => {
       this.index.entries.forEach(async (entry) => {
-        const absolutePath = path.join(repoRoot, entry.name);
+        const { absolutePath } = this.createAbsAndRelPaths(entry.name);
 
         if (await FileUtils.exists(absolutePath)) {
           const stats = await fs.stat(absolutePath);
@@ -242,9 +242,7 @@ export class IndexManager {
 
     filePaths.forEach(async (filePath) => {
       try {
-        const absolutePath = path.resolve(filePath);
-        const repoRoot = this.repository.workingDirectory().fullpath();
-        const relativePath = path.relative(repoRoot, absolutePath).replace(/\\/g, '/');
+        const { absolutePath, relativePath } = this.createAbsAndRelPaths(filePath);
 
         if (!this.index.hasEntry(relativePath)) {
           pushFailed(relativePath, 'File not in index');
