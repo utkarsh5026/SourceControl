@@ -19,25 +19,25 @@ export class ConfigEntry {
   readonly source: string;
   readonly lineNumber: number;
 
-  constructor(key: string, value: string, level: ConfigLevel, source: string, lineNumber: number) {
+  constructor(key: string, value: string, level: ConfigLevel, source: string, lineNumber?: number) {
     this.key = key;
     this.value = value;
     this.level = level;
     this.source = source;
-    this.lineNumber = lineNumber;
+    this.lineNumber = lineNumber ?? 0;
   }
 
   /**
    * Convert string value to appropriate type
    */
-  asString(): string {
+  public asString(): string {
     return this.value;
   }
 
   /**
    * Convert string value to number
    */
-  asNumber(): number {
+  public asNumber(): number {
     const num = Number(this.value);
     if (isNaN(num)) {
       throw new Error(`Cannot convert "${this.value}" to number`);
@@ -48,7 +48,7 @@ export class ConfigEntry {
   /**
    * Convert string value to boolean
    */
-  asBoolean(): boolean {
+  public asBoolean(): boolean {
     const lower = this.value.toLowerCase();
     if (lower === 'true' || lower === 'yes' || lower === '1') return true;
     if (lower === 'false' || lower === 'no' || lower === '0') return false;
@@ -58,7 +58,7 @@ export class ConfigEntry {
   /**
    * Convert string value to list of strings
    */
-  asList(): string[] {
+  public asList(): string[] {
     return this.value
       .split(',')
       .map((s) => s.trim())
