@@ -4,9 +4,10 @@ import fs from 'fs-extra';
 import { IgnoreManager } from '@/core/ignore';
 import { Repository } from '@/core/repo';
 import { GitIndex } from './git-index';
-import type { StatusResult } from './types';
+import type { AddResult, RemoveResult, StatusResult } from './types';
 import { FileUtils } from '@/utils/file';
 import { BlobObject } from '@/core/objects/';
+import { IndexEntry } from './index-entry';
 
 /**
  * IndexManager orchestrates all operations between the working directory,
@@ -39,6 +40,98 @@ export class IndexManager {
   public async initialize(): Promise<void> {
     await this.loadIndex();
     await this.ignoreManager.initialize();
+  }
+
+  /**
+   * Add files to the index (git add)
+   *
+   * This operation:
+   * 1. Reads the file content from the working directory
+   * 2. Creates a blob object and stores it in the repository
+   * 3. Updates the index entry with the file's metadata and blob SHA
+   */
+  public async add(filePaths: string[]): Promise<AddResult> {
+    const result: AddResult = {
+      added: [],
+      modified: [],
+      failed: [],
+      ignored: [],
+    };
+
+    const pushFailed = (path: string, reason: string) => {
+      result.failed.push({
+        path,
+        reason,
+      });
+    };
+
+    const createEntryForFile = async (absolutePath: string, relativePath: string) => {
+      const content = await FileUtils.readFile(absolutePath);
+      const blob = new BlobObject(new Uint8Array(content));
+      const sha = await this.repository.writeObject(blob);
+
+      const stats = await fs.stat(absolutePath);
+
+      return IndexEntry.fromFileStats(
+        relativePath.replace(/\\/g, '/'), // Normalize path separators
+        {
+          ctimeMs: stats.ctimeMs,
+          mtimeMs: stats.mtimeMs,
+          dev: stats.dev,
+          ino: stats.ino,
+          mode: stats.mode,
+          uid: stats.uid,
+          gid: stats.gid,
+          size: stats.size,
+        },
+        sha
+      );
+    };
+
+    const addFilesInDirectory = async (absolutePath: string) => {
+      const files = await this.getFilesInDirectory(absolutePath, repoRoot);
+      const recursiveResult = await this.add(files);
+      result.added.push(...recursiveResult.added);
+      result.modified.push(...recursiveResult.modified);
+      result.failed.push(...recursiveResult.failed);
+    };
+
+    await this.loadIndex();
+    const repoRoot = this.repoRoot();
+
+    filePaths.forEach(async (filePath) => {
+      try {
+        const { absolutePath, relativePath } = this.createAbsAndRelPaths(filePath);
+
+        if (!(await FileUtils.exists(absolutePath))) {
+          pushFailed(relativePath, 'File does not exist');
+          return;
+        }
+
+        if (!(await FileUtils.isFile(absolutePath))) {
+          if (await FileUtils.isDirectory(absolutePath)) {
+            await addFilesInDirectory(absolutePath);
+            return;
+          }
+
+          pushFailed(relativePath, 'Not a regular file');
+          return;
+        }
+
+        const entry = await createEntryForFile(absolutePath, relativePath);
+        const existingEntry = this.index.getEntry(entry.name);
+        const isModified = existingEntry !== undefined;
+
+        this.index.add(entry);
+        if (isModified) result.modified.push(relativePath);
+        else result.added.push(relativePath);
+      } catch (error) {
+        pushFailed(filePath, (error as Error).message);
+      }
+    });
+
+    await this.saveIndex();
+    return result;
   }
 
   /**
@@ -130,6 +223,50 @@ export class IndexManager {
   }
 
   /**
+   * Remove files from the index and optionally from the working directory
+   */
+  public async remove(filePaths: string[], deleteFromDisk: boolean = false): Promise<RemoveResult> {
+    const result: RemoveResult = {
+      removed: [],
+      failed: [],
+    };
+
+    const pushFailed = (path: string, reason: string) => {
+      result.failed.push({
+        path,
+        reason,
+      });
+    };
+
+    await this.loadIndex();
+
+    filePaths.forEach(async (filePath) => {
+      try {
+        const absolutePath = path.resolve(filePath);
+        const repoRoot = this.repository.workingDirectory().fullpath();
+        const relativePath = path.relative(repoRoot, absolutePath).replace(/\\/g, '/');
+
+        if (!this.index.hasEntry(relativePath)) {
+          pushFailed(relativePath, 'File not in index');
+          return;
+        }
+
+        this.index.removeEntry(relativePath);
+        result.removed.push(relativePath);
+
+        if (deleteFromDisk && (await FileUtils.exists(absolutePath))) {
+          await fs.unlink(absolutePath);
+        }
+      } catch (error) {
+        pushFailed(filePath, (error as Error).message);
+      }
+    });
+
+    await this.saveIndex();
+    return result;
+  }
+
+  /**
    * Clear the index (remove all entries)
    */
   async clearIndex(): Promise<void> {
@@ -193,5 +330,16 @@ export class IndexManager {
     });
 
     return files;
+  }
+
+  private repoRoot(): string {
+    return this.repository.workingDirectory().fullpath();
+  }
+
+  private createAbsAndRelPaths(filePath: string): { absolutePath: string; relativePath: string } {
+    const repoRoot = this.repoRoot();
+    const absolutePath = path.resolve(filePath);
+    const relativePath = path.relative(repoRoot, absolutePath).replace(/\\/g, '/');
+    return { absolutePath, relativePath };
   }
 }
