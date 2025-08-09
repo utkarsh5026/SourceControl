@@ -82,6 +82,13 @@ export class GitIndex {
   }
 
   /**
+   * Clear the index (remove all entries)
+   */
+  public clear(): void {
+    this.entries = [];
+  }
+
+  /**
    * Serialize the index to binary format
    */
   serialize(): Uint8Array {

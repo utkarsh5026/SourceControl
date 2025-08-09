@@ -25,7 +25,6 @@ export class IndexEntry {
   private static readonly HEADER_SIZE = 62;
   private static readonly SHA_SIZE = 20;
 
-  // Timestamps (seconds since epoch + nanoseconds for precision)
   public ctime: [number, number]; // Creation time
   public mtime: [number, number]; // Modification time
 
