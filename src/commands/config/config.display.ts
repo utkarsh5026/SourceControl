@@ -184,6 +184,8 @@ export const displayConfigHelp = (): void => {
     `${chalk.green('sourcecontrol config set <key> <value>')}  ${chalk.gray('Set configuration value')}`,
     `${chalk.green('sourcecontrol config list')}               ${chalk.gray('List all configuration')}`,
     `${chalk.green('sourcecontrol config unset <key>')}        ${chalk.gray('Remove configuration key')}`,
+    `${chalk.green('sourcecontrol config edit')}               ${chalk.gray('Edit configuration file')}`,
+    `${chalk.green('sourcecontrol config export')}             ${chalk.gray('Export configuration as JSON')}`,
   ].join('\n');
 
   const commonKeys = [
@@ -195,14 +197,64 @@ export const displayConfigHelp = (): void => {
   ].join('\n');
 
   const levels = [
-    `${chalk.yellow('system')}     ${chalk.gray('/etc/sourcecontrol/config (all users)')}`,
-    `${chalk.yellow('user')}       ${chalk.gray('~/.config/sourcecontrol/config (current user)')}`,
-    `${chalk.yellow('repository')} ${chalk.gray('.source/config (current repository)')}`,
+    `${chalk.yellow('system')}     ${chalk.gray('/etc/sourcecontrol/config.json (all users)')}`,
+    `${chalk.yellow('user')}       ${chalk.gray('~/.config/sourcecontrol/config.json (current user)')}`,
+    `${chalk.yellow('repository')} ${chalk.gray('.source/config.json (current repository)')}`,
+  ].join('\n');
+
+  const jsonExample = [
+    `${chalk.gray('# Example configuration file structure (JSON):')}`,
+    `${chalk.green('{')}`,
+    `${chalk.green('  "user": {')}`,
+    `${chalk.green('    "name": "John Doe",')}`,
+    `${chalk.green('    "email": "john@example.com"')}`,
+    `${chalk.green('  },')}`,
+    `${chalk.green('  "core": {')}`,
+    `${chalk.green('    "editor": "code --wait",')}`,
+    `${chalk.green('    "autocrlf": "input"')}`,
+    `${chalk.green('  },')}`,
+    `${chalk.green('  "remote": {')}`,
+    `${chalk.green('    "origin": {')}`,
+    `${chalk.green('      "url": "https://github.com/user/repo.git",')}`,
+    `${chalk.green('      "fetch": [')}`,
+    `${chalk.green('        "+refs/heads/*:refs/remotes/origin/*"')}`,
+    `${chalk.green('      ]')}`,
+    `${chalk.green('    }')}`,
+    `${chalk.green('  }')}`,
+    `${chalk.green('}')}`,
   ].join('\n');
 
   display.info(commonCommands, `${title} - Common Commands`);
   display.info(commonKeys, `${title} - Common Configuration Keys`);
   display.info(levels, `${title} - Configuration Levels`);
+  display.info(jsonExample, `${title} - JSON Format`);
+};
+
+export const displayConfigExport = (jsonContent: string, level?: string): void => {
+  const title = level
+    ? chalk.bold.green(`📄 Configuration Export (${level} level)`)
+    : chalk.bold.green('📄 Configuration Export');
+
+  const details = [
+    `${chalk.gray('Format:')} ${chalk.white('JSON')}`,
+    `${chalk.gray('Use:')} ${chalk.white('Copy and save to file, or pipe to another command')}`,
+  ].join('\n');
+
+  display.info(details, title);
+  console.log();
+  console.log(jsonContent);
+};
+
+export const displayConfigImport = (sourceFile: string, targetLevel: ConfigLevel): void => {
+  const title = chalk.bold.green('📥 Configuration Imported');
+
+  const details = [
+    `${chalk.gray('Source:')} ${chalk.white(sourceFile)}`,
+    `${chalk.gray('Target Level:')} ${formatLevelColor(targetLevel)}`,
+    `${chalk.gray('Status:')} ${chalk.green('Successfully imported')}`,
+  ].join('\n');
+
+  display.success(details, title);
 };
 
 const formatLevelColor = (level: ConfigLevel): string => {
