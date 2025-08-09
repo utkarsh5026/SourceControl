@@ -77,6 +77,39 @@ export class GitConfigManager {
   }
 
   /**
+   * Get all values for a configuration key (for multi-value keys)
+   */
+  public getAll(key: string): ConfigEntry[] {
+    const allEntries: ConfigEntry[] = [];
+
+    if (this.commandLineConfig.has(key)) {
+      allEntries.push(
+        new ConfigEntry(
+          key,
+          this.commandLineConfig.get(key)!,
+          ConfigLevel.COMMAND_LINE,
+          'command-line'
+        )
+      );
+    }
+
+    for (const level of [ConfigLevel.REPOSITORY, ConfigLevel.USER, ConfigLevel.SYSTEM]) {
+      const store = this.stores.get(level);
+      if (!store) continue;
+
+      allEntries.push(...store.getEntries(key));
+    }
+
+    if (this.builtinDefaults.has(key)) {
+      allEntries.push(
+        new ConfigEntry(key, this.builtinDefaults.get(key)!, ConfigLevel.BUILTIN, 'builtin')
+      );
+    }
+
+    return allEntries;
+  }
+
+  /**
    * Set a configuration value at a specific level
    */
   public async set(
