@@ -96,4 +96,19 @@ export class ConfigStore {
   public getAllEntries(): Map<string, ConfigEntry[]> {
     return new Map(this.entries);
   }
+
+  /**
+   * Remove all values for a key
+   */
+  public unset(key: string): void {
+    this.entries.delete(key);
+  }
+
+  /**
+   * Set a configuration value (replaces existing values)
+   */
+  public set(key: string, value: string): void {
+    const entry = new ConfigEntry(key, value, this.level, this.path, 0);
+    this.entries.set(key, [entry]);
+  }
 }
