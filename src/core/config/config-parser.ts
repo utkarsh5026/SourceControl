@@ -91,6 +91,21 @@ export class ConfigParser {
     }
     return { valid: errors.length === 0, errors };
   }
+
+  /**
+   * Create a pretty-formatted JSON string for display
+   */
+  public static formatForDisplay(entries: Map<string, ConfigEntry[]>): string {
+    const configData: ConfigFileStructure = {};
+
+    entries.forEach((entryList, fullKey) => {
+      const effectiveEntry = entryList[entryList.length - 1];
+      if (effectiveEntry) this.setNestedValue(configData, fullKey, effectiveEntry.value);
+    });
+
+    return JSON.stringify(configData, null, 2);
+  }
+
   /**
    * Recursively parse sections and subsections
    */
