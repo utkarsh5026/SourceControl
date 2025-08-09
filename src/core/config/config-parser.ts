@@ -61,6 +61,37 @@ export class ConfigParser {
   }
 
   /**
+   * Serialize configuration entries to JSON format
+   */
+  public static serialize(entries: Map<string, ConfigEntry[]>): string {
+    const configData: ConfigFileStructure = {};
+
+    entries.forEach((entryList, fullKey) => {
+      entryList.forEach((entry) => this.setNestedValue(configData, fullKey, entry.value));
+    });
+
+    return JSON.stringify(configData, null, 2);
+  }
+
+  /**
+   * Validate JSON configuration structure
+   */
+  public static validate(content: string): { valid: boolean; errors: string[] } {
+    const errors: string[] = [];
+    try {
+      const parsed = JSON.parse(content);
+
+      if (typeof parsed !== 'object' || parsed === null) {
+        errors.push('Configuration must be a JSON object');
+      }
+
+      this.validateSection(parsed, '', errors);
+    } catch (error) {
+      errors.push(`Invalid JSON: ${(error as Error).message}`);
+    }
+    return { valid: errors.length === 0, errors };
+  }
+  /**
    * Recursively parse sections and subsections
    */
   private static parseSection(
@@ -112,21 +143,6 @@ export class ConfigParser {
   }
 
   /**
-   * Serialize configuration entries to JSON format
-   */
-  static serialize(entries: Map<string, ConfigEntry[]>): string {
-    const configData: ConfigFileStructure = {};
-
-    for (const [fullKey, entryList] of entries) {
-      for (const entry of entryList) {
-        this.setNestedValue(configData, fullKey, entry.value);
-      }
-    }
-
-    return JSON.stringify(configData, null, 2);
-  }
-
-  /**
    * Set a nested value in the configuration object
    */
   private static setNestedValue(obj: any, path: string, value: string): void {
@@ -147,5 +163,32 @@ export class ConfigParser {
       if (Array.isArray(existingValue)) existingValue.push(value);
       else current[finalKey] = [existingValue, value];
     } else current[finalKey!] = value;
+  }
+
+  /**
+   * Validate a configuration section
+   */
+  private static validateSection(obj: any, path: string, errors: string[]): void {
+    Object.entries(obj).forEach(([key, value]) => {
+      const fullPath = path ? `${path}.${key}` : key;
+
+      if (Array.isArray(value)) {
+        value.forEach((item) => {
+          if (typeof item !== 'string')
+            errors.push(`Configuration array at '${fullPath}' must contain only strings`);
+        });
+        return;
+      }
+
+      if (typeof value === 'object' && value !== null) {
+        this.validateSection(value, fullPath, errors);
+        return;
+      }
+
+      if (typeof value !== 'string') {
+        errors.push(`Configuration value at '${fullPath}' must be a string`);
+        return;
+      }
+    });
   }
 }
