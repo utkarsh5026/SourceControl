@@ -71,18 +71,19 @@ export class IndexManager {
       const sha = await this.repository.writeObject(blob);
 
       const stats = await fs.stat(absolutePath);
+      const { ctimeMs, mtimeMs, dev, ino, mode, uid, gid, size } = stats;
 
       return IndexEntry.fromFileStats(
-        relativePath.replace(/\\/g, '/'), // Normalize path separators
+        relativePath,
         {
-          ctimeMs: stats.ctimeMs,
-          mtimeMs: stats.mtimeMs,
-          dev: stats.dev,
-          ino: stats.ino,
-          mode: stats.mode,
-          uid: stats.uid,
-          gid: stats.gid,
-          size: stats.size,
+          ctimeMs,
+          mtimeMs,
+          dev,
+          ino,
+          mode,
+          uid,
+          gid,
+          size,
         },
         sha
       );
@@ -90,10 +91,10 @@ export class IndexManager {
 
     const addFilesInDirectory = async (absolutePath: string) => {
       const files = await this.getFilesInDirectory(absolutePath, repoRoot);
-      const recursiveResult = await this.add(files);
-      result.added.push(...recursiveResult.added);
-      result.modified.push(...recursiveResult.modified);
-      result.failed.push(...recursiveResult.failed);
+      const { added, modified, failed } = await this.add(files);
+      result.added.push(...added);
+      result.modified.push(...modified);
+      result.failed.push(...failed);
     };
 
     await this.loadIndex();
@@ -311,7 +312,7 @@ export class IndexManager {
 
     entries.forEach(async (entry) => {
       const fullPath = path.join(dirPath, entry.name);
-      const relativePath = path.relative(repoRoot, fullPath).replace(/\\/g, '/');
+      const { relativePath } = this.createAbsAndRelPaths(fullPath);
       const isIgnored = this.ignoreManager.isIgnored(relativePath, entry.isDirectory());
 
       if (isIgnored) return;
