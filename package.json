@@ -9,7 +9,7 @@
   },
   "scripts": {
     "build": "tsc && tsc-alias",
-    "build:watch": "tsc --watch",
+    "build:watch": "concurrently -k \"tsc --watch --preserveWatchOutput\" \"tsc-alias -w\"",
     "dev": "ts-node -r tsconfig-paths/register src/cli.ts",
     "start": "node dist/cli.js",
     "test": "jest",
@@ -26,7 +26,7 @@
     "build:exe": "npm run build && pkg dist/cli.js --targets node18-win-x64 --output build/sourcecontrol.exe",
     "build:exe:all": "npm run build && pkg dist/cli.js --targets node18-win-x64,node18-macos-x64,node18-linux-x64 --out-path build/",
     "build:exe:fast": "pkg dist/cli.js --targets node18-win-x64 --output build/sourcecontrol.exe",
-    "watch:exe": "concurrently \"npm run build:watch\" \"nodemon --watch dist --exec \\\"npm run build:exe:fast\\\"\""
+    "watch:exe": "concurrently -k \"npm run build:watch\" \"nodemon --watch dist/cli.js --delay 600ms --ignore build/** --exec \\\"npm run build:exe:fast\\\"\""
   },
   "keywords": [
     "cli",
