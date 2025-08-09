@@ -147,22 +147,23 @@ export class ConfigParser {
    */
   private static setNestedValue(obj: any, path: string, value: string): void {
     const parts = path.split('.');
+    const finalKey = parts.pop()!;
     let current = obj;
 
-    parts.forEach((part) => {
-      if (!(part in current)) {
+    for (const part of parts) {
+      if (!(part in current) || typeof current[part] !== 'object' || Array.isArray(current[part])) {
         current[part] = {};
       }
       current = current[part];
-    });
+    }
 
-    const finalKey = parts[parts.length - 1];
-
-    if (finalKey && finalKey in current) {
-      const existingValue = current[finalKey];
-      if (Array.isArray(existingValue)) existingValue.push(value);
-      else current[finalKey] = [existingValue, value];
-    } else current[finalKey!] = value;
+    if (finalKey in current) {
+      const existing = current[finalKey];
+      if (Array.isArray(existing)) current[finalKey].push(value);
+      else current[finalKey] = [existing, value];
+    } else {
+      current[finalKey] = value;
+    }
   }
 
   /**
