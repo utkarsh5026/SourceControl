@@ -7,6 +7,7 @@ import { writeTreeCommand } from './write-tree/write-tree';
 import { checkoutTreeCommand } from './checkout-tree/checkout-tree';
 import { ignoreCommand } from './ignore/ignore';
 import { configCommand } from './config/config';
+import { addCommand } from './add/add';
 
 export {
   hashObjectCommand,
@@ -18,4 +19,5 @@ export {
   checkoutTreeCommand,
   ignoreCommand,
   configCommand,
+  addCommand,
 };
