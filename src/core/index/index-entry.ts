@@ -1,4 +1,10 @@
 import { ObjectException } from '../exceptions';
+import fs from 'fs-extra';
+
+type FileStats = Pick<
+  fs.Stats,
+  'ctimeMs' | 'mtimeMs' | 'dev' | 'ino' | 'mode' | 'uid' | 'gid' | 'size'
+>;
 
 /**
  * Represents a single file entry in the Git index (staging area).
@@ -235,6 +241,24 @@ export class IndexEntry {
     const nextOffset = offset + Math.ceil(pos / 8) * 8;
 
     return { entry, nextOffset };
+  }
+
+  /**
+   * Create an index entry from file stats
+   */
+  public static fromFileStats(path: string, stats: FileStats, sha: string): IndexEntry {
+    return new IndexEntry({
+      name: path,
+      ctime: [Math.floor(stats.ctimeMs / 1000), stats.ctimeMs % 1000],
+      mtime: [Math.floor(stats.mtimeMs / 1000), stats.mtimeMs % 1000],
+      dev: stats.dev,
+      ino: stats.ino,
+      mode: stats.mode,
+      uid: stats.uid,
+      gid: stats.gid,
+      fileSize: stats.size,
+      sha,
+    });
   }
 
   /**
