@@ -78,7 +78,7 @@ export class TreeObject extends GitObject {
     }
 
     const content = data.slice(contentStartsAt, contentStartsAt + contentLength);
-    this._entries = this.parseEntries(content, contentStartsAt, contentLength);
+    this._entries = this.parseEntries(content, 0, contentLength);
     this.sortEntries();
     this._sha = null;
   }
