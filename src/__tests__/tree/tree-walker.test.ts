@@ -2,7 +2,6 @@ import path from 'path';
 import { TreeWalker } from '../../core/tree';
 import { Repository } from '../../core/repo';
 import { RefManager } from '../../core/refs';
-import { ObjectType } from '../../core/objects/base/object-type';
 import { TreeObject } from '../../core/objects/tree/tree-object';
 import { TreeEntry, EntryType } from '../../core/objects/tree/tree-entry';
 import { CommitObject } from '../../core/objects/commit/commit-object';
