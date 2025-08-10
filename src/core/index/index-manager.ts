@@ -3,11 +3,12 @@ import { glob } from 'glob';
 import fs from 'fs-extra';
 import { IgnoreManager } from '@/core/ignore';
 import { Repository } from '@/core/repo';
+import { FileUtils } from '@/utils';
+import { BlobObject } from '@/core/objects';
 import { GitIndex } from './git-index';
 import type { AddResult, RemoveResult, StatusResult } from './types';
-import { FileUtils } from '@/utils/file';
-import { BlobObject } from '@/core/objects/';
 import { IndexEntry } from './index-entry';
+import { TreeWalker } from './tree-walker';
 
 /**
  * IndexManager orchestrates all operations between the working directory,
@@ -24,6 +25,7 @@ export class IndexManager {
   private index: GitIndex;
   private indexPath: string;
   private ignoreManager: IgnoreManager;
+  private treeWalker: TreeWalker;
 
   private static readonly INDEX_FILE_NAME = 'index';
 
@@ -32,6 +34,7 @@ export class IndexManager {
     this.indexPath = path.join(repository.gitDirectory().fullpath(), IndexManager.INDEX_FILE_NAME);
     this.index = new GitIndex();
     this.ignoreManager = new IgnoreManager(repository);
+    this.treeWalker = new TreeWalker(repository);
   }
 
   /**
@@ -158,10 +161,8 @@ export class IndexManager {
     };
 
     const repoRoot = this.repository.gitDirectory().fullpath();
-
     const indexFiles = new Set(this.index.entryNames());
-
-    const headFiles = new Map<string, string>();
+    const headFiles = await this.treeWalker.headFiles();
 
     const checkHead = async () => {
       for (const [headPath, _] of headFiles) {
