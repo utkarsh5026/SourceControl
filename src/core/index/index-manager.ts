@@ -5,10 +5,10 @@ import { IgnoreManager } from '@/core/ignore';
 import { Repository } from '@/core/repo';
 import { FileUtils } from '@/utils';
 import { BlobObject } from '@/core/objects';
+import { TreeWalker } from '@/core/tree';
 import { GitIndex } from './git-index';
 import type { AddResult, RemoveResult, StatusResult } from './types';
 import { IndexEntry } from './index-entry';
-import { TreeWalker } from './tree-walker';
 
 /**
  * IndexManager orchestrates all operations between the working directory,
