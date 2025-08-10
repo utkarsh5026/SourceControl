@@ -9,6 +9,7 @@ import { ignoreCommand } from './ignore/ignore';
 import { configCommand } from './config/config';
 import { addCommand } from './add/add';
 import { statusCommand } from './status/status';
+import { commitCommand } from './commit/commit';
 
 export {
   hashObjectCommand,
@@ -22,4 +23,5 @@ export {
   configCommand,
   addCommand,
   statusCommand,
+  commitCommand,
 };

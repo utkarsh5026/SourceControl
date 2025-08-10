@@ -15,6 +15,9 @@ import {
   checkoutTreeCommand,
   ignoreCommand,
   configCommand,
+  addCommand,
+  statusCommand,
+  commitCommand,
 } from './commands';
 import { formatHelp, displayVersion, displayError, displayWelcome } from './utils/cli';
 
@@ -55,6 +58,9 @@ program.addCommand(writeTreeCommand);
 program.addCommand(checkoutTreeCommand);
 program.addCommand(ignoreCommand);
 program.addCommand(configCommand);
+program.addCommand(addCommand);
+program.addCommand(statusCommand);
+program.addCommand(commitCommand);
 program.exitOverride();
 
 try {
