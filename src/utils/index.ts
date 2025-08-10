@@ -1,4 +1,4 @@
-import { FileUtils } from './file';
+import { FileUtils } from './io/file';
 import { HashUtils } from './hash';
 import { CompressionUtils } from './compress';
 import { logger } from './cli/logger';
