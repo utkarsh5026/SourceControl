@@ -2,7 +2,14 @@ import type { ObjectStore } from './store';
 import { ObjectException } from '../exceptions';
 import { CompressionUtils, FileUtils, HashUtils } from '@/utils';
 import { Path } from 'glob';
-import { GitObject, ObjectType, BlobObject, TreeObject, CommitObject } from '../objects';
+import {
+  GitObject,
+  ObjectType,
+  ObjectTypeHelper,
+  BlobObject,
+  TreeObject,
+  CommitObject,
+} from '../objects';
 
 /**
  * File-based implementation of Git object storage that mimics Git's internal
@@ -23,21 +30,14 @@ import { GitObject, ObjectType, BlobObject, TreeObject, CommitObject } from '../
  *
  * Example for SHA "abcdef1234567890abcdef1234567890abcdef12":
  * File path: .git/objects/ab/cdef1234567890abcdef1234567890abcdef12
- *
- * This structure provides efficient storage and lookup while distributing files
- * across subdirectories to avoid filesystem performance issues with too many
- * files in a single directory.
  */
 export class FileObjectStore implements ObjectStore {
   private objectsPath: Path | null = null;
 
   /**
    * Initializes the object store by creating the objects directory structure.
-   *
-   * Sets up the base objects directory at <gitDir>/objects where all Git objects
-   * will be stored. Creates the directory if it doesn't exist.
    */
-  async initialize(gitDir: Path): Promise<void> {
+  public async initialize(gitDir: Path): Promise<void> {
     this.objectsPath = gitDir.resolve('objects');
     try {
       await FileUtils.createDirectories(this.objectsPath.fullpath());
@@ -52,19 +52,20 @@ export class FileObjectStore implements ObjectStore {
    * If the object already exists, it returns the SHA-1 hash of the existing object.
    * Otherwise, it compresses the object and writes it to the file system.
    */
-  async writeObject(object: GitObject) {
+  public async writeObject(object: GitObject) {
     try {
       const serialized = object.serialize();
       const sha = await HashUtils.sha1Hex(serialized);
 
       const filePath = this.resolveObjectPath(sha);
 
-      if (await FileUtils.exists(filePath.toString())) {
+      if (await FileUtils.exists(filePath.fullpath())) {
         return sha;
       }
 
       const compressed = await CompressionUtils.compress(serialized);
-      await FileUtils.createFile(filePath.toString(), compressed);
+      await FileUtils.createDirectories(filePath.parent!.fullpath());
+      await FileUtils.createFile(filePath.fullpath(), compressed);
 
       return sha;
     } catch (error) {
@@ -77,22 +78,22 @@ export class FileObjectStore implements ObjectStore {
    * The method first determines the object type from the header, creates an
    * appropriate object instance, then deserializes the data into that object.
    */
-  async readObject(sha: string) {
+  public async readObject(sha: string) {
     if (!sha || sha.length < 3) {
       return null;
     }
 
     try {
       const filePath = this.resolveObjectPath(sha);
-      if (!FileUtils.exists(filePath.toString())) {
+      if (!(await FileUtils.exists(filePath.fullpath()))) {
         return null;
       }
 
-      const compressed = await FileUtils.readFile(filePath.toString());
+      const compressed = await FileUtils.readFile(filePath.fullpath());
       const decompressed = await CompressionUtils.decompress(compressed);
 
       const object = this.createObjectFromHeader(decompressed);
-      object.deserialize(decompressed);
+      await object.deserialize(decompressed);
 
       return object;
     } catch (error) {
@@ -105,13 +106,13 @@ export class FileObjectStore implements ObjectStore {
    *
    * Returns true if the object exists, false otherwise.
    */
-  async hasObject(sha: string) {
+  public async hasObject(sha: string) {
     if (!sha || sha.length < 3) {
       return false;
     }
 
     const filePath = this.resolveObjectPath(sha);
-    return FileUtils.exists(filePath.toString());
+    return await FileUtils.exists(filePath.fullpath());
   }
 
   /**
@@ -161,7 +162,7 @@ export class FileObjectStore implements ObjectStore {
     }
 
     const type = parts[0];
-    const objectType = ObjectType[type as keyof typeof ObjectType];
+    const objectType = ObjectTypeHelper.fromString(type!);
 
     switch (objectType) {
       case ObjectType.BLOB:
