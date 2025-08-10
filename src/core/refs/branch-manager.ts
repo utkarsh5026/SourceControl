@@ -20,6 +20,7 @@ export class BranchManager {
   public static readonly BRANCH_DIR_NAME = 'heads' as const;
   public static readonly HEAD_FILE = 'HEAD' as const;
   public static readonly HEAD_FILE_PREFIX = 'ref: refs/heads/' as const;
+  public static readonly DEFAULT_BRANCH = 'main' as const;
 
   constructor(refManager: RefManager) {
     this.refManager = refManager;
