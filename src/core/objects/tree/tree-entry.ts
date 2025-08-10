@@ -97,12 +97,18 @@ export class TreeEntry {
     const modeNameBytes = new TextEncoder().encode(modeAndName);
 
     // Convert SHA-1 hex string to binary (20 bytes)
-    const shaBytes = new Uint8Array(20);
-    for (let i = 0; i < 20; i++) {
-      const index = i * 2;
-      shaBytes[i] = parseInt(this._sha.substring(index, index + 2), 16);
-    }
+    const hexToSha = (hex: string): Uint8Array => {
+      const bytes = new Uint8Array(20);
+      for (let i = 0; i < 20; i++) {
+        const index = i * 2;
+        const hexPart = hex.substring(index, index + 2);
+        const byte = parseInt(hexPart, 16);
+        bytes[i] = byte;
+      }
+      return bytes;
+    };
 
+    const shaBytes = hexToSha(this._sha);
     const result = new Uint8Array(modeNameBytes.length + shaBytes.length);
     result.set(modeNameBytes, 0);
     result.set(shaBytes, modeNameBytes.length);
@@ -123,12 +129,8 @@ export class TreeEntry {
       if (!this.isDirectory() && other.isDirectory()) return 1;
       return 0;
     }
-
-    const thisKey = this.isDirectory() ? this._name + '/' : this._name;
-    const otherKey = other.isDirectory() ? other._name + '/' : other._name;
-
-    if (thisKey < otherKey) return -1;
-    if (thisKey > otherKey) return 1;
+    if (this._name < other._name) return -1;
+    if (this._name > other._name) return 1;
     return 0;
   }
 
@@ -136,27 +138,23 @@ export class TreeEntry {
    * Create a TreeEntry from serialized data
    */
   static deserialize(data: Uint8Array, offset: number): { entry: TreeEntry; nextOffset: number } {
-    let spaceIndex = offset;
-    while (spaceIndex < data.length && data[spaceIndex] !== TreeEntry.SPACE_BYTE) {
-      spaceIndex++;
-    }
-
+    const spaceIndex = data.indexOf(TreeEntry.SPACE_BYTE, offset);
     const mode = new TextDecoder().decode(data.slice(offset, spaceIndex));
-
-    let nullIndex = spaceIndex + 1;
-    while (nullIndex < data.length && data[nullIndex] !== TreeEntry.NULL_BYTE) {
-      nullIndex++;
-    }
+    const nullIndex = data.indexOf(TreeEntry.NULL_BYTE, spaceIndex + 1);
 
     const name = new TextDecoder().decode(data.slice(spaceIndex + 1, nullIndex));
 
-    const shaStartIndex = nullIndex + 1;
-    const shaEndIndex = shaStartIndex + TreeEntry.SHA_LENGTH_BYTES;
-    const shaBytes = data.slice(shaStartIndex, shaEndIndex);
-    const sha = Array.from(shaBytes)
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('');
+    // Create a function to create the SHA hex string from the data
+    const createShaHex = (): string => {
+      const start = nullIndex + 1;
+      const end = start + TreeEntry.SHA_LENGTH_BYTES;
+      const shaBytes = data.slice(start, end);
+      return Array.from(shaBytes)
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+    };
 
+    const sha = createShaHex();
     return {
       entry: new TreeEntry(mode, name, sha),
       nextOffset: nullIndex + TreeEntry.SHA_LENGTH_BYTES + 1,
@@ -172,8 +170,8 @@ export class TreeEntry {
       throw new Error('Name cannot be null or empty');
     }
 
-    // Git doesn't allow certain characters in filenames
-    if (name.includes('/') || name.includes('\0')) {
+    const invalidChars = ['/', '\0'];
+    if (invalidChars.some((char) => name.includes(char))) {
       throw new Error(`Invalid characters in name: ${name}`);
     }
 
@@ -190,8 +188,8 @@ export class TreeEntry {
       throw new Error(`SHA must be ${expectedLength} characters long`);
     }
 
-    // Validate hex characters
-    if (!sha.match(/[0-9a-fA-F]+/)) {
+    const hexRegex = /^[0-9a-fA-F]+$/;
+    if (!hexRegex.test(sha)) {
       throw new Error('SHA must contain only hex characters');
     }
 
