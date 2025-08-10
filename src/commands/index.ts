@@ -8,6 +8,7 @@ import { checkoutTreeCommand } from './checkout-tree/checkout-tree';
 import { ignoreCommand } from './ignore/ignore';
 import { configCommand } from './config/config';
 import { addCommand } from './add/add';
+import { statusCommand } from './status/status';
 
 export {
   hashObjectCommand,
@@ -20,4 +21,5 @@ export {
   ignoreCommand,
   configCommand,
   addCommand,
+  statusCommand,
 };
