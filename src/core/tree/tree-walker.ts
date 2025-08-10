@@ -75,26 +75,26 @@ export class TreeWalker {
     const files = new Map<string, string>();
     try {
       const tree = await this.repository.readObject(treeSha);
-
       if (!tree || tree.type() !== ObjectType.TREE) {
         throw new Error('Failed to read tree object');
       }
 
       const { entries } = tree as TreeObject;
+      await Promise.all(
+        entries.map(async (entry) => {
+          const fullPath = basePath ? path.join(basePath, entry.name) : entry.name;
 
-      entries.forEach(async (entry) => {
-        const fullPath = basePath ? path.join(basePath, entry.name) : entry.name;
+          if (entry.isDirectory()) {
+            const subFiles = await this.walkTree(entry.sha, fullPath);
+            subFiles.forEach((sha, p) => files.set(p, sha));
+            return;
+          }
 
-        if (entry.isDirectory()) {
-          const subFiles = await this.walkTree(entry.sha, fullPath);
-          subFiles.forEach((sha, path) => files.set(path, sha));
-          return;
-        }
-
-        if (entry.isFile()) {
-          files.set(fullPath, entry.sha);
-        }
-      });
+          if (entry.isFile()) {
+            files.set(fullPath, entry.sha);
+          }
+        })
+      );
     } catch (error) {
       logger.error('Failed to walk tree', error);
     }
