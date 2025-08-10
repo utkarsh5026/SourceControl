@@ -2,6 +2,15 @@ import { ObjectException } from '@/core/exceptions';
 import { GitObject, ObjectType } from '../base';
 import { CommitPerson } from './commit-person';
 
+export type CommitCreateOptions = {
+  treeSha: string;
+  parentShas?: string[];
+  author: CommitPerson;
+  committer: CommitPerson;
+  message: string;
+  sha?: string;
+};
+
 /**
  * Git Commit Object Implementation
  *
@@ -44,6 +53,24 @@ export class CommitObject extends GitObject {
   private _committer: CommitPerson | null = null;
   private _message: string | null = null;
   private _sha: string | null = null;
+
+  constructor(commit?: CommitCreateOptions) {
+    super();
+    if (!commit) return;
+
+    if (commit.treeSha != null) {
+      this._treeSha = this.validateSha(commit.treeSha);
+    }
+
+    if (Array.isArray(commit.parentShas)) {
+      this._parentShas = commit.parentShas.map((p) => this.validateSha(p));
+    }
+
+    this._author = commit.author ?? null;
+    this._committer = commit.committer ?? null;
+    this._message = commit.message ?? '';
+    this._sha = commit.sha ?? null;
+  }
 
   /**
    * Get the type of this commit object
