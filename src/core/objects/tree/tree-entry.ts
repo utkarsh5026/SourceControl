@@ -116,16 +116,19 @@ export class TreeEntry {
    * @param other - The other entry to compare with.
    * @returns A negative value if this entry is less than the other, zero if they are equal, or a positive value if this entry is greater than the other.
    */
+
   compareTo(other: TreeEntry): number {
+    if (this._name === other._name) {
+      if (this.isDirectory() && !other.isDirectory()) return -1;
+      if (!this.isDirectory() && other.isDirectory()) return 1;
+      return 0;
+    }
+
     const thisKey = this.isDirectory() ? this._name + '/' : this._name;
     const otherKey = other.isDirectory() ? other._name + '/' : other._name;
 
-    if (thisKey < otherKey) {
-      return -1;
-    }
-    if (thisKey > otherKey) {
-      return 1;
-    }
+    if (thisKey < otherKey) return -1;
+    if (thisKey > otherKey) return 1;
     return 0;
   }
 
