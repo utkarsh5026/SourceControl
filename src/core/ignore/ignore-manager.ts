@@ -1,11 +1,10 @@
-import { IgnorePatternSet } from './ignore-pattern-set';
-import { Repository } from '../repo';
-import { IgnorePattern } from './ignore-pattern';
 import path from 'path';
 import fs from 'fs-extra';
+import { FileUtils, logger } from '@/utils';
+import { Repository } from '@/core/repo';
+import { IgnorePatternSet } from './ignore-pattern-set';
+import { IgnorePattern } from './ignore-pattern';
 import { DEFAULT_IGNORE_CONTENT } from './default-ignore';
-import { FileUtils } from '@/utils/file';
-import { logger } from '@/utils';
 
 export interface IgnoreStats {
   globalPatterns: number;
