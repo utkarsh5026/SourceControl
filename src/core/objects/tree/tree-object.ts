@@ -98,11 +98,11 @@ export class TreeObject extends GitObject {
     const serialized = new Uint8Array(totalSize);
     let offset = 0;
 
-    for (const entry of this._entries) {
+    this._entries.forEach((entry) => {
       const serializedEntry = entry.serialize();
       serialized.set(serializedEntry, offset);
       offset += serializedEntry.length;
-    }
+    });
 
     return serialized;
   }
