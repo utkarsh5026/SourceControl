@@ -40,7 +40,7 @@ export class TreeBuilder {
    * Build a tree from the current index
    * Returns the SHA of the root tree
    */
-  public async buildFromIndex(index: GitIndex): Promise<string> {
+  public async buildTreeFromIndex(index: GitIndex): Promise<string> {
     const directoryMap = this.groupEntriesByDirectory(index.entries);
 
     return await this.buildTreeRecursive(directoryMap, '');
@@ -64,7 +64,7 @@ export class TreeBuilder {
     /**
      * Add a directory to the map if not exists
      */
-    const addIfNotExists = (dir: string) => {
+    const ensureDirectoryExists = (dir: string) => {
       if (!directoryMap.has(dir)) {
         directoryMap.set(dir, []);
       }
@@ -73,20 +73,20 @@ export class TreeBuilder {
     /**
      * Add all parent directories to the map if not addded
      */
-    const addAllParents = (dir: string) => {
+    const ensureAllParentDirectoriesExist = (dir: string) => {
       let currentDir = dir;
       while (currentDir && currentDir !== '.') {
         const parentDir = getParentDir(currentDir);
-        addIfNotExists(parentDir);
+        ensureDirectoryExists(parentDir);
         currentDir = parentDir;
       }
     };
 
-    entries.forEach((entry) => {
-      const dir = getParentDir(entry.name);
-      addIfNotExists(dir);
-      directoryMap.get(dir)!.push(entry);
-      addAllParents(dir);
+    entries.forEach((indexEntry) => {
+      const dir = getParentDir(indexEntry.name);
+      ensureDirectoryExists(dir);
+      directoryMap.get(dir)!.push(indexEntry);
+      ensureAllParentDirectoriesExist(dir);
     });
 
     return directoryMap;
@@ -99,12 +99,12 @@ export class TreeBuilder {
     directoryMap: DirectoryMap,
     currentPath: string
   ): Promise<string> {
-    const entries: TreeEntry[] = [];
-    const processedSubdirs = new Set<string>();
-    const indexEntries = directoryMap.get(currentPath) || [];
+    const treeEntries: TreeEntry[] = [];
+    const processedSubdirectories = new Set<string>();
+    const indexEntriesInCurrentDirectory = directoryMap.get(currentPath) || [];
 
-    indexEntries.forEach((entry) => {
-      entries.push(this.createTreeEntryFromIndexEntry(entry));
+    indexEntriesInCurrentDirectory.forEach((entry) => {
+      treeEntries.push(this.createTreeEntryFromIndexEntry(entry));
     });
 
     for (const [dirPath] of directoryMap) {
@@ -119,17 +119,17 @@ export class TreeBuilder {
       if (!relativePath) continue;
 
       if (!relativePath.includes('/')) {
-        if (processedSubdirs.has(relativePath)) continue;
-        processedSubdirs.add(relativePath);
+        if (processedSubdirectories.has(relativePath)) continue;
+        processedSubdirectories.add(relativePath);
 
         const fullSubdirPath = currentPath ? `${currentPath}/${relativePath}` : relativePath;
         const subTreeSha = await this.buildTreeRecursive(directoryMap, fullSubdirPath);
 
-        entries.push(new TreeEntry(EntryType.DIRECTORY, relativePath, subTreeSha));
+        treeEntries.push(new TreeEntry(EntryType.DIRECTORY, relativePath, subTreeSha));
       }
     }
 
-    const tree = new TreeObject(entries);
+    const tree = new TreeObject(treeEntries);
     const sha = await this.repository.writeObject(tree);
     return sha;
   }
