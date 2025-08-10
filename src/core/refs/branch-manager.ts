@@ -97,6 +97,17 @@ export class BranchManager {
   }
 
   /**
+   * Switch to a branch (checkout)
+   */
+  public async switchToBranch(branchName: string): Promise<void> {
+    const branch = await this.getBranch(branchName);
+    if (!branch) {
+      throw new Error(`Branch '${branchName}' does not exist`);
+    }
+    await this.refManager.updateRef(BranchManager.HEAD_FILE, `ref: refs/heads/${branchName}`);
+  }
+
+  /**
    * Delete a branch
    */
   public async deleteBranch(branchName: string): Promise<void> {
@@ -131,6 +142,9 @@ export class BranchManager {
     throw new Error('HEAD file is not a symbolic ref');
   }
 
+  /**
+   * Get the Relative path for a branch reference
+   */
   private toBranchRefPath(branchName: string): string {
     return path.join(BranchManager.BRANCH_DIR_NAME, branchName);
   }
