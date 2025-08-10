@@ -1,5 +1,5 @@
 import { Repository } from '@/core/repo';
-import { FileUtils } from '@/utils';
+import { FileUtils, logger } from '@/utils';
 import path from 'path';
 import fs from 'fs-extra';
 
@@ -32,35 +32,49 @@ import fs from 'fs-extra';
  * │       └── v1.0.0         # Contains SHA of tagged commit
  */
 export class RefManager {
-  private repository: Repository;
   private refsPath: string;
   private headPath: string;
 
-  private static readonly HEAD_REF = 'HEAD';
-  private static readonly REF_PREFIX = 'refs';
+  public static readonly REFS_DIRNAME = 'refs' as const;
+  public static readonly SYMBOLIC_REF_PREFIX = 'ref: ' as const;
+  public static readonly HEAD_FILE = 'HEAD' as const;
 
   constructor(repository: Repository) {
-    this.repository = repository;
     const gitDir = repository.gitDirectory().fullpath();
-    this.refsPath = path.join(gitDir, RefManager.REF_PREFIX);
-    this.headPath = path.join(gitDir, RefManager.HEAD_REF);
+    this.refsPath = path.join(gitDir, RefManager.REFS_DIRNAME);
+    this.headPath = path.join(gitDir, RefManager.HEAD_FILE);
+  }
+
+  /**
+   * Get the full path for the refs directory
+   */
+  public getRefsPath(): string {
+    return this.refsPath;
+  }
+
+  /**
+   * Initialize the ref manager
+   */
+  public async init() {
+    await FileUtils.createDirectories(this.refsPath);
+    await fs.writeFile(this.headPath, 'ref: refs/heads/master\n', 'utf8');
   }
 
   /**
    * Read a reference and return its content
    */
-  public async readRef(refPath: string): Promise<string | null> {
-    const fullPath = this.getRefPath(refPath);
-
-    if (!(await FileUtils.exists(fullPath))) {
-      return null;
-    }
-
+  public async readRef(ref: string): Promise<string> {
     try {
+      const fullPath = this.resolveReferencePath(ref);
+
+      if (!(await FileUtils.exists(fullPath))) {
+        throw new Error(`Ref ${ref} not found`);
+      }
+
       const content = await fs.readFile(fullPath, 'utf8');
       return content.trim();
     } catch (error) {
-      return null;
+      throw new Error(`Error reading ref ${ref}: ${error}`);
     }
   }
 
@@ -68,55 +82,45 @@ export class RefManager {
    * Update a reference with a new SHA-1 hash
    */
   public async updateRef(refPath: string, sha: string): Promise<void> {
-    const fullPath = this.getRefPath(refPath);
+    const fullPath = this.resolveReferencePath(refPath);
     await FileUtils.createDirectories(path.dirname(fullPath));
     await fs.writeFile(fullPath, sha + '\n', 'utf8');
+    logger.info(`Updated ref ${refPath} to ${sha}`);
   }
 
   /**
    * Resolve a reference to its final SHA-1 hash
    */
-  public async resolveRef(refPath: string): Promise<string | null> {
+  public async resolveReferenceToSha(refPath: string): Promise<string> {
     const maxDepth = 10;
     let currentRef = refPath;
 
     for (let depth = 0; depth < maxDepth; depth++) {
-      const content = await this.readRef(currentRef);
-
-      if (!content) {
-        return null;
+      let content: string;
+      try {
+        content = await this.readRef(currentRef);
+      } catch (error) {
+        throw new Error(`Error reading ref ${currentRef}: ${error}`);
       }
 
-      if (content.startsWith('ref: ')) {
-        currentRef = content.substring(5);
+      if (content.startsWith(RefManager.SYMBOLIC_REF_PREFIX)) {
+        currentRef = content.substring(RefManager.SYMBOLIC_REF_PREFIX.length);
         continue;
       }
 
-      if (this.isValidSha(content)) {
+      if (this.isSha1(content)) {
         return content;
       }
-
-      return null;
     }
 
     throw new Error(`Reference depth exceeded for ${refPath}`);
   }
 
   /**
-   * Initialize default references for a new repository
-   */
-  public async initializeRefs(): Promise<void> {
-    await FileUtils.createDirectories(path.join(this.refsPath, 'heads'));
-    await FileUtils.createDirectories(path.join(this.refsPath, 'tags'));
-
-    await fs.writeFile(this.headPath, 'ref: refs/heads/master\n', 'utf8');
-  }
-
-  /**
    * Delete a reference
    */
-  public async deleteRef(refPath: string): Promise<boolean> {
-    const fullPath = this.getRefPath(refPath);
+  public async deleteRef(ref: string): Promise<boolean> {
+    const fullPath = this.resolveReferencePath(ref);
 
     if (!(await FileUtils.exists(fullPath))) {
       return false;
@@ -131,123 +135,36 @@ export class RefManager {
   }
 
   /**
-   * Get the current branch name
+   * Get the full path for a HEAD reference
    */
-  public async getCurrentBranch(): Promise<string | null> {
-    const headContent = await this.readRef(RefManager.HEAD_REF);
-
-    if (!headContent) {
-      return null;
-    }
-
-    if (headContent.startsWith('ref: refs/heads/')) {
-      return headContent.substring(16);
-    }
-
-    return null;
+  public getHeadPath(): string {
+    return this.headPath;
   }
 
   /**
-   * List all branch names
+   * Check if a reference exists
    */
-  public async listBranches(): Promise<string[]> {
-    const headsPath = path.join(this.refsPath, 'heads');
-
-    if (!(await FileUtils.exists(headsPath))) {
-      return [];
-    }
-
-    try {
-      const branches = await fs.readdir(headsPath);
-      return branches.filter((name) => !name.startsWith('.'));
-    } catch {
-      return [];
-    }
-  }
-
-  /**
-   * Create a new branch
-   */
-  public async createBranch(branchName: string, startPoint?: string): Promise<void> {
-    if (!this.isValidBranchName(branchName)) {
-      throw new Error(`Invalid branch name: ${branchName}`);
-    }
-
-    const refPath = this.refPath(branchName);
-    if (await this.readRef(refPath)) {
-      throw new Error(`Branch ${branchName} already exists`);
-    }
-
-    let sha: string;
-    if (startPoint) {
-      sha = (await this.resolveRef(startPoint)) || startPoint;
-    } else {
-      const head = await this.resolveRef(RefManager.HEAD_REF);
-      if (!head) {
-        throw new Error('Cannot create branch: no commits yet');
-      }
-      sha = head;
-    }
-
-    await this.updateRef(refPath, sha);
-  }
-
-  /**
-   * Delete a branch
-   */
-  public async deleteBranch(branchName: string): Promise<void> {
-    const currentBranch = await this.getCurrentBranch();
-    if (currentBranch === branchName) {
-      throw new Error(`Cannot delete branch ${branchName}: currently checked out`);
-    }
-
-    const refPath = this.refPath(branchName);
-    const exists = await this.deleteRef(refPath);
-
-    if (!exists) {
-      throw new Error(`Branch ${branchName} does not exist`);
-    }
+  public async exists(ref: string): Promise<boolean> {
+    return await FileUtils.exists(this.resolveReferencePath(ref));
   }
 
   /**
    * Get the full path for a reference
    */
-  private getRefPath(refPath: string): string {
-    if (refPath === RefManager.HEAD_REF) {
+  private resolveReferencePath(refInput: string): string {
+    const ref = refInput.trim();
+
+    if (ref === RefManager.HEAD_FILE) {
       return this.headPath;
     }
 
-    if (refPath.startsWith(`${RefManager.REF_PREFIX}/`)) {
-      return path.join(this.repository.gitDirectory().fullpath(), refPath);
-    }
-
-    return path.join(this.refsPath, 'heads', refPath);
+    return path.join(this.refsPath, ref);
   }
 
   /**
    * Check if a string is a valid SHA-1 hash
    */
-  private isValidSha(str: string): boolean {
+  private isSha1(str: string): boolean {
     return /^[0-9a-f]{40}$/i.test(str);
-  }
-
-  /**
-   * Validate branch name
-   */
-  private isValidBranchName(name: string): boolean {
-    if (!name || name.length === 0) return false;
-    if (name === RefManager.HEAD_REF) return false;
-    if (name.startsWith('.') || name.endsWith('.') || name.endsWith('/')) return false;
-    if (name.includes('..') || name.includes('//')) return false;
-    if (/[\x00-\x1f\x7f ~^:?*\[]/.test(name)) return false;
-
-    return true;
-  }
-
-  /**
-   * Get the full path for a branch reference
-   */
-  private refPath(branchName: string): string {
-    return path.join(RefManager.REF_PREFIX, 'heads', branchName);
   }
 }
