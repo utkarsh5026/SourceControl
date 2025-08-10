@@ -108,9 +108,7 @@ export class RefManager {
         continue;
       }
 
-      if (this.isSha1(content)) {
-        return content;
-      }
+      if (this.isSha1(content)) return content;
     }
 
     throw new Error(`Reference depth exceeded for ${refPath}`);
@@ -156,6 +154,11 @@ export class RefManager {
 
     if (ref === RefManager.HEAD_FILE) {
       return this.headPath;
+    }
+
+    // If ref starts with "refs/", don't duplicate the refs root
+    if (ref.startsWith(`${RefManager.REFS_DIRNAME}/`)) {
+      return path.join(this.refsPath, ref.slice(RefManager.REFS_DIRNAME.length + 1));
     }
 
     return path.join(this.refsPath, ref);
