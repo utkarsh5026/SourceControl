@@ -1,7 +1,7 @@
 import { RefManager } from './ref-manager';
-import { FileUtils } from '@/utils';
 import fs from 'fs-extra';
-import { posix } from 'path';
+import path from 'path';
+import { FileUtils } from '@/utils';
 
 export type BranchInfo = {
   name: string;
@@ -16,23 +16,23 @@ export type BranchInfo = {
  */
 export class BranchManager {
   private refManager: RefManager;
-  private headPath: string;
 
   public static readonly BRANCH_DIR_NAME = 'heads' as const;
   public static readonly HEAD_FILE = 'HEAD' as const;
-  private static readonly HEAD_FILE_PREFIX = 'ref: refs/heads/' as const;
+  public static readonly HEAD_FILE_PREFIX = 'ref: refs/heads/' as const;
 
   constructor(refManager: RefManager) {
     this.refManager = refManager;
-    this.headPath = posix.join(this.refManager.getRefsPath(), BranchManager.HEAD_FILE);
   }
 
   /**
    * Initialize the branch manager
    */
   public async init() {
-    await FileUtils.createDirectories(this.branchPath);
-    await fs.writeFile(this.headPath, 'ref: refs/heads/master\n', 'utf8');
+    await this.refManager.init();
+    await FileUtils.createDirectories(
+      path.join(this.refManager.getRefsPath(), BranchManager.BRANCH_DIR_NAME)
+    );
   }
 
   /**
@@ -40,7 +40,7 @@ export class BranchManager {
    */
   public async getBranch(branchName: string): Promise<BranchInfo> {
     try {
-      const sha = await this.refManager.resolveReferenceToSha(this.branchNamePath(branchName));
+      const sha = await this.refManager.resolveReferenceToSha(this.toBranchRefPath(branchName));
 
       const currentBranch = await this.getCurrentBranch();
       const isCurrentBranch = currentBranch === branchName;
@@ -63,8 +63,8 @@ export class BranchManager {
       throw new Error(`Invalid branch name: ${branchName}`);
     }
 
-    const branchPath = this.branchNamePath(branchName);
-    if (await FileUtils.exists(branchPath)) {
+    const branchPath = this.toBranchRefPath(branchName);
+    if (await this.refManager.exists(branchPath)) {
       throw new Error(`Branch ${branchName} already exists`);
     }
 
@@ -83,12 +83,13 @@ export class BranchManager {
    * List all branch names
    */
   public async listBranches(): Promise<string[]> {
-    if (!(await FileUtils.exists(this.branchPath))) {
-      throw new Error(`Branches directory ${this.branchPath} not found`);
+    const branchDirName = BranchManager.BRANCH_DIR_NAME;
+    if (!(await this.refManager.exists(branchDirName))) {
+      throw new Error(`Branches directory ${branchDirName} not found`);
     }
 
     try {
-      const branches = await fs.readdir(this.branchPath);
+      const branches = await fs.readdir(path.join(this.refManager.getRefsPath(), branchDirName));
       return branches.filter((name) => !name.startsWith('.'));
     } catch (error) {
       throw new Error(`Error listing branches: ${error}`);
@@ -104,7 +105,7 @@ export class BranchManager {
       throw new Error(`Cannot delete branch ${branchName}: currently checked out`);
     }
 
-    const branchPath = this.branchNamePath(branchName);
+    const branchPath = this.toBranchRefPath(branchName);
     const exists = await this.refManager.deleteRef(branchPath);
 
     if (!exists) {
@@ -116,7 +117,7 @@ export class BranchManager {
    * Get the current branch name
    */
   public async getCurrentBranch(): Promise<string> {
-    const headContent = await this.refManager.readRef(this.headPath);
+    const headContent = await this.refManager.readRef(BranchManager.HEAD_FILE);
 
     if (!headContent) {
       throw new Error('HEAD file not found');
@@ -130,15 +131,8 @@ export class BranchManager {
     throw new Error('HEAD file is not a symbolic ref');
   }
 
-  public get branchPath(): string {
-    return posix.join(this.refManager.getRefsPath(), BranchManager.BRANCH_DIR_NAME);
-  }
-
-  /**
-   * Get the full path for a branch reference
-   */
-  private branchNamePath(branchName: string): string {
-    return posix.join(this.branchPath, branchName);
+  private toBranchRefPath(branchName: string): string {
+    return path.join(BranchManager.BRANCH_DIR_NAME, branchName);
   }
 
   /**
