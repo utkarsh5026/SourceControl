@@ -1,4 +1,4 @@
-import { IgnorePattern } from '../core/ignore';
+import { IgnorePattern } from '../../core/ignore';
 
 describe('IgnorePattern.fromLine', () => {
   test('returns null for empty and comment lines', () => {

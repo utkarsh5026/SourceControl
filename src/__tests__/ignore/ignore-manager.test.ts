@@ -3,9 +3,9 @@ import os from 'os';
 import fs from 'fs-extra';
 import { PathScurry } from 'path-scurry';
 import type { Path } from 'glob';
-import { IgnoreManager } from '../core/ignore';
-import { Repository } from '../core/repo';
-import { logger } from '../utils';
+import { IgnoreManager } from '../../core/ignore';
+import { Repository } from '../../core/repo';
+import { logger } from '../../utils';
 
 class MockRepository extends Repository {
   constructor(private readonly _wd: Path) {
