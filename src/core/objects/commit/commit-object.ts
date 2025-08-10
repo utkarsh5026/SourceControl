@@ -74,7 +74,7 @@ export class CommitObject extends GitObject {
   /**
    * Deserialize the commit object
    */
-  override deserialize(data: Uint8Array): Promise<void> {
+  override async deserialize(data: Uint8Array): Promise<void> {
     try {
       const { type, contentStartsAt, contentLength } = this.parseHeader(data);
       if (type !== ObjectType.COMMIT) {
