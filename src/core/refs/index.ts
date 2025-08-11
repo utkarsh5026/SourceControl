@@ -1,2 +1,2 @@
-export * from './ref-manager';
-export * from './branch-manager';
+import { RefManager } from './ref-manager';
+export { RefManager };
