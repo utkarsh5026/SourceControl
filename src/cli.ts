@@ -4,7 +4,6 @@ import { Command } from 'commander';
 import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from './utils';
-import { ConfigManager } from './utils/config';
 import {
   hashObjectCommand,
   catFileCommand,
@@ -42,10 +41,6 @@ program
       logger.level = 'silent';
     } else if (options['verbose']) {
       logger.level = 'debug';
-    }
-
-    if (options['config']) {
-      ConfigManager.setConfigPath(options['config']);
     }
   });
 
