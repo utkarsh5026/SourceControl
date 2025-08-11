@@ -4,30 +4,11 @@ import { EntryType, TreeEntry } from '@/core/objects/tree/tree-entry';
 import path from 'path';
 import { TreeObject } from '@/core/objects';
 
-type DirectoryMap = Map<string, IndexEntry[]>;
-
 /**
- * TreeBuilder creates Git tree objects from the index.
+ * TreeBuilder creates Git tree objects from the index using a bottom-up approach.
  *
- * The index is a flat list of files, but Git stores them as a hierarchy of trees.
- * This class converts the flat structure into the hierarchical tree structure.
- *
- * Example transformation:
- * Index entries:
- *   - src/core/file1.ts
- *   - src/core/file2.ts
- *   - src/utils/helper.ts
- *   - README.md
- *
- * Becomes tree structure:
- *   root tree
- *   ├── README.md (blob)
- *   └── src/ (tree)
- *       ├── core/ (tree)
- *       │   ├── file1.ts (blob)
- *       │   └── file2.ts (blob)
- *       └── utils/ (tree)
- *           └── helper.ts (blob)
+ * Think of it like building a house: start with individual rooms (files),
+ * group them into floors (directories), then combine into the complete house (root tree).
  */
 export class TreeBuilder {
   private repository: Repository;
@@ -41,112 +22,157 @@ export class TreeBuilder {
    * Returns the SHA of the root tree
    */
   public async buildTreeFromIndex(index: GitIndex): Promise<string> {
-    const directoryMap = this.groupEntriesByDirectory(index.entries);
+    const { filesByDirectory, allDirectories } = this.analyzeDirectoryStructure(index.entries);
 
-    return await this.buildTreeRecursive(directoryMap, '');
+    return await this.buildTreesBottomUp(filesByDirectory, allDirectories);
   }
 
   /**
-   * Group index entries by their directory paths
+   * Analyze the directory structure and group files by their containing directory
+   * Also identifies all directories that need tree objects
    */
-  private groupEntriesByDirectory(entries: IndexEntry[]): DirectoryMap {
-    const directoryMap = new Map<string, IndexEntry[]>();
-    directoryMap.set('', []);
+  private analyzeDirectoryStructure(entries: IndexEntry[]) {
+    const filesByDirectory = new Map<string, IndexEntry[]>();
+    const allDirectories = new Set<string>();
 
-    /**
-     * Get the parent directory of a given directory
-     */
-    const getParentDir = (dir: string) => {
-      const parentDir = path.dirname(dir);
-      return parentDir === '.' ? '' : parentDir.replace(/\\/g, '/');
-    };
+    // Initialize root directory
+    filesByDirectory.set('', []);
+    allDirectories.add('');
 
-    /**
-     * Add a directory to the map if not exists
-     */
-    const ensureDirectoryExists = (dir: string) => {
-      if (!directoryMap.has(dir)) {
-        directoryMap.set(dir, []);
+    for (const entry of entries) {
+      const directoryPath = this.getDirectoryPath(entry.name);
+
+      // Add this file to its directory
+      if (!filesByDirectory.has(directoryPath)) {
+        filesByDirectory.set(directoryPath, []);
       }
+      filesByDirectory.get(directoryPath)!.push(entry);
+
+      // Ensure all parent directories exist in our tracking
+      this.ensureAllParentDirectoriesTracked(directoryPath, allDirectories);
+    }
+
+    return {
+      filesByDirectory,
+      allDirectories: Array.from(allDirectories),
     };
-
-    /**
-     * Add all parent directories to the map if not addded
-     */
-    const ensureAllParentDirectoriesExist = (dir: string) => {
-      let currentDir = dir;
-      while (currentDir && currentDir !== '.') {
-        const parentDir = getParentDir(currentDir);
-        ensureDirectoryExists(parentDir);
-        currentDir = parentDir;
-      }
-    };
-
-    entries.forEach((indexEntry) => {
-      const dir = getParentDir(indexEntry.name);
-      ensureDirectoryExists(dir);
-      directoryMap.get(dir)!.push(indexEntry);
-      ensureAllParentDirectoriesExist(dir);
-    });
-
-    return directoryMap;
   }
 
   /**
-   * Recursively build tree objects from bottom to top and get the SHA
+   * Build tree objects from deepest directories to root
+   * This ensures child trees exist before we reference them in parent trees
    */
-  private async buildTreeRecursive(
-    directoryMap: DirectoryMap,
-    currentPath: string
+  private async buildTreesBottomUp(
+    filesByDirectory: Map<string, IndexEntry[]>,
+    allDirectories: string[]
   ): Promise<string> {
-    const treeEntries: TreeEntry[] = [];
-    const processedSubdirectories = new Set<string>();
-    const indexEntriesInCurrentDirectory = directoryMap.get(currentPath) || [];
+    const directoriesByDepth = this.sortDirectoriesByDepth(allDirectories);
+    const treeShaBydirectory = new Map<string, string>();
 
-    indexEntriesInCurrentDirectory.forEach((entry) => {
-      treeEntries.push(this.createTreeEntryFromIndexEntry(entry));
+    for (const directoryPath of directoriesByDepth) {
+      const treeEntries: TreeEntry[] = [];
+
+      const filesInDirectory = filesByDirectory.get(directoryPath) || [];
+      filesInDirectory.forEach((file) => {
+        treeEntries.push(this.createFileTreeEntry(file));
+      });
+
+      const immediateSubdirectories = this.getImmediateSubdirectories(
+        directoryPath,
+        allDirectories
+      );
+
+      immediateSubdirectories.forEach((subdirName) => {
+        const subdirFullPath = directoryPath ? `${directoryPath}/${subdirName}` : subdirName;
+        const subdirTreeSha = treeShaBydirectory.get(subdirFullPath)!;
+        treeEntries.push(new TreeEntry(EntryType.DIRECTORY, subdirName, subdirTreeSha));
+      });
+
+      const tree = new TreeObject(treeEntries);
+      const treeSha = await this.repository.writeObject(tree);
+      treeShaBydirectory.set(directoryPath, treeSha);
+    }
+
+    return treeShaBydirectory.get('')!;
+  }
+
+  /**
+   * Sort directories by depth (deepest first)
+   * Example: ["src/core/nested", "src/core", "src", ""]
+   */
+  private sortDirectoriesByDepth(directories: string[]): string[] {
+    return directories.sort((a, b) => {
+      const aDepth = a === '' ? 0 : a.split('/').length;
+      const bDepth = b === '' ? 0 : b.split('/').length;
+      return bDepth - aDepth;
     });
+  }
 
-    for (const [dirPath] of directoryMap) {
-      if (dirPath === currentPath) continue;
+  /**
+   * Get the immediate subdirectories of a given directory
+   * For "src", this would return ["core", "utils"] but not ["core/nested"]
+   */
+  private getImmediateSubdirectories(parentPath: string, allDirectories: string[]): string[] {
+    const immediateChildren = new Set<string>();
 
-      const relativePath = currentPath
-        ? dirPath.startsWith(currentPath + '/')
-          ? dirPath.substring(currentPath.length + 1)
-          : null
-        : dirPath;
+    for (const dir of allDirectories) {
+      if (dir === parentPath) continue;
 
-      if (!relativePath) continue;
+      const isChild =
+        parentPath === ''
+          ? !dir.includes('/') && dir !== ''
+          : dir.startsWith(parentPath + '/') && !dir.substring(parentPath.length + 1).includes('/');
 
-      if (!relativePath.includes('/')) {
-        if (processedSubdirectories.has(relativePath)) continue;
-        processedSubdirectories.add(relativePath);
-
-        const fullSubdirPath = currentPath ? `${currentPath}/${relativePath}` : relativePath;
-        const subTreeSha = await this.buildTreeRecursive(directoryMap, fullSubdirPath);
-
-        treeEntries.push(new TreeEntry(EntryType.DIRECTORY, relativePath, subTreeSha));
+      if (isChild) {
+        const childName = parentPath === '' ? dir : dir.substring(parentPath.length + 1);
+        immediateChildren.add(childName);
       }
     }
 
-    const tree = new TreeObject(treeEntries);
-    const sha = await this.repository.writeObject(tree);
-    return sha;
+    return Array.from(immediateChildren);
   }
 
   /**
-   * Create a tree entry from an index entry
+   * Get the directory path for a file
+   * "src/core/file.ts" → "src/core"
+   * "README.md" → ""
    */
-  private createTreeEntryFromIndexEntry(entry: IndexEntry) {
-    const { name, isSymlink, isGitlink, sha, mode: entryMode } = entry;
-    const basename = path.basename(name);
+  private getDirectoryPath(filePath: string): string {
+    const dir = path.dirname(filePath);
+    return dir === '.' ? '' : dir.replace(/\\/g, '/');
+  }
 
-    let mode: string;
-    if (isSymlink) mode = EntryType.SYMBOLIC_LINK;
-    else if (isGitlink) mode = EntryType.SUBMODULE;
-    else if ((entryMode & 0o111) !== 0) mode = EntryType.EXECUTABLE_FILE;
-    else mode = EntryType.REGULAR_FILE;
+  /**
+   * Ensure all parent directories are tracked
+   * For "src/core/nested", this ensures "src", "src/core", and "src/core/nested" are all tracked
+   */
+  private ensureAllParentDirectoriesTracked(dirPath: string, allDirectories: Set<string>): void {
+    let currentPath = dirPath;
 
-    return new TreeEntry(mode, basename, sha);
+    while (currentPath && currentPath !== '.') {
+      allDirectories.add(currentPath);
+      const parentPath = this.getDirectoryPath(currentPath);
+      currentPath = parentPath;
+    }
+  }
+
+  /**
+   * Create a tree entry for a file (converts IndexEntry to TreeEntry)
+   */
+  private createFileTreeEntry(indexEntry: IndexEntry): TreeEntry {
+    const fileName = path.basename(indexEntry.name);
+
+    let gitMode: string;
+    if (indexEntry.isSymlink) {
+      gitMode = EntryType.SYMBOLIC_LINK;
+    } else if (indexEntry.isGitlink) {
+      gitMode = EntryType.SUBMODULE;
+    } else if ((indexEntry.mode & 0o111) !== 0) {
+      gitMode = EntryType.EXECUTABLE_FILE;
+    } else {
+      gitMode = EntryType.REGULAR_FILE;
+    }
+
+    return new TreeEntry(gitMode, fileName, indexEntry.sha);
   }
 }
