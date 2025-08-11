@@ -57,7 +57,7 @@ export class IndexEntry {
     this.mtime = data.mtime || [0, 0];
     this.dev = data.dev || 0;
     this.ino = data.ino || 0;
-    this.mode = data.mode || 0o100644;
+    this.mode = data.mode ?? 0o100644;
     this.uid = data.uid || 0;
     this.gid = data.gid || 0;
     this.fileSize = data.fileSize || 0;
