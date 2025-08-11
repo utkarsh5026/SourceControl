@@ -37,7 +37,7 @@ export class TreeWalker {
       const headSha = await this.refManager.resolveReferenceToSha(RefManager.HEAD_FILE);
       return await this.getCommitFiles(headSha);
     } catch (error) {
-      throw new Error(`Failed to read HEAD commit: ${error}`);
+      return new Map();
     }
   }
 

@@ -176,4 +176,74 @@ describe('IndexManager', () => {
 
     headSpy.mockRestore();
   });
+
+  test('status: assumeValid suppresses unstaged.modified when size and mtime seconds unchanged', async () => {
+    const repo = new SourceRepository();
+    await repo.init(wd);
+
+    await writeWorkingFile('sv.txt', 'PING');
+    const filePath = path.join(wd.fullpath(), 'sv.txt');
+    const preStats = await fs.stat(filePath);
+
+    const sha = await writeBlob(repo, 'PING');
+    const e = await makeEntryFromDisk('sv.txt', sha);
+    e.assumeValid = true;
+    await buildIndex(repo, [e]);
+
+    // Modify with same length and restore mtime seconds to match the index entry
+    await fs.writeFile(filePath, 'PONG', 'utf8');
+    await fs.utimes(filePath, preStats.atime, preStats.mtime);
+
+    const im = new IndexManager(repo);
+    const st = await im.status();
+
+    expect(st.unstaged.modified).not.toContain('sv.txt');
+  });
+
+  test('status: identifies staged.modified when HEAD sha differs', async () => {
+    const repo = new SourceRepository();
+    await repo.init(wd);
+
+    await writeWorkingFile('x.txt', 'abc');
+    const shaIdx = await writeBlob(repo, 'abc');
+    const eX = await makeEntryFromDisk('x.txt', shaIdx);
+    await buildIndex(repo, [eX]);
+
+    const headFiles = new Map<string, string>([['x.txt', 'd'.repeat(40)]]);
+    const headSpy = jest.spyOn(TreeWalker.prototype, 'headFiles').mockResolvedValue(headFiles);
+
+    const im = new IndexManager(repo);
+    const st = await im.status();
+
+    expect(st.staged.modified.sort()).toEqual(['x.txt']);
+    expect(st.staged.added).toEqual([]);
+    expect(st.staged.deleted).toEqual([]);
+
+    headSpy.mockRestore();
+  });
+
+  test('remove: processes mixed existing and missing paths without deleting from disk', async () => {
+    const repo = new SourceRepository();
+    await repo.init(wd);
+
+    const keepAbs = await writeWorkingFile('keep.txt', 'K');
+    const otherAbs = await writeWorkingFile('other.txt', 'O');
+
+    const shaK = await writeBlob(repo, 'K');
+    const eK = await makeEntryFromDisk('keep.txt', shaK);
+    await buildIndex(repo, [eK]);
+
+    const im = new IndexManager(repo);
+    const res = await im.remove([keepAbs, otherAbs], false);
+
+    expect(res.removed.sort()).toEqual(['keep.txt']);
+    expect(res.failed).toEqual([{ path: 'other.txt', reason: 'File not in index' }]);
+
+    // Files remain on disk since deleteFromDisk=false
+    expect(await fs.pathExists(keepAbs)).toBe(true);
+    expect(await fs.pathExists(otherAbs)).toBe(true);
+
+    const gi = await GitIndex.read(repoIndexPath(repo));
+    expect(gi.entries).toHaveLength(0);
+  });
 });
