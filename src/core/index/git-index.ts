@@ -166,6 +166,14 @@ export class GitIndex {
     }
     offset += 4;
 
+    // Read and validate version
+    const version = view.getUint32(offset, false);
+    offset += 4;
+    if (version !== GitIndex.VERSION) {
+      throw new ObjectException(`Unsupported index version: ${version}`);
+    }
+
+    // Read entry count
     const entryCount = view.getUint32(offset, false);
     offset += 4;
 
@@ -186,7 +194,7 @@ export class GitIndex {
       throw new ObjectException('Index checksum mismatch');
     }
 
-    return new GitIndex(GitIndex.VERSION, entries);
+    return new GitIndex(version, entries);
   }
 
   /**
@@ -232,7 +240,6 @@ export class GitIndex {
 
   /**
    * Sort entries according to Git's rules
-   * Git sorts by name, treating directories as having a trailing '/'
    */
   private sortEntries(): void {
     this.entries.sort((a, b) => a.compareTo(b));
