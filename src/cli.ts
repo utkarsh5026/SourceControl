@@ -17,6 +17,7 @@ import {
   addCommand,
   statusCommand,
   commitCommand,
+  createSampleCommand,
 } from './commands';
 import { formatHelp, displayVersion, displayError, displayWelcome } from './utils/cli';
 
@@ -56,6 +57,7 @@ program.addCommand(configCommand);
 program.addCommand(addCommand);
 program.addCommand(statusCommand);
 program.addCommand(commitCommand);
+program.addCommand(createSampleCommand);
 program.exitOverride();
 
 try {
