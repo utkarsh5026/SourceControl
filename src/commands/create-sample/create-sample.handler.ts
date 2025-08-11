@@ -450,11 +450,11 @@ export class SampleGenerator {
 
   private generateRandomFile(): { filename: string; content: string } {
     const fileTypes = [
-      { ext: '.md', weight: 3, generator: ContentGenerators.generateMarkdown },
-      { ext: '.ts', weight: 3, generator: ContentGenerators.generateTypeScript },
-      { ext: '.json', weight: 2, generator: ContentGenerators.generateJSON },
-      { ext: '.txt', weight: 2, generator: ContentGenerators.generateTextFile },
-      { ext: '.csv', weight: 1, generator: ContentGenerators.generateCSV },
+      { ext: '.md', weight: 3, generator: (f: string) => ContentGenerators.generateMarkdown(f) },
+      { ext: '.ts', weight: 3, generator: (f: string) => ContentGenerators.generateTypeScript(f) },
+      { ext: '.json', weight: 2, generator: (f: string) => ContentGenerators.generateJSON(f) },
+      { ext: '.txt', weight: 2, generator: (_: string) => ContentGenerators.generateTextFile() },
+      { ext: '.csv', weight: 1, generator: (_: string) => ContentGenerators.generateCSV() },
     ];
 
     // Weighted random selection
