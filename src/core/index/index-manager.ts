@@ -3,12 +3,11 @@ import fs from 'fs-extra';
 import { IgnoreManager } from '@/core/ignore';
 import { Repository } from '@/core/repo';
 import { FileUtils } from '@/utils';
-import { BlobObject } from '@/core/objects';
 import { TreeWalker } from '@/core/tree';
 import { GitIndex } from './git-index';
 import type { AddResult, RemoveResult, StatusResult } from './types';
-import { IndexEntry } from './index-entry';
 import { StatusCalculator } from './status-calculator';
+import { IndexFileAdder } from './index-file-adder';
 
 /**
  * IndexManager orchestrates all operations between the working directory,
@@ -54,88 +53,8 @@ export class IndexManager {
    * 3. Updates the index entry with the file's metadata and blob SHA
    */
   public async add(filePaths: string[]): Promise<AddResult> {
-    const result: AddResult = {
-      added: [],
-      modified: [],
-      failed: [],
-      ignored: [],
-    };
-
-    const pushFailed = (path: string, reason: string) => {
-      result.failed.push({
-        path,
-        reason,
-      });
-    };
-
-    const createEntryForFile = async (absolutePath: string, relativePath: string) => {
-      const content = await FileUtils.readFile(absolutePath);
-      const blob = new BlobObject(new Uint8Array(content));
-      const sha = await this.repository.writeObject(blob);
-
-      const stats = await fs.stat(absolutePath);
-      const { ctimeMs, mtimeMs, dev, ino, mode, uid, gid, size } = stats;
-
-      return IndexEntry.fromFileStats(
-        relativePath,
-        {
-          ctimeMs,
-          mtimeMs,
-          dev,
-          ino,
-          mode,
-          uid,
-          gid,
-          size,
-        },
-        sha
-      );
-    };
-
-    const addFilesInDirectory = async (absolutePath: string) => {
-      const files = await this.getFilesInDirectory(absolutePath, repoRoot);
-      const { added, modified, failed } = await this.add(files);
-      result.added.push(...added);
-      result.modified.push(...modified);
-      result.failed.push(...failed);
-    };
-
-    await this.loadIndex();
-    const repoRoot = this.repoRoot();
-
-    filePaths.forEach(async (filePath) => {
-      try {
-        const { absolutePath, relativePath } = this.createAbsAndRelPaths(filePath);
-
-        if (!(await FileUtils.exists(absolutePath))) {
-          pushFailed(relativePath, 'File does not exist');
-          return;
-        }
-
-        if (!(await FileUtils.isFile(absolutePath))) {
-          if (await FileUtils.isDirectory(absolutePath)) {
-            await addFilesInDirectory(absolutePath);
-            return;
-          }
-
-          pushFailed(relativePath, 'Not a regular file');
-          return;
-        }
-
-        const entry = await createEntryForFile(absolutePath, relativePath);
-        const existingEntry = this.index.getEntry(entry.filePath);
-        const isModified = existingEntry !== undefined;
-
-        this.index.add(entry);
-        if (isModified) result.modified.push(relativePath);
-        else result.added.push(relativePath);
-      } catch (error) {
-        pushFailed(filePath, (error as Error).message);
-      }
-    });
-
-    await this.saveIndex();
-    return result;
+    const indexFileAdder = new IndexFileAdder(this.repository, this.repoRoot());
+    return await indexFileAdder.addFiles(filePaths, this.index);
   }
 
   /**
