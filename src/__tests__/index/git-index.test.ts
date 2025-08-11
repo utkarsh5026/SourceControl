@@ -5,6 +5,7 @@ import { GitIndex } from '../../core/index/git-index';
 import { IndexEntry } from '../../core/index/index-entry';
 import { ObjectException } from '../../core/exceptions';
 import { FileUtils } from '../../utils';
+import { GitTimestamp } from '../../core/index/index-entry-utils';
 
 const shaAB = 'ab'.repeat(20);
 const shaCD = 'cd'.repeat(20);
@@ -12,27 +13,27 @@ const shaEF = 'ef'.repeat(20);
 
 const makeEntry = (overrides: Partial<IndexEntry> = {}): IndexEntry => {
   return new IndexEntry({
-    name: 'file.txt',
-    ctime: [1_700_000_000, 111],
-    mtime: [1_700_000_010, 222],
-    dev: 1,
-    ino: 2,
-    mode: 0o100644,
-    uid: 1000,
-    gid: 1000,
+    filePath: 'file.txt',
+    creationTime: new GitTimestamp(1_700_000_000, 111),
+    modificationTime: new GitTimestamp(1_700_000_010, 222),
+    deviceId: 1,
+    inodeNumber: 2,
+    fileMode: 0o100644,
+    userId: 1000,
+    groupId: 1000,
     fileSize: 123,
-    sha: shaAB,
+    contentHash: shaAB,
     assumeValid: false,
-    stage: 0,
+    stageNumber: 0,
     ...overrides,
   });
 };
 
 describe('GitIndex: construction and helpers', () => {
   test('constructor sorts entries by compareTo (directory vs file)', () => {
-    const eFileA = makeEntry({ name: 'a' });
-    const eDirA = makeEntry({ name: 'a', mode: 0 }); // directory-like
-    const eFileB = makeEntry({ name: 'b' });
+    const eFileA = makeEntry({ filePath: 'a' });
+    const eDirA = makeEntry({ filePath: 'a', fileMode: 0 }); // directory-like
+    const eFileB = makeEntry({ filePath: 'b' });
     const gi = new GitIndex(2, [eFileB, eDirA, eFileA]);
 
     expect(gi.entryNames()).toEqual(['a', 'a', 'b']); // 'a' (file) < 'a/' (dir) < 'b'
@@ -41,8 +42,8 @@ describe('GitIndex: construction and helpers', () => {
   });
 
   test('entryNames/hasEntry/getEntry/removeEntry/clear work', () => {
-    const e1 = makeEntry({ name: 'one' });
-    const e2 = makeEntry({ name: 'two' });
+    const e1 = makeEntry({ filePath: 'one' });
+    const e2 = makeEntry({ filePath: 'two' });
     const gi = new GitIndex(2, [e1, e2]);
 
     expect(gi.entryNames().sort()).toEqual(['one', 'two']);
@@ -50,7 +51,7 @@ describe('GitIndex: construction and helpers', () => {
     expect(gi.hasEntry('one')).toBe(true);
     expect(gi.hasEntry('zzz')).toBe(false);
 
-    expect(gi.getEntry('two')?.name).toBe('two');
+    expect(gi.getEntry('two')?.filePath).toBe('two');
     expect(gi.getEntry('zzz')).toBeUndefined();
 
     gi.removeEntry('one');
@@ -65,32 +66,32 @@ describe('GitIndex: construction and helpers', () => {
 describe('GitIndex: serialize/deserialize', () => {
   test('round-trips header, entries, and checksum', () => {
     const e1 = makeEntry({
-      name: 'path/to/a.txt',
-      ctime: [1, 2],
-      mtime: [3, 4],
-      dev: 5,
-      ino: 6,
-      mode: 0o100755,
-      uid: 7,
-      gid: 8,
+      filePath: 'path/to/a.txt',
+      creationTime: new GitTimestamp(1, 2),
+      modificationTime: new GitTimestamp(3, 4),
+      deviceId: 5,
+      inodeNumber: 6,
+      fileMode: 0o100755,
+      userId: 7,
+      groupId: 8,
       fileSize: 9,
-      sha: shaCD,
+      contentHash: shaCD,
       assumeValid: true,
-      stage: 2,
+      stageNumber: 2,
     });
     const e2 = makeEntry({
-      name: 'z.txt',
-      ctime: [10, 11],
-      mtime: [12, 13],
-      dev: 14,
-      ino: 15,
-      mode: 0o120777, // symlink
-      uid: 16,
-      gid: 17,
+      filePath: 'z.txt',
+      creationTime: new GitTimestamp(10, 11),
+      modificationTime: new GitTimestamp(12, 13),
+      deviceId: 14,
+      inodeNumber: 15,
+      fileMode: 0o120777, // symlink
+      userId: 16,
+      groupId: 17,
       fileSize: 18,
-      sha: shaEF,
+      contentHash: shaEF,
       assumeValid: false,
-      stage: 1,
+      stageNumber: 1,
     });
 
     const gi1 = new GitIndex(2, [e2, e1]); // constructor sorts
@@ -106,22 +107,22 @@ describe('GitIndex: serialize/deserialize', () => {
 
     // Verify important fields are preserved
     const a = gi2.getEntry('path/to/a.txt')!;
-    expect(a.sha).toBe(shaCD);
-    expect(a.ctime).toEqual([1, 2]);
-    expect(a.mtime).toEqual([3, 4]);
-    expect(a.mode).toBe(0o100755);
+    expect(a.contentHash).toBe(shaCD);
+    expect(a.creationTime).toEqual(new GitTimestamp(1, 2));
+    expect(a.modificationTime).toEqual(new GitTimestamp(3, 4));
+    expect(a.fileMode).toBe(0o100755);
     expect(a.assumeValid).toBe(true);
-    expect(a.stage).toBe(2);
+    expect(a.stageNumber).toBe(2);
 
     const z = gi2.getEntry('z.txt')!;
-    expect(z.sha).toBe(shaEF);
-    expect(z.mode).toBe(0o120777);
+    expect(z.contentHash).toBe(shaEF);
+    expect(z.fileMode).toBe(0o120777);
     expect(z.assumeValid).toBe(false);
-    expect(z.stage).toBe(1);
+    expect(z.stageNumber).toBe(1);
   });
 
   test('invalid signature throws', () => {
-    const gi = new GitIndex(2, [makeEntry({ name: 'x', sha: shaAB })]);
+    const gi = new GitIndex(2, [makeEntry({ filePath: 'x', contentHash: shaAB })]);
     const buf = gi.serialize();
     buf[0] = 0x58; // change 'D' in 'DIRC' to 'X'
 
@@ -130,7 +131,7 @@ describe('GitIndex: serialize/deserialize', () => {
   });
 
   test('checksum mismatch throws', () => {
-    const gi = new GitIndex(2, [makeEntry({ name: 'x', sha: shaAB })]);
+    const gi = new GitIndex(2, [makeEntry({ filePath: 'x', contentHash: shaAB })]);
     const buf = gi.serialize();
     // flip a bit in the last byte (part of checksum)
     const idx = buf.length - 1;
@@ -158,8 +159,8 @@ describe('GitIndex: read/write integration', () => {
   test('write then read returns identical entries', async () => {
     const indexPath = await mkTmpFile();
 
-    const e1 = makeEntry({ name: 'a', sha: shaCD });
-    const e2 = makeEntry({ name: 'b/nested', sha: shaEF, mode: 0 }); // directory-like flags impact sort key
+    const e1 = makeEntry({ filePath: 'a', contentHash: shaCD });
+    const e2 = makeEntry({ filePath: 'b/nested', contentHash: shaEF, fileMode: 0 }); // directory-like flags impact sort key
     const gi1 = new GitIndex(2, [e2, e1]);
 
     await gi1.write(indexPath);
@@ -169,21 +170,25 @@ describe('GitIndex: read/write integration', () => {
     const gi2 = await GitIndex.read(indexPath);
     expect(gi2.version).toBe(2);
     expect(gi2.entryNames()).toEqual(['a', 'b/nested']);
-    expect(gi2.getEntry('a')?.sha).toBe(shaCD);
-    expect(gi2.getEntry('b/nested')?.sha).toBe(shaEF);
+    expect(gi2.getEntry('a')?.contentHash).toBe(shaCD);
+    expect(gi2.getEntry('b/nested')?.contentHash).toBe(shaEF);
   });
 });
 
 describe('GitIndex: isEntryModified()', () => {
   test('true when size differs', () => {
-    const e = makeEntry({ fileSize: 10, mtime: [100, 0] });
+    const e = makeEntry({ fileSize: 10, modificationTime: new GitTimestamp(100, 0) });
     const gi = new GitIndex();
     const modified = gi.isEntryModified(e, { mtimeMs: 100_000, size: 11 });
     expect(modified).toBe(true);
   });
 
   test('true when mtime seconds differ (even if assumeValid=true is set later)', () => {
-    const e = makeEntry({ fileSize: 10, mtime: [100, 0], assumeValid: true });
+    const e = makeEntry({
+      fileSize: 10,
+      modificationTime: new GitTimestamp(100, 0),
+      assumeValid: true,
+    });
     const gi = new GitIndex();
     // mtimeMs 101000 translates to seconds 101, which differs from 100
     const modified = gi.isEntryModified(e, { mtimeMs: 101_000, size: 10 });
@@ -191,14 +196,18 @@ describe('GitIndex: isEntryModified()', () => {
   });
 
   test('false when size and mtime seconds equal and assumeValid=false', () => {
-    const e = makeEntry({ fileSize: 10, mtime: [100, 0] });
+    const e = makeEntry({ fileSize: 10, modificationTime: new GitTimestamp(100, 0) });
     const gi = new GitIndex();
     const modified = gi.isEntryModified(e, { mtimeMs: 100_123, size: 10 });
     expect(modified).toBe(false);
   });
 
   test('false when size and mtime seconds equal and assumeValid=true', () => {
-    const e = makeEntry({ fileSize: 10, mtime: [100, 0], assumeValid: true });
+    const e = makeEntry({
+      fileSize: 10,
+      modificationTime: new GitTimestamp(100, 0),
+      assumeValid: true,
+    });
     const gi = new GitIndex();
     const modified = gi.isEntryModified(e, { mtimeMs: 100_999, size: 10 });
     expect(modified).toBe(false);
