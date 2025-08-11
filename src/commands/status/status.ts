@@ -1,7 +1,6 @@
-// src/commands/status.ts
 import { Command } from 'commander';
 import { IndexManager } from '@/core/index';
-import { BranchManager } from '@/core/refs';
+import { BranchManager } from '@/core/branch';
 import { RefManager } from '@/core/refs';
 import { getRepo } from '@/utils/helpers';
 import { logger } from '@/utils';
@@ -28,8 +27,8 @@ export const statusCommand = new Command('status')
     try {
       const repository = await getRepo();
       const indexManager = new IndexManager(repository);
+      const branchManager = new BranchManager(repository);
       const refManager = new RefManager(repository);
-      const branchManager = new BranchManager(refManager);
 
       await indexManager.initialize();
       await branchManager.init();
