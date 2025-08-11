@@ -96,6 +96,7 @@ Thumbs.db
 # Log files
 *.log
 logs/
+bin/
 
 # Runtime configuration
 .sourcecontrol/

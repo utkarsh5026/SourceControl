@@ -25,8 +25,9 @@
     "release": "npm run build && npm publish",
     "build:exe": "npm run build && pkg dist/cli.js --targets node18-win-x64 --output build/sourcecontrol.exe",
     "build:exe:all": "npm run build && pkg dist/cli.js --targets node18-win-x64,node18-macos-x64,node18-linux-x64 --out-path build/",
-    "build:exe:fast": "pkg dist/cli.js --targets node18-win-x64 --output build/sourcecontrol.exe",
-    "watch:exe": "concurrently -k \"npm run build:watch\" \"nodemon --watch dist/cli.js --delay 600ms --ignore build/** --exec \\\"npm run build:exe:fast\\\"\""
+    "prep:bin": "node -e \"require('fs').mkdirSync('bin',{recursive:true})\"",
+    "build:exe:fast": "npm run prep:bin && pkg dist/cli.js --targets node18-win-x64 --output bin/sourcecontrol.exe",
+    "watch:exe": "concurrently -k \"npm run build:watch\" \"nodemon --watch dist/cli.js --delay 600ms --ignore bin/** --exec \\\"npm run build:exe:fast\\\"\""
   },
   "keywords": [
     "cli",
