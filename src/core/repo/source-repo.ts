@@ -1,9 +1,10 @@
 import { Path } from 'glob';
+import fs from 'fs-extra';
 import { Repository } from './repo';
-import { ObjectStore, FileObjectStore } from '../object-store';
+import { ObjectStore, FileObjectStore } from '@/core/object-store';
 import { FileUtils } from '@/utils';
 import { RepositoryException } from './exceptions';
-import { GitObject } from '../objects';
+import { GitObject } from '@/core/objects';
 
 /**
  * Git repository implementation that manages the complete Git repository
@@ -53,22 +54,29 @@ export class SourceRepository extends Repository {
       this._workingDirectory = path.resolve();
       this._gitDirectory = this._workingDirectory.resolve(SourceRepository.DEFAULT_GIT_DIR);
 
-      if (await Repository.exists(this._workingDirectory)) {
+      if (await SourceRepository.exists(this._workingDirectory)) {
         throw new RepositoryException('Already a git repository: ' + this._workingDirectory);
       }
       const gitDir = this._gitDirectory;
 
-      this.createDirectories(gitDir);
-      this.createDirectories(gitDir.resolve(SourceRepository.DEFAULT_OBJECTS_DIR));
-      this.createDirectories(gitDir.resolve(SourceRepository.DEFAULT_REFS_DIR));
+      await this.createDirectories(gitDir);
+      await this.createDirectories(gitDir.resolve(SourceRepository.DEFAULT_OBJECTS_DIR));
+      await this.createDirectories(gitDir.resolve(SourceRepository.DEFAULT_REFS_DIR));
 
-      this.createDirectories(gitDir.resolve(SourceRepository.DEFAULT_REFS_DIR).resolve('heads'));
-      this.createDirectories(gitDir.resolve(SourceRepository.DEFAULT_REFS_DIR).resolve('tags'));
+      await this.createDirectories(
+        gitDir.resolve(SourceRepository.DEFAULT_REFS_DIR).resolve('heads')
+      );
+      await this.createDirectories(
+        gitDir.resolve(SourceRepository.DEFAULT_REFS_DIR).resolve('tags')
+      );
 
-      this._objectStore.initialize(this._gitDirectory);
-      this.createInitialFiles();
+      await this._objectStore.initialize(this._gitDirectory);
+      await this.createInitialFiles();
     } catch (e) {
-      throw new RepositoryException('Failed to initialize repository');
+      if (e instanceof RepositoryException) {
+        throw e;
+      }
+      throw new RepositoryException('Failed to initialize repository: ' + e);
     }
   }
 
@@ -104,8 +112,8 @@ export class SourceRepository extends Repository {
    */
   override async readObject(sha: string): Promise<GitObject | null> {
     try {
-      return this._objectStore.readObject(sha);
-    } catch (e) {
+      return await this._objectStore.readObject(sha);
+    } catch {
       throw new RepositoryException('Failed to read object');
     }
   }
@@ -115,8 +123,8 @@ export class SourceRepository extends Repository {
    */
   override async writeObject(object: GitObject): Promise<string> {
     try {
-      return this._objectStore.writeObject(object);
-    } catch (e) {
+      return await this._objectStore.writeObject(object);
+    } catch {
       throw new RepositoryException('Failed to write object');
     }
   }
@@ -128,13 +136,13 @@ export class SourceRepository extends Repository {
     let current: Path | null = startPath.resolve();
 
     while (current != null) {
-      if (await Repository.exists(current)) {
+      if (await SourceRepository.exists(current)) {
         const repo = new SourceRepository();
         repo._workingDirectory = current;
-        repo._gitDirectory = current.resolve('.git');
+        repo._gitDirectory = current.resolve(SourceRepository.DEFAULT_GIT_DIR);
         try {
           await repo._objectStore.initialize(repo._gitDirectory);
-        } catch (e) {
+        } catch {
           return null;
         }
         return repo;
@@ -168,11 +176,18 @@ export class SourceRepository extends Repository {
     await this.createFile(this._gitDirectory.resolve(SourceRepository.DEFAULT_CONFIG_FILE), config);
   }
 
-  private createDirectories(path: Path) {
-    FileUtils.createDirectories(path.fullpath());
+  private async createDirectories(path: Path) {
+    await FileUtils.createDirectories(path.fullpath());
   }
 
   private async createFile(path: Path, content: string) {
-    FileUtils.createFile(path.fullpath(), content);
+    await FileUtils.createFile(path.fullpath(), content);
+  }
+
+  /**
+   * Check if repository exists at path
+   */
+  static async exists(path: Path): Promise<boolean> {
+    return await fs.pathExists(path.resolve(SourceRepository.DEFAULT_GIT_DIR).fullpath());
   }
 }
