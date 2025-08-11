@@ -35,20 +35,17 @@ export class TreeBuilder {
     const filesByDirectory = new Map<string, IndexEntry[]>();
     const allDirectories = new Set<string>();
 
-    // Initialize root directory
     filesByDirectory.set('', []);
     allDirectories.add('');
 
     for (const entry of entries) {
-      const directoryPath = this.getDirectoryPath(entry.name);
+      const directoryPath = this.getDirectoryPath(entry.filePath);
 
-      // Add this file to its directory
       if (!filesByDirectory.has(directoryPath)) {
         filesByDirectory.set(directoryPath, []);
       }
       filesByDirectory.get(directoryPath)!.push(entry);
 
-      // Ensure all parent directories exist in our tracking
       this.ensureAllParentDirectoriesTracked(directoryPath, allDirectories);
     }
 
@@ -160,19 +157,19 @@ export class TreeBuilder {
    * Create a tree entry for a file (converts IndexEntry to TreeEntry)
    */
   private createFileTreeEntry(indexEntry: IndexEntry): TreeEntry {
-    const fileName = path.basename(indexEntry.name);
+    const fileName = path.basename(indexEntry.filePath);
 
     let gitMode: string;
     if (indexEntry.isSymlink) {
       gitMode = EntryType.SYMBOLIC_LINK;
     } else if (indexEntry.isGitlink) {
       gitMode = EntryType.SUBMODULE;
-    } else if ((indexEntry.mode & 0o111) !== 0) {
+    } else if ((indexEntry.fileMode & 0o111) !== 0) {
       gitMode = EntryType.EXECUTABLE_FILE;
     } else {
       gitMode = EntryType.REGULAR_FILE;
     }
 
-    return new TreeEntry(gitMode, fileName, indexEntry.sha);
+    return new TreeEntry(gitMode, fileName, indexEntry.contentHash);
   }
 }
