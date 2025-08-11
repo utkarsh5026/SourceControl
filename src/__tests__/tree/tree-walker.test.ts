@@ -197,7 +197,7 @@ describe('TreeWalker.headFiles', () => {
     spy.mockRestore();
   });
 
-  test('propagates error with context when HEAD cannot be read', async () => {
+  test('returns empty map when HEAD cannot be read', async () => {
     const repo = new FakeRepository();
     const walker = new TreeWalker(repo);
 
@@ -205,7 +205,8 @@ describe('TreeWalker.headFiles', () => {
       .spyOn(RefManager.prototype, 'resolveReferenceToSha')
       .mockRejectedValue(new Error('boom'));
 
-    await expect(walker.headFiles()).rejects.toThrow(/Failed to read HEAD commit: /);
+    const files = await walker.headFiles();
+    expect(files.size).toBe(0);
 
     spy.mockRestore();
   });
