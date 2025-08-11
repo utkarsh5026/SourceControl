@@ -160,11 +160,11 @@ export class IndexManager {
       ignored: [],
     };
 
-    const repoRoot = this.repository.gitDirectory().fullpath();
+    const repoRoot = this.repoRoot();
     const indexFiles = new Set(this.index.entryNames());
     const headFiles = await this.treeWalker.headFiles();
 
-    const checkHead = async () => {
+    const checkHead = () => {
       for (const [headPath, _] of headFiles) {
         if (!indexFiles.has(headPath)) {
           status.staged.deleted.push(headPath);
@@ -186,40 +186,42 @@ export class IndexManager {
     };
 
     const checkStaged = async () => {
-      this.index.entries.forEach(async (entry) => {
-        const { absolutePath } = this.createAbsAndRelPaths(entry.name);
+      await Promise.all(
+        this.index.entries.map(async (entry) => {
+          const { absolutePath } = this.createAbsAndRelPaths(entry.name);
 
-        if (await FileUtils.exists(absolutePath)) {
-          const stats = await fs.stat(absolutePath);
-          const isModified = this.index.isEntryModified(entry, {
-            mtimeMs: stats.mtimeMs,
-            size: stats.size,
-          });
+          if (await FileUtils.exists(absolutePath)) {
+            const stats = await fs.stat(absolutePath);
+            const isModified = this.index.isEntryModified(entry, {
+              mtimeMs: stats.mtimeMs,
+              size: stats.size,
+            });
 
-          if (isModified) {
-            const content = await FileUtils.readFile(absolutePath);
-            const blob = new BlobObject(new Uint8Array(content));
-            const currentSha = await blob.sha();
+            if (isModified) {
+              const content = await FileUtils.readFile(absolutePath);
+              const blob = new BlobObject(new Uint8Array(content));
+              const currentSha = await blob.sha();
 
-            if (currentSha !== entry.sha) {
-              status.unstaged.modified.push(entry.name);
+              if (currentSha !== entry.sha) {
+                status.unstaged.modified.push(entry.name);
+              }
             }
+          } else {
+            status.unstaged.deleted.push(entry.name);
           }
-        } else {
-          status.unstaged.deleted.push(entry.name);
-        }
 
-        if (headFiles.has(entry.name)) {
-          const headSha = headFiles.get(entry.name)!;
-          if (headSha !== entry.sha) status.staged.modified.push(entry.name);
-        } else {
-          status.staged.added.push(entry.name);
-        }
-      });
+          if (headFiles.has(entry.name)) {
+            const headSha = headFiles.get(entry.name)!;
+            if (headSha !== entry.sha) status.staged.modified.push(entry.name);
+          } else {
+            status.staged.added.push(entry.name);
+          }
+        })
+      );
     };
 
     await checkStaged();
-    await checkHead();
+    checkHead();
     await checkUntracked();
     return status;
   }
@@ -297,7 +299,7 @@ export class IndexManager {
       cwd: repoRoot,
       nodir: true,
       dot: true,
-      ignore: ['.source/**'],
+      ignore: ['.source/**', '**/.sourceignore'],
     });
 
     return files.map((f) => path.join(repoRoot, f));
@@ -338,7 +340,9 @@ export class IndexManager {
 
   private createAbsAndRelPaths(filePath: string): { absolutePath: string; relativePath: string } {
     const repoRoot = this.repoRoot();
-    const absolutePath = path.resolve(filePath);
+    const absolutePath = path.isAbsolute(filePath)
+      ? path.normalize(filePath)
+      : path.join(repoRoot, filePath);
     const relativePath = path.relative(repoRoot, absolutePath).replace(/\\/g, '/');
     return { absolutePath, relativePath };
   }
