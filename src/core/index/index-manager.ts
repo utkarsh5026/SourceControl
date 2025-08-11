@@ -1,5 +1,4 @@
 import path from 'path';
-import { glob } from 'glob';
 import fs from 'fs-extra';
 import { IgnoreManager } from '@/core/ignore';
 import { Repository } from '@/core/repo';
@@ -9,6 +8,7 @@ import { TreeWalker } from '@/core/tree';
 import { GitIndex } from './git-index';
 import type { AddResult, RemoveResult, StatusResult } from './types';
 import { IndexEntry } from './index-entry';
+import { StatusCalculator } from './status-calculator';
 
 /**
  * IndexManager orchestrates all operations between the working directory,
@@ -146,84 +146,12 @@ export class IndexManager {
     await this.loadIndex();
     await this.ignoreManager.initialize();
 
-    const status: StatusResult = {
-      staged: {
-        added: [],
-        modified: [],
-        deleted: [],
-      },
-      unstaged: {
-        modified: [],
-        deleted: [],
-      },
-      untracked: [],
-      ignored: [],
-    };
-
-    const repoRoot = this.repoRoot();
-    const indexFiles = new Set(this.index.entryNames());
-    const headFiles = await this.treeWalker.headFiles();
-
-    const checkHead = () => {
-      for (const [headPath, _] of headFiles) {
-        if (!indexFiles.has(headPath)) {
-          status.staged.deleted.push(headPath);
-        }
-      }
-    };
-
-    const checkUntracked = async () => {
-      const workingFiles = await this.getAllWorkingFiles(repoRoot);
-      workingFiles.forEach((workingFile) => {
-        const { relativePath } = this.createAbsAndRelPaths(workingFile);
-        if (indexFiles.has(relativePath)) return;
-
-        const isIgnored = this.ignoreManager.isIgnored(relativePath, false);
-
-        if (isIgnored) status.ignored.push(relativePath);
-        else status.untracked.push(relativePath);
-      });
-    };
-
-    const checkStaged = async () => {
-      await Promise.all(
-        this.index.entries.map(async (entry) => {
-          const { absolutePath } = this.createAbsAndRelPaths(entry.filePath);
-
-          if (await FileUtils.exists(absolutePath)) {
-            const stats = await fs.stat(absolutePath);
-            const isModified = this.index.isEntryModified(entry, {
-              mtimeMs: stats.mtimeMs,
-              size: stats.size,
-            });
-
-            if (isModified) {
-              const content = await FileUtils.readFile(absolutePath);
-              const blob = new BlobObject(new Uint8Array(content));
-              const currentSha = await blob.sha();
-
-              if (currentSha !== entry.contentHash) {
-                status.unstaged.modified.push(entry.filePath);
-              }
-            }
-          } else {
-            status.unstaged.deleted.push(entry.filePath);
-          }
-
-          if (headFiles.has(entry.filePath)) {
-            const headSha = headFiles.get(entry.filePath)!;
-            if (headSha !== entry.contentHash) status.staged.modified.push(entry.filePath);
-          } else {
-            status.staged.added.push(entry.filePath);
-          }
-        })
-      );
-    };
-
-    await checkStaged();
-    checkHead();
-    await checkUntracked();
-    return status;
+    const statusCalculator = new StatusCalculator(
+      this.repoRoot(),
+      this.treeWalker,
+      this.ignoreManager
+    );
+    return await statusCalculator.calculateStatus(this.index);
   }
 
   /**
@@ -288,21 +216,6 @@ export class IndexManager {
    */
   async saveIndex(): Promise<void> {
     await this.index.write(this.indexPath);
-  }
-
-  /**
-   * Get all files in the working directory
-   */
-  private async getAllWorkingFiles(repoRoot: string): Promise<string[]> {
-    const pattern = '**/*';
-    const files = await glob(pattern, {
-      cwd: repoRoot,
-      nodir: true,
-      dot: true,
-      ignore: ['.source/**', '**/.sourceignore'],
-    });
-
-    return files.map((f) => path.join(repoRoot, f));
   }
 
   /**
