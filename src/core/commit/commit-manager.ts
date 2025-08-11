@@ -1,7 +1,8 @@
 import path from 'path';
 import { GitConfigManager } from '@/core/config/config-manager';
 import { Repository } from '@/core/repo';
-import { RefManager, BranchManager } from '@/core/refs';
+import { RefManager } from '@/core/refs';
+import { BranchManager } from '@/core/branch';
 import { TreeBuilder } from '@/core/tree';
 import { TypedConfig } from '@/core/config';
 import { CommitOptions, CommitResult } from './types';
@@ -34,7 +35,7 @@ export class CommitManager {
     this.repository = repository;
     this.treeBuilder = new TreeBuilder(repository);
     this.refManager = new RefManager(repository);
-    this.branchManager = new BranchManager(this.refManager);
+    this.branchManager = new BranchManager(repository);
     this.configManager = new GitConfigManager(repository);
     this.config = new TypedConfig(this.configManager);
   }
