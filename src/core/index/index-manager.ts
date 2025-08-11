@@ -91,13 +91,13 @@ export class IndexManager {
 
     await this.loadIndex();
 
-    filePaths.forEach(async (filePath) => {
+    for (const filePath of filePaths) {
       try {
         const { absolutePath, relativePath } = this.createAbsAndRelPaths(filePath);
 
         if (!this.index.hasEntry(relativePath)) {
           pushFailed(relativePath, 'File not in index');
-          return;
+          continue;
         }
 
         this.index.removeEntry(relativePath);
@@ -109,7 +109,7 @@ export class IndexManager {
       } catch (error) {
         pushFailed(filePath, (error as Error).message);
       }
-    });
+    }
 
     await this.saveIndex();
     return result;
