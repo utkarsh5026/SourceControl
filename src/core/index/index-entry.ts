@@ -1,5 +1,6 @@
 import { ObjectException } from '../exceptions';
 import fs from 'fs-extra';
+import { IndexEntryFlags, IndexEntryLayout } from './index-entry-utils';
 
 type FileStats = Pick<
   fs.Stats,
@@ -28,8 +29,8 @@ type FileStats = Pick<
  * └────────────────────────────────────────────────────┘
  */
 export class IndexEntry {
-  private static readonly HEADER_SIZE = 62;
   private static readonly SHA_SIZE = 20;
+  private static readonly NULL_TERMINATOR = 0;
 
   public ctime: [number, number]; // Creation time
   public mtime: [number, number]; // Modification time
@@ -123,60 +124,69 @@ export class IndexEntry {
    * Serialize this entry to binary format for storage in the index file
    */
   serialize(): Uint8Array {
-    const nameBytes = new TextEncoder().encode(this.name);
-    const nameLength = nameBytes.length;
+    const filenameBytes = new TextEncoder().encode(this.name);
+    const filenameLength = filenameBytes.length;
 
-    const totalSize = IndexEntry.HEADER_SIZE + nameLength + 1;
-    const paddedSize = Math.ceil(totalSize / 8) * 8;
+    // Calculate total size including padding to 8-byte boundary
+    const entrySize = IndexEntryLayout.FIXED_HEADER_SIZE + filenameLength + 1; // +1 for null terminator
+    const paddedSize =
+      Math.ceil(entrySize / IndexEntryLayout.ALIGNMENT_BOUNDARY) *
+      IndexEntryLayout.ALIGNMENT_BOUNDARY;
 
     const buffer = new Uint8Array(paddedSize);
-    const view = new DataView(buffer.buffer);
+    const dataView = new DataView(buffer.buffer);
 
-    let offset = 0;
-
-    // Write timestamps
-    view.setUint32(offset, this.ctime[0], false);
-    offset += 4;
-    view.setUint32(offset, this.ctime[1], false);
-    offset += 4;
-    view.setUint32(offset, this.mtime[0], false);
-    offset += 4;
-    view.setUint32(offset, this.mtime[1], false);
-    offset += 4;
-
-    // Write file system metadata
-    view.setUint32(offset, this.dev, false);
-    offset += 4;
-    view.setUint32(offset, this.ino, false);
-    offset += 4;
-    view.setUint32(offset, this.mode, false);
-    offset += 4;
-    view.setUint32(offset, this.uid, false);
-    offset += 4;
-    view.setUint32(offset, this.gid, false);
-    offset += 4;
-    view.setUint32(offset, this.fileSize, false);
-    offset += 4;
-
-    // Write SHA-1 hash (20 bytes)
-    for (let i = 0; i < 20; i++) {
-      const byte = parseInt(this.sha.substring(i * 2, (i + 1) * 2), 16);
-      buffer[offset++] = byte;
-    }
-
-    // Write flags
-    const flags = this.encodeFlags(nameLength);
-    view.setUint16(offset, flags, false);
-    offset += 2;
-
-    // Write filename
-    buffer.set(nameBytes, offset);
-    offset += nameLength;
-
-    // Null terminator
-    buffer[offset] = 0;
+    this.writeFixedHeaderFields(dataView);
+    this.writeVariableFields(buffer, filenameBytes, filenameLength);
 
     return buffer;
+  }
+
+  /**
+   * Write the fixed-size header fields to the buffer
+   */
+  private writeFixedHeaderFields(dataView: DataView): void {
+    dataView.setUint32(IndexEntryLayout.CTIME_SECONDS_OFFSET, this.ctime[0], false);
+    dataView.setUint32(IndexEntryLayout.CTIME_NANOSECONDS_OFFSET, this.ctime[1], false);
+    dataView.setUint32(IndexEntryLayout.MTIME_SECONDS_OFFSET, this.mtime[0], false);
+    dataView.setUint32(IndexEntryLayout.MTIME_NANOSECONDS_OFFSET, this.mtime[1], false);
+
+    dataView.setUint32(IndexEntryLayout.DEVICE_ID_OFFSET, this.dev, false);
+    dataView.setUint32(IndexEntryLayout.INODE_OFFSET, this.ino, false);
+    dataView.setUint32(IndexEntryLayout.MODE_OFFSET, this.mode, false);
+    dataView.setUint32(IndexEntryLayout.USER_ID_OFFSET, this.uid, false);
+    dataView.setUint32(IndexEntryLayout.GROUP_ID_OFFSET, this.gid, false);
+    dataView.setUint32(IndexEntryLayout.FILE_SIZE_OFFSET, this.fileSize, false);
+
+    this.writeShaHash(dataView.buffer, IndexEntryLayout.SHA_OFFSET);
+    const flags = IndexEntryFlags.encode(this.assumeValid, this.stage, this.name.length);
+    dataView.setUint16(IndexEntryLayout.FLAGS_OFFSET, flags, false);
+  }
+
+  /**
+   * Write the SHA-1 hash as binary data
+   */
+  private writeShaHash(buffer: ArrayBufferLike, offset: number): void {
+    const view = new Uint8Array(buffer, offset, IndexEntryLayout.SHA_BYTE_LENGTH);
+
+    for (let i = 0; i < IndexEntryLayout.SHA_BYTE_LENGTH; i++) {
+      const hexIndex = i * 2;
+      const hexPair = this.sha.substring(hexIndex, hexIndex + 2);
+      view[i] = parseInt(hexPair, 16);
+    }
+  }
+
+  /**
+   * Write the variable-length filename and null terminator
+   */
+  private writeVariableFields(
+    buffer: Uint8Array,
+    filenameBytes: Uint8Array,
+    filenameLength: number
+  ): void {
+    const filenameOffset = IndexEntryLayout.FIXED_HEADER_SIZE;
+    buffer.set(filenameBytes, filenameOffset);
+    buffer[filenameOffset + filenameLength] = IndexEntry.NULL_TERMINATOR;
   }
 
   /**
@@ -259,30 +269,6 @@ export class IndexEntry {
       fileSize: stats.size,
       sha,
     });
-  }
-
-  /**
-   * Encode flags into a 16-bit value
-   * Bit layout:
-   * - Bit 15: assume-valid flag
-   * - Bit 14: extended flag (must be 0 for version 2)
-   * - Bits 13-12: stage (0-3)
-   * - Bits 11-0: name length (max 4095)
-   */
-  private encodeFlags(nameLength: number): number {
-    let flags = 0;
-
-    if (this.assumeValid) {
-      flags |= 0x8000;
-    }
-
-    flags |= (this.stage & 0x3) << 12;
-
-    // Name length is capped at 4095 (0xfff)
-    const cappedLength = Math.min(nameLength, 0xfff);
-    flags |= cappedLength;
-
-    return flags;
   }
 
   /**
