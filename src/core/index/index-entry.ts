@@ -1,6 +1,6 @@
 import { ObjectException } from '../exceptions';
 import fs from 'fs-extra';
-import { IndexEntryFlags, IndexEntryLayout } from './index-entry-utils';
+import { GitTimestamp, IndexEntryFlags, IndexEntryLayout } from './index-entry-utils';
 
 type FileStats = Pick<
   fs.Stats,
@@ -29,57 +29,56 @@ type FileStats = Pick<
  * └────────────────────────────────────────────────────┘
  */
 export class IndexEntry {
-  private static readonly SHA_SIZE = 20;
   private static readonly NULL_TERMINATOR = 0;
 
-  public ctime: [number, number]; // Creation time
-  public mtime: [number, number]; // Modification time
+  public creationTime: GitTimestamp; // Creation time
+  public modificationTime: GitTimestamp; // Modification time
 
   // File system metadata
-  public dev: number; // Device ID
-  public ino: number; // Inode number
-  public mode: number; // File mode (type + permissions)
-  public uid: number; // User ID
-  public gid: number; // Group ID
+  public deviceId: number; // Device ID
+  public inodeNumber: number; // Inode number
+  public fileMode: number; // File mode (type + permissions)
+  public userId: number; // User ID
+  public groupId: number; // Group ID
   public fileSize: number; // File size in bytes
 
   // Git object reference
-  public sha: string; // SHA-1 hash of the blob
+  public contentHash: string; // SHA-1 hash of the blob
 
   // Index-specific flags
   public assumeValid: boolean; // Assume file hasn't changed
-  public stage: number; // Staging number (0=normal, 1-3=merge conflict)
+  public stageNumber: number; // Staging number (0=normal, 1-3=merge conflict)
 
   // File path (relative to repository root)
-  public name: string;
+  public filePath: string;
 
   constructor(data: Partial<IndexEntry> = {}) {
-    this.ctime = data.ctime || [0, 0];
-    this.mtime = data.mtime || [0, 0];
-    this.dev = data.dev || 0;
-    this.ino = data.ino || 0;
-    this.mode = data.mode ?? 0o100644;
-    this.uid = data.uid || 0;
-    this.gid = data.gid || 0;
+    this.creationTime = data.creationTime || new GitTimestamp(0, 0);
+    this.modificationTime = data.modificationTime || new GitTimestamp(0, 0);
+    this.deviceId = data.deviceId || 0;
+    this.inodeNumber = data.inodeNumber || 0;
+    this.fileMode = data.fileMode ?? 0o100644;
+    this.userId = data.userId || 0;
+    this.groupId = data.groupId || 0;
     this.fileSize = data.fileSize || 0;
-    this.sha = data.sha || '';
+    this.contentHash = data.contentHash || '';
     this.assumeValid = data.assumeValid || false;
-    this.stage = data.stage || 0;
-    this.name = data.name || '';
+    this.stageNumber = data.stageNumber || 0;
+    this.filePath = data.filePath || '';
   }
 
   /**
    * Get the file mode type (regular file, symlink, gitlink)
    */
   get modeType(): number {
-    return (this.mode >> 12) & 0b1111;
+    return (this.fileMode >> 12) & 0b1111;
   }
 
   /**
    * Get the file permissions (last 9 bits)
    */
   get modePerms(): number {
-    return this.mode & 0o777;
+    return this.fileMode & 0o777;
   }
 
   /**
@@ -112,8 +111,8 @@ export class IndexEntry {
    * Git sorts entries by name, treating directories as having a trailing '/'
    */
   compareTo(other: IndexEntry): number {
-    const thisKey = this.isDirectory ? this.name + '/' : this.name;
-    const otherKey = other.isDirectory ? other.name + '/' : other.name;
+    const thisKey = this.isDirectory ? this.filePath + '/' : this.filePath;
+    const otherKey = other.isDirectory ? other.filePath + '/' : other.filePath;
 
     if (thisKey < otherKey) return -1;
     if (thisKey > otherKey) return 1;
@@ -124,7 +123,7 @@ export class IndexEntry {
    * Serialize this entry to binary format for storage in the index file
    */
   serialize(): Uint8Array {
-    const filenameBytes = new TextEncoder().encode(this.name);
+    const filenameBytes = new TextEncoder().encode(this.filePath);
     const filenameLength = filenameBytes.length;
 
     // Calculate total size including padding to 8-byte boundary
@@ -146,20 +145,28 @@ export class IndexEntry {
    * Write the fixed-size header fields to the buffer
    */
   private writeFixedHeaderFields(dataView: DataView): void {
-    dataView.setUint32(IndexEntryLayout.CTIME_SECONDS_OFFSET, this.ctime[0], false);
-    dataView.setUint32(IndexEntryLayout.CTIME_NANOSECONDS_OFFSET, this.ctime[1], false);
-    dataView.setUint32(IndexEntryLayout.MTIME_SECONDS_OFFSET, this.mtime[0], false);
-    dataView.setUint32(IndexEntryLayout.MTIME_NANOSECONDS_OFFSET, this.mtime[1], false);
+    dataView.setUint32(IndexEntryLayout.CTIME_SECONDS_OFFSET, this.creationTime.seconds, false);
+    dataView.setUint32(
+      IndexEntryLayout.CTIME_NANOSECONDS_OFFSET,
+      this.creationTime.nanoseconds,
+      false
+    );
+    dataView.setUint32(IndexEntryLayout.MTIME_SECONDS_OFFSET, this.modificationTime.seconds, false);
+    dataView.setUint32(
+      IndexEntryLayout.MTIME_NANOSECONDS_OFFSET,
+      this.modificationTime.nanoseconds,
+      false
+    );
 
-    dataView.setUint32(IndexEntryLayout.DEVICE_ID_OFFSET, this.dev, false);
-    dataView.setUint32(IndexEntryLayout.INODE_OFFSET, this.ino, false);
-    dataView.setUint32(IndexEntryLayout.MODE_OFFSET, this.mode, false);
-    dataView.setUint32(IndexEntryLayout.USER_ID_OFFSET, this.uid, false);
-    dataView.setUint32(IndexEntryLayout.GROUP_ID_OFFSET, this.gid, false);
+    dataView.setUint32(IndexEntryLayout.DEVICE_ID_OFFSET, this.deviceId, false);
+    dataView.setUint32(IndexEntryLayout.INODE_OFFSET, this.inodeNumber, false);
+    dataView.setUint32(IndexEntryLayout.MODE_OFFSET, this.fileMode, false);
+    dataView.setUint32(IndexEntryLayout.USER_ID_OFFSET, this.userId, false);
+    dataView.setUint32(IndexEntryLayout.GROUP_ID_OFFSET, this.groupId, false);
     dataView.setUint32(IndexEntryLayout.FILE_SIZE_OFFSET, this.fileSize, false);
 
     this.writeShaHash(dataView.buffer, IndexEntryLayout.SHA_OFFSET);
-    const flags = IndexEntryFlags.encode(this.assumeValid, this.stage, this.name.length);
+    const flags = IndexEntryFlags.encode(this.assumeValid, this.stageNumber, this.filePath.length);
     dataView.setUint16(IndexEntryLayout.FLAGS_OFFSET, flags, false);
   }
 
@@ -171,7 +178,7 @@ export class IndexEntry {
 
     for (let i = 0; i < IndexEntryLayout.SHA_BYTE_LENGTH; i++) {
       const hexIndex = i * 2;
-      const hexPair = this.sha.substring(hexIndex, hexIndex + 2);
+      const hexPair = this.contentHash.substring(hexIndex, hexIndex + 2);
       view[i] = parseInt(hexPair, 16);
     }
   }
@@ -193,64 +200,94 @@ export class IndexEntry {
    * Deserialize an entry from binary data
    */
   static deserialize(data: Uint8Array, offset: number): { entry: IndexEntry; nextOffset: number } {
-    const view = new DataView(data.buffer, data.byteOffset + offset);
-    let pos = 0;
-
+    const dataView = new DataView(data.buffer, data.byteOffset + offset);
     const entry = new IndexEntry();
 
-    entry.ctime = [view.getUint32(pos, false), view.getUint32(pos + 4, false)];
-    pos += 8;
-    entry.mtime = [view.getUint32(pos, false), view.getUint32(pos + 4, false)];
-    pos += 8;
+    entry.readFixedHeaderFields(dataView);
+    const { filename, bytesRead } = this.readVariableFields(data, offset);
+    entry.filePath = filename;
 
-    // Read file system metadata
-    entry.dev = view.getUint32(pos, false);
-    pos += 4;
-    entry.ino = view.getUint32(pos, false);
-    pos += 4;
-    entry.mode = view.getUint32(pos, false);
-    pos += 4;
-    entry.uid = view.getUint32(pos, false);
-    pos += 4;
-    entry.gid = view.getUint32(pos, false);
-    pos += 4;
-    entry.fileSize = view.getUint32(pos, false);
-    pos += 4;
-
-    const shaBytes = new Uint8Array(
-      data.buffer,
-      data.byteOffset + offset + pos,
-      IndexEntry.SHA_SIZE
-    );
-    entry.sha = Array.from(shaBytes)
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('');
-    pos += IndexEntry.SHA_SIZE;
-
-    const flags = view.getUint16(pos, false);
-    pos += 2;
-    entry.decodeFlags(flags);
-
-    const nameLength = flags & 0xfff;
-    let actualNameLength = nameLength;
-
-    if (nameLength === 0xfff) {
-      // Name is at least 4095 bytes, find null terminator
-      let nullPos = offset + pos + 0xfff;
-      while (nullPos < data.length && data[nullPos] !== 0) {
-        nullPos++;
-      }
-      actualNameLength = nullPos - (offset + pos);
-    }
-
-    const nameBytes = new Uint8Array(data.buffer, data.byteOffset + offset + pos, actualNameLength);
-    entry.name = new TextDecoder().decode(nameBytes);
-    pos += actualNameLength + 1; // +1 for null terminator
-
-    // Calculate next offset (with padding)
-    const nextOffset = offset + Math.ceil(pos / 8) * 8;
+    // Calculate next entry offset (padded to 8-byte boundary)
+    const entrySize = IndexEntryLayout.FIXED_HEADER_SIZE + bytesRead;
+    const nextOffset =
+      offset +
+      Math.ceil(entrySize / IndexEntryLayout.ALIGNMENT_BOUNDARY) *
+        IndexEntryLayout.ALIGNMENT_BOUNDARY;
 
     return { entry, nextOffset };
+  }
+
+  /**
+   * Read the variable-length filename
+   */
+  private static readVariableFields(
+    data: Uint8Array,
+    baseOffset: number
+  ): { filename: string; bytesRead: number } {
+    const filenameStartOffset = baseOffset + IndexEntryLayout.FIXED_HEADER_SIZE;
+
+    // Find the null terminator
+    let nullTerminatorOffset = filenameStartOffset;
+    while (nullTerminatorOffset < data.length && data[nullTerminatorOffset] !== 0) {
+      nullTerminatorOffset++;
+    }
+
+    if (nullTerminatorOffset >= data.length) {
+      throw new ObjectException('Invalid index entry: filename not null-terminated');
+    }
+
+    const filenameLength = nullTerminatorOffset - filenameStartOffset;
+    const filenameBytes = data.slice(filenameStartOffset, nullTerminatorOffset);
+    const filename = new TextDecoder().decode(filenameBytes);
+
+    // Include null terminator in bytes read
+    const bytesRead = filenameLength + 1;
+
+    return { filename, bytesRead };
+  }
+
+  /**
+   * Read the fixed-size header fields from the buffer
+   */
+  private readFixedHeaderFields(dataView: DataView): void {
+    // Read timestamps
+    const ctimeSeconds = dataView.getUint32(IndexEntryLayout.CTIME_SECONDS_OFFSET, false);
+    const ctimeNanoseconds = dataView.getUint32(IndexEntryLayout.CTIME_NANOSECONDS_OFFSET, false);
+    this.creationTime = new GitTimestamp(ctimeSeconds, ctimeNanoseconds);
+
+    const mtimeSeconds = dataView.getUint32(IndexEntryLayout.MTIME_SECONDS_OFFSET, false);
+    const mtimeNanoseconds = dataView.getUint32(IndexEntryLayout.MTIME_NANOSECONDS_OFFSET, false);
+    this.modificationTime = new GitTimestamp(mtimeSeconds, mtimeNanoseconds);
+
+    // Read file system metadata
+    this.deviceId = dataView.getUint32(IndexEntryLayout.DEVICE_ID_OFFSET, false);
+    this.inodeNumber = dataView.getUint32(IndexEntryLayout.INODE_OFFSET, false);
+    this.fileMode = dataView.getUint32(IndexEntryLayout.MODE_OFFSET, false);
+    this.userId = dataView.getUint32(IndexEntryLayout.USER_ID_OFFSET, false);
+    this.groupId = dataView.getUint32(IndexEntryLayout.GROUP_ID_OFFSET, false);
+    this.fileSize = dataView.getUint32(IndexEntryLayout.FILE_SIZE_OFFSET, false);
+
+    // Read SHA-1 hash
+    this.contentHash = this.readShaHash(
+      dataView.buffer,
+      dataView.byteOffset + IndexEntryLayout.SHA_OFFSET
+    );
+
+    // Read and decode flags
+    const flagsValue = dataView.getUint16(IndexEntryLayout.FLAGS_OFFSET, false);
+    const { assumeValid, stage } = IndexEntryFlags.decode(flagsValue);
+    this.assumeValid = assumeValid;
+    this.stageNumber = stage;
+  }
+
+  /**
+   * Read the SHA-1 hash from binary data and convert to hex string
+   */
+  private readShaHash(buffer: ArrayBufferLike, offset: number): string {
+    const view = new Uint8Array(buffer, offset, IndexEntryLayout.SHA_BYTE_LENGTH);
+    return Array.from(view)
+      .map((byte) => byte.toString(16).padStart(2, '0'))
+      .join('');
   }
 
   /**
@@ -258,29 +295,16 @@ export class IndexEntry {
    */
   public static fromFileStats(path: string, stats: FileStats, sha: string): IndexEntry {
     return new IndexEntry({
-      name: path,
-      ctime: [Math.floor(stats.ctimeMs / 1000), stats.ctimeMs % 1000],
-      mtime: [Math.floor(stats.mtimeMs / 1000), stats.mtimeMs % 1000],
-      dev: stats.dev,
-      ino: stats.ino,
-      mode: stats.mode,
-      uid: stats.uid,
-      gid: stats.gid,
+      filePath: path,
+      creationTime: new GitTimestamp(Math.floor(stats.ctimeMs / 1000), stats.ctimeMs % 1000),
+      modificationTime: new GitTimestamp(Math.floor(stats.mtimeMs / 1000), stats.mtimeMs % 1000),
+      deviceId: stats.dev,
+      inodeNumber: stats.ino,
+      fileMode: stats.mode,
+      userId: stats.uid,
+      groupId: stats.gid,
       fileSize: stats.size,
-      sha,
+      contentHash: sha,
     });
-  }
-
-  /**
-   * Decode flags from a 16-bit value
-   */
-  private decodeFlags(flags: number): void {
-    this.assumeValid = (flags & 0x8000) !== 0;
-    this.stage = (flags >> 12) & 0x3;
-
-    const extended = (flags & 0x4000) !== 0;
-    if (extended) {
-      throw new ObjectException('Extended flags not supported');
-    }
   }
 }
