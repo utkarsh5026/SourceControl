@@ -1,6 +1,6 @@
 import { FileUtils } from './io/file';
-import { HashUtils } from './hash';
-import { CompressionUtils } from './compress';
+import { HashUtils } from './helpers/hash';
+import { CompressionUtils } from './helpers/compress';
 import { logger } from './cli/logger';
 import { display } from './cli/display';
 
