@@ -8,6 +8,17 @@ interface PatternConfig {
 }
 
 /**
+ * Path context for matching operations
+ */
+export interface PathContext {
+  originalPath: string;
+  normalizedPath: string;
+  testPath: string;
+  isDirectory: boolean;
+  baseDirectory: string;
+}
+
+/**
  * Represents a single ignore pattern from .sourceignore file
  *
  * Pattern Rules:
@@ -119,19 +130,9 @@ export class IgnorePattern {
       testPath = filePath.substring(fromDirectory.length + 1);
     }
 
-    if (this.isRooted) {
-      return this.matchPattern(testPath, this.pattern);
-    }
-
-    const parts = testPath.split('/');
-    for (let i = 0; i < parts.length; i++) {
-      const subPath = parts.slice(i).join('/');
-      if (this.matchPattern(subPath, this.pattern)) {
-        return true;
-      }
-    }
-
-    return false;
+    return this.isRooted
+      ? this.matchPattern(testPath, this.pattern)
+      : this.matchAnySubpath(testPath, this.pattern);
   }
 
   /**
@@ -205,5 +206,22 @@ export class IgnorePattern {
    */
   private unescapePattern(pattern: string): string {
     return pattern.replace(/\\(.)/g, '$1'); // Unescape any escaped character
+  }
+
+  /**
+   * Match pattern against any subpath of the given path
+   */
+  private matchAnySubpath(testPath: string, pattern: string): boolean {
+    const pathSegments = testPath.split('/');
+    const joinPathSegments = (startIndex: number): string =>
+      pathSegments.slice(startIndex).join('/');
+
+    for (let startIndex = 0; startIndex < pathSegments.length; startIndex++) {
+      const subPath = joinPathSegments(startIndex);
+      if (this.matchPattern(subPath, pattern)) {
+        return true;
+      }
+    }
+    return false;
   }
 }
