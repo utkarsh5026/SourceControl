@@ -1,5 +1,6 @@
 import chalk from 'chalk';
 import type { StatusResult } from '@/core/index';
+import { display, createSeparator } from '@/utils/cli/display';
 
 /**
  * Display status in short format (similar to git status -s)
@@ -47,17 +48,29 @@ export const displayShortStatus = (
     entries.push({ status: '??', file });
   });
 
-  // Display branch info
+  const lines: string[] = [];
+
+  // Branch info
   if (branch) {
-    const prefix = isDetached ? 'HEAD detached at' : 'On branch';
-    console.info(`## ${prefix} ${branch}`);
+    const prefix = isDetached ? chalk.red('HEAD detached at') : chalk.gray('On branch');
+    const branchText = isDetached ? chalk.yellow(branch) : chalk.green(branch);
+    lines.push(`${prefix} ${branchText}`);
+    lines.push(createSeparator(40));
   }
 
-  // Display entries
+  // Entries
   entries.forEach(({ status, file }) => {
     const color = getStatusColor(status);
-    console.info(`${color(status)} ${file}`);
+    const code = color(status);
+    lines.push(`${code}  ${chalk.white(file)}`);
   });
+
+  if (entries.length === 0) {
+    lines.push(chalk.green('✓ Working tree clean'));
+  }
+
+  const content = lines.join('\n');
+  display.info(content, '📦 Status (short)');
 };
 
 /**
@@ -69,18 +82,20 @@ export const displayLongStatus = (
   isDetached: boolean,
   options: { untrackedFiles: string; ignored: boolean }
 ): void => {
+  const lines: string[] = [];
+
   // Branch information
   if (branch) {
     if (isDetached) {
-      console.log(chalk.red(`HEAD detached at ${branch}`));
+      lines.push(`${chalk.red('HEAD detached at')} ${chalk.yellow(branch)}`);
     } else {
-      console.log(`On branch ${chalk.green(branch)}`);
+      lines.push(`${chalk.gray('On branch')} ${chalk.green(branch)}`);
     }
   } else {
-    console.log(chalk.yellow('No commits yet'));
+    lines.push(chalk.yellow('No commits yet'));
   }
 
-  console.log('');
+  lines.push('');
 
   const hasStaged =
     status.staged.added.length > 0 ||
@@ -91,87 +106,97 @@ export const displayLongStatus = (
 
   // Staged changes
   if (hasStaged) {
-    console.log(chalk.green('Changes to be committed:'));
-    console.log(chalk.gray('  (use "sourcecontrol restore --staged <file>..." to unstage)'));
-    console.log('');
+    lines.push(chalk.green.bold('✓ Changes to be committed:'));
+    lines.push(chalk.gray('  (use "sourcecontrol restore --staged <file>..." to unstage)'));
+    lines.push('');
 
     status.staged.added.forEach((file: string) => {
-      console.log(`        ${chalk.green('new file:')}   ${file}`);
+      lines.push(`    ${chalk.green('new file:')}   ${chalk.white(file)}`);
     });
 
     status.staged.modified.forEach((file: string) => {
-      console.log(`        ${chalk.green('modified:')}   ${file}`);
+      lines.push(`    ${chalk.green('modified:')}   ${chalk.white(file)}`);
     });
 
     status.staged.deleted.forEach((file: string) => {
-      console.log(`        ${chalk.green('deleted:')}    ${file}`);
+      lines.push(`    ${chalk.green('deleted:')}    ${chalk.white(file)}`);
     });
 
-    console.log();
+    lines.push('');
   }
 
   // Unstaged changes
   if (hasUnstaged) {
-    console.log(chalk.red('Changes not staged for commit:'));
-    console.log(
+    lines.push(chalk.red.bold('✗ Changes not staged for commit:'));
+    lines.push(
       chalk.gray('  (use "sourcecontrol add <file>..." to update what will be committed)')
     );
-    console.log(
+    lines.push(
       chalk.gray(
         '  (use "sourcecontrol restore <file>..." to discard changes in working directory)'
       )
     );
-    console.log();
+    lines.push('');
 
     status.unstaged.modified.forEach((file: string) => {
-      console.log(`        ${chalk.red('modified:')}   ${file}`);
+      lines.push(`    ${chalk.red('modified:')}   ${chalk.white(file)}`);
     });
 
     status.unstaged.deleted.forEach((file: string) => {
-      console.log(`        ${chalk.red('deleted:')}    ${file}`);
+      lines.push(`    ${chalk.red('deleted:')}    ${chalk.white(file)}`);
     });
 
-    console.log();
+    lines.push('');
   }
 
   // Untracked files
   if (status.untracked.length > 0 && options.untrackedFiles !== 'no') {
-    console.log(chalk.red('Untracked files:'));
-    console.log(
+    lines.push(chalk.yellow.bold('… Untracked files:'));
+    lines.push(
       chalk.gray('  (use "sourcecontrol add <file>..." to include in what will be committed)')
     );
-    console.log();
+    lines.push('');
 
     status.untracked.forEach((file: string) => {
-      console.log(`        ${file}`);
+      lines.push(`    ${chalk.white(file)}`);
     });
 
-    console.log();
+    lines.push('');
   }
 
   // Ignored files (if requested)
   if (options.ignored && status.ignored.length > 0) {
-    console.log(chalk.gray('Ignored files:'));
-    console.log(chalk.gray('  (use "sourcecontrol add -f <file>..." to add anyway)'));
-    console.log();
+    lines.push(chalk.gray.bold('○ Ignored files:'));
+    lines.push(chalk.gray('  (use "sourcecontrol add -f <file>..." to add anyway)'));
+    lines.push('');
 
     status.ignored.forEach((file: string) => {
-      console.log(chalk.gray(`        ${file}`));
+      lines.push(chalk.gray(`    ${file}`));
     });
 
-    console.log();
+    lines.push('');
   }
 
   // Summary message
-  if (!hasStaged && !hasUnstaged && status.untracked.length === 0) {
-    console.log('nothing to commit, working tree clean');
+  const nothingToCommit = !hasStaged && !hasUnstaged && status.untracked.length === 0;
+  if (nothingToCommit) {
+    lines.push(chalk.green('✓ Nothing to commit, working tree clean'));
   } else if (!hasStaged && hasUnstaged) {
-    console.log('no changes added to commit (use "sourcecontrol add" to stage changes)');
+    lines.push(
+      chalk.yellow('… No changes added to commit (use "sourcecontrol add" to stage changes)')
+    );
   } else if (!hasStaged && status.untracked.length > 0) {
-    console.log(
-      'nothing added to commit but untracked files present (use "sourcecontrol add" to track)'
+    lines.push(
+      chalk.yellow(
+        '… Nothing added to commit but untracked files present (use "sourcecontrol add" to track)'
+      )
     );
   }
+
+  const content = lines.join('\n');
+  const title = nothingToCommit ? '✅ Repository Status' : '📦 Repository Status';
+  const show = nothingToCommit ? display.success : display.highlight;
+  show(content, title);
 };
 
 /**
