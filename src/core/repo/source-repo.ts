@@ -36,10 +36,10 @@ export class SourceRepository extends Repository {
   private _gitDirectory: Path | null = null;
   private _objectStore: ObjectStore;
 
-  private static DEFAULT_GIT_DIR = '.source';
-  private static DEFAULT_OBJECTS_DIR = 'objects';
-  private static DEFAULT_REFS_DIR = 'refs';
-  private static DEFAULT_CONFIG_FILE = 'config';
+  public static DEFAULT_GIT_DIR = '.source';
+  public static DEFAULT_OBJECTS_DIR = 'objects';
+  public static DEFAULT_REFS_DIR = 'refs';
+  public static DEFAULT_CONFIG_FILE = 'config';
 
   constructor() {
     super();
