@@ -78,21 +78,21 @@ export class GitIndex {
    * Get all entry names
    */
   public entryNames(): string[] {
-    return this.entries.map((e) => e.name);
+    return this.entries.map((e) => e.filePath);
   }
 
   /**
    * Remove an entry from the index
    */
   public removeEntry(path: string): void {
-    this.entries = this.entries.filter((e) => e.name !== path);
+    this.entries = this.entries.filter((e) => e.filePath !== path);
   }
 
   /**
    * Check if the index has an entry with the given path
    */
   public hasEntry(path: string): boolean {
-    return this.entries.some((e) => e.name === path);
+    return this.entries.some((e) => e.filePath === path);
   }
 
   public add(entry: IndexEntry): void {
@@ -100,7 +100,7 @@ export class GitIndex {
   }
 
   public getEntry(path: string): IndexEntry | undefined {
-    return this.entries.find((e) => e.name === path);
+    return this.entries.find((e) => e.filePath === path);
   }
 
   /**
@@ -213,7 +213,7 @@ export class GitIndex {
     }
 
     const mtimeSeconds = Math.floor(stats.mtimeMs / 1000);
-    if (entry.mtime[0] !== mtimeSeconds) {
+    if (entry.modificationTime.seconds !== mtimeSeconds) {
       return true;
     }
 

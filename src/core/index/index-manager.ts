@@ -123,7 +123,7 @@ export class IndexManager {
         }
 
         const entry = await createEntryForFile(absolutePath, relativePath);
-        const existingEntry = this.index.getEntry(entry.name);
+        const existingEntry = this.index.getEntry(entry.filePath);
         const isModified = existingEntry !== undefined;
 
         this.index.add(entry);
@@ -188,7 +188,7 @@ export class IndexManager {
     const checkStaged = async () => {
       await Promise.all(
         this.index.entries.map(async (entry) => {
-          const { absolutePath } = this.createAbsAndRelPaths(entry.name);
+          const { absolutePath } = this.createAbsAndRelPaths(entry.filePath);
 
           if (await FileUtils.exists(absolutePath)) {
             const stats = await fs.stat(absolutePath);
@@ -202,19 +202,19 @@ export class IndexManager {
               const blob = new BlobObject(new Uint8Array(content));
               const currentSha = await blob.sha();
 
-              if (currentSha !== entry.sha) {
-                status.unstaged.modified.push(entry.name);
+              if (currentSha !== entry.contentHash) {
+                status.unstaged.modified.push(entry.filePath);
               }
             }
           } else {
-            status.unstaged.deleted.push(entry.name);
+            status.unstaged.deleted.push(entry.filePath);
           }
 
-          if (headFiles.has(entry.name)) {
-            const headSha = headFiles.get(entry.name)!;
-            if (headSha !== entry.sha) status.staged.modified.push(entry.name);
+          if (headFiles.has(entry.filePath)) {
+            const headSha = headFiles.get(entry.filePath)!;
+            if (headSha !== entry.contentHash) status.staged.modified.push(entry.filePath);
           } else {
-            status.staged.added.push(entry.name);
+            status.staged.added.push(entry.filePath);
           }
         })
       );
