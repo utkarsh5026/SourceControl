@@ -1,7 +1,6 @@
 import type { Path } from 'glob';
-import fs from 'fs-extra';
-import type { GitObject } from '../objects/base';
-import type { ObjectStore } from '../object-store/store';
+import type { GitObject } from '@/core/objects';
+import type { ObjectStore } from '@/core/object-store';
 
 /**
  * Abstract base class for Git repositories
@@ -39,11 +38,4 @@ export abstract class Repository {
    * Write an object to the repository
    */
   abstract writeObject(object: GitObject): Promise<string>;
-
-  /**
-   * Check if repository exists at path
-   */
-  static async exists(path: Path): Promise<boolean> {
-    return fs.pathExists(path.resolve('.git').toString());
-  }
 }
