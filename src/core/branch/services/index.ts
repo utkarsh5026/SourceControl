@@ -4,6 +4,7 @@ import { BranchRefService } from './branch-ref';
 import { BranchValidator } from './branch-validator';
 import { BranchCheckout } from './branch-checkout';
 import { BranchRename } from './branch-rename';
+import { BranchDelete } from './branch-delete'; 
 
 export {
   BranchCreator,
@@ -12,4 +13,5 @@ export {
   BranchValidator,
   BranchCheckout,
   BranchRename,
+  BranchDelete,
 };
