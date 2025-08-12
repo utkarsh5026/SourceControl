@@ -69,4 +69,8 @@ export class FileUtils {
       return false;
     }
   }
+
+  public static async throwIfNotExists(filePath: string) {
+    if (!(await FileUtils.exists(filePath))) throw new Error(`File does not exist: ${filePath}`);
+  }
 }
