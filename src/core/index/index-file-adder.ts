@@ -5,8 +5,7 @@ import { FileUtils } from '@/utils';
 import fs from 'fs-extra';
 import path from 'path';
 import { IndexEntry } from './index-entry';
-import { BlobObject } from '../objects';
-
+import { BlobObject } from '@/core/objects';
 /**
  * Handles adding files to the Git index.
  * Focuses solely on the file addition logic.
@@ -104,14 +103,7 @@ export class IndexFileAdder {
     const entry = IndexEntry.fromFileStats(
       relativePath,
       {
-        ctimeMs: stats.ctimeMs,
-        mtimeMs: stats.mtimeMs,
-        dev: stats.dev,
-        ino: stats.ino,
-        mode: stats.mode,
-        uid: stats.uid,
-        gid: stats.gid,
-        size: stats.size,
+        ...stats,
       },
       sha
     );
