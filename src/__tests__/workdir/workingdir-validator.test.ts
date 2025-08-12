@@ -239,4 +239,67 @@ describe('WorkingDirectoryValidator', () => {
     expect(res.safe).toBe(false);
     expect(res.conflicts.sort()).toEqual(['cc.txt', 'del.txt'].sort());
   });
+
+  test('validateCleanState: returns clean for empty index', async () => {
+    const index = new GitIndex(2, []);
+    const validator = newValidator();
+
+    const status = await validator.validateCleanState(index);
+
+    expect(status).toEqual({
+      clean: true,
+      modifiedFiles: [],
+      deletedFiles: [],
+      details: [],
+    });
+  });
+
+  test('validateCleanState: ignores millisecond-only mtime changes (same second)', async () => {
+    await writeWorkingFile('ms.txt', 'SAME');
+    const e = await makeEntryFromDisk('ms.txt', await makeSha('SAME'));
+
+    const filePath = path.join(wd.fullpath(), 'ms.txt');
+    const preStats = await fs.stat(filePath);
+    const baseSecMs = Math.floor(preStats.mtimeMs / 1000) * 1000;
+    await fs.utimes(filePath, preStats.atime, new Date(baseSecMs + 500)); // same second
+
+    const index = new GitIndex(2, [e]);
+    const validator = newValidator();
+
+    const status = await validator.validateCleanState(index);
+    expect(status.clean).toBe(true);
+    expect(status.details).toEqual([]);
+  });
+
+  test('formatStatusSummary: only deleted', () => {
+    const validator = newValidator();
+    expect(
+      validator.formatStatusSummary({
+        clean: false,
+        modifiedFiles: [],
+        deletedFiles: ['x.txt'],
+        details: [],
+      })
+    ).toBe('Changes: 1 deleted');
+  });
+
+  test('validateSafeOverwrite: all safe when only time-changed or unchanged', async () => {
+    await writeWorkingFile('u1.txt', 'S');
+    await writeWorkingFile('u2.txt', 'S');
+
+    const e1 = await makeEntryFromDisk('u1.txt', await makeSha('S'));
+    const e2 = await makeEntryFromDisk('u2.txt', await makeSha('S'));
+
+    // Make u2 time-changed (seconds differ) but same content
+    const p2 = path.join(wd.fullpath(), 'u2.txt');
+    const s2 = await fs.stat(p2);
+    await fs.utimes(p2, s2.atime, new Date(Math.floor(s2.mtimeMs / 1000 + 3) * 1000));
+
+    const index = new GitIndex(2, [e1, e2]);
+    const validator = newValidator();
+
+    const res = await validator.validateSafeOverwrite(index, ['u1.txt', 'u2.txt', 'unknown.txt']);
+    expect(res.safe).toBe(true);
+    expect(res.conflicts).toEqual([]);
+  });
 });
