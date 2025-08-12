@@ -23,6 +23,15 @@ export interface TreeFileInfo {
   mode: string; // Git file mode from tree entry
 }
 
+export interface ChangeAnalysis {
+  operations: FileOperation[];
+  summary: {
+    created: number;
+    modified: number;
+    deleted: number;
+  };
+}
+
 export interface WorkingDirectoryStatus {
   clean: boolean;
   modifiedFiles: string[];
