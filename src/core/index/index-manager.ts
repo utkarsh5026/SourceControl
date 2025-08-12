@@ -6,8 +6,7 @@ import { FileUtils } from '@/utils';
 import { TreeWalker } from '@/core/tree';
 import { GitIndex } from './git-index';
 import type { AddResult, RemoveResult, StatusResult } from './types';
-import { StatusCalculator } from './status-calculator';
-import { IndexFileAdder } from './index-file-adder';
+import { IndexFileAdder, StatusCalculator } from './services';
 
 /**
  * IndexManager orchestrates all operations between the working directory,

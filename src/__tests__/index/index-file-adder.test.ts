@@ -6,7 +6,7 @@ import { PathScurry } from 'path-scurry';
 import type { Path } from 'glob';
 import { SourceRepository } from '../../core/repo';
 import { GitIndex } from '../../core/index';
-import { IndexFileAdder } from '../../core/index/index-file-adder';
+import { IndexFileAdder } from '../../core/index/services';
 
 describe('IndexFileAdder', () => {
   let tmp: string;

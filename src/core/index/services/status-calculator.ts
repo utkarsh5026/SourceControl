@@ -1,7 +1,7 @@
 import { TreeWalker } from '@/core/tree';
-import { StatusResult } from './types';
-import { GitIndex } from './git-index';
-import { IndexEntry } from './index-entry';
+import { StatusResult } from '../types';
+import { GitIndex } from '../git-index';
+import { IndexEntry } from '../index-entry';
 import { FileUtils } from '@/utils';
 import { IgnoreManager } from '@/core/ignore';
 import { BlobObject } from '@/core/objects';

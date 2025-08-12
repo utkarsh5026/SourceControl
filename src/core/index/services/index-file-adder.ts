@@ -1,10 +1,10 @@
 import { Repository, SourceRepository } from '@/core/repo';
-import { AddResult } from './types';
-import { GitIndex } from './git-index';
+import { AddResult } from '../types';
+import { GitIndex } from '../git-index';
 import { FileUtils } from '@/utils';
 import fs from 'fs-extra';
 import path from 'path';
-import { IndexEntry } from './index-entry';
+import { IndexEntry } from '../index-entry';
 import { BlobObject } from '@/core/objects';
 /**
  * Handles adding files to the Git index.
