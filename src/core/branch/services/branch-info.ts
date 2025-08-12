@@ -1,7 +1,12 @@
 import { Repository } from '@/core/repo';
 import { ObjectValidator } from '@/core/objects';
+import { Queue } from '@/utils';
 import { BranchRefService } from './branch-ref';
 import { BranchInfo } from '../types';
+
+/**
+ * BranchInfoService is a service for getting detailed information about a branch.
+ */
 export class BranchInfoService {
   constructor(
     private repository: Repository,
@@ -56,7 +61,7 @@ export class BranchInfoService {
    */
   private async countCommits(startSha: string): Promise<number> {
     const visited = new Set<string>();
-    const queue = [startSha];
+    const queue = new Queue([startSha]);
 
     while (queue.length > 0) {
       const sha = queue.shift()!;
