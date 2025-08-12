@@ -26,7 +26,7 @@ export class IndexManager {
   private ignoreManager: IgnoreManager;
   private treeWalker: TreeWalker;
 
-  private static readonly INDEX_FILE_NAME = 'index';
+  public static readonly INDEX_FILE_NAME = 'index';
 
   constructor(repository: Repository) {
     this.repository = repository;
