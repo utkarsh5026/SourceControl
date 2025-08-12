@@ -9,17 +9,6 @@ import { ObjectException } from '../exceptions';
  * The index is Git's "staging area" - a snapshot of your working directory that
  * you're building up for your next commit. It's stored as a binary file at .git/index.
  *
- * Key Concepts:
- * 1. **Three Trees**: Git manages three trees:
- *    - Working Directory: Your actual files
- *    - Index (Staging Area): What will go into the next commit
- *    - HEAD: The last commit
- *
- * 2. **Performance**: The index caches file metadata (timestamps, size, etc.)
- *    so Git can quickly detect which files have changed without reading content.
- *
- * 3. **Atomic Commits**: Changes are staged incrementally, allowing precise
- *    control over what goes into each commit.
  *
  * Index File Format:
  * ┌────────────────────────────────────────┐
@@ -88,9 +77,6 @@ export class GitIndex {
     this.entries = this.entries.filter((e) => e.filePath !== path);
   }
 
-  /**
-   * Check if the index has an entry with the given path
-   */
   public hasEntry(path: string): boolean {
     return this.entries.some((e) => e.filePath === path);
   }
@@ -103,17 +89,11 @@ export class GitIndex {
     return this.entries.find((e) => e.filePath === path);
   }
 
-  /**
-   * Clear the index (remove all entries)
-   */
   public clear(): void {
     this.entries = [];
   }
 
-  /**
-   * Serialize the index to binary format
-   */
-  serialize(): Uint8Array {
+  public serialize(): Uint8Array {
     const entriesSize = this.entries.reduce((sum, entry) => {
       const entryData = entry.serialize();
       return sum + entryData.length;
@@ -153,55 +133,64 @@ export class GitIndex {
     return buffer;
   }
 
-  /**
-   * Deserialize an index from binary data
-   */
-  static deserialize(data: Uint8Array): GitIndex {
+  public static deserialize(data: Uint8Array): GitIndex {
     const view = new DataView(data.buffer, data.byteOffset);
     let offset = 0;
 
-    const signature = new TextDecoder().decode(data.slice(0, 4));
-    if (signature !== GitIndex.SIGNATURE) {
-      throw new ObjectException(`Invalid index signature: ${signature}`);
-    }
-    offset += 4;
+    const validateSignature = (): void => {
+      const signature = new TextDecoder().decode(data.slice(0, 4));
+      if (signature !== GitIndex.SIGNATURE) {
+        throw new ObjectException(`Invalid index signature: ${signature}`);
+      }
+      offset += 4;
+    };
 
-    // Read and validate version
-    const version = view.getUint32(offset, false);
-    offset += 4;
-    if (version !== GitIndex.VERSION) {
-      throw new ObjectException(`Unsupported index version: ${version}`);
-    }
+    const validateVersion = (): void => {
+      const version = view.getUint32(offset, false);
+      offset += 4;
+      if (version !== GitIndex.VERSION) {
+        throw new ObjectException(`Unsupported index version: ${version}`);
+      }
+    };
 
-    // Read entry count
-    const entryCount = view.getUint32(offset, false);
-    offset += 4;
+    const readEntries = () => {
+      const entryCount = view.getUint32(offset, false);
+      offset += 4;
 
-    const entries: IndexEntry[] = [];
-    for (let i = 0; i < entryCount; i++) {
-      const { entry, nextOffset } = IndexEntry.deserialize(data, offset);
-      entries.push(entry);
-      offset = nextOffset;
-    }
+      const entries: IndexEntry[] = [];
+      for (let i = 0; i < entryCount; i++) {
+        const { entry, nextOffset } = IndexEntry.deserialize(data, offset);
+        entries.push(entry);
+        offset = nextOffset;
+      }
 
-    const contentSize = data.length - GitIndex.CHECKSUM_SIZE;
-    const content = data.slice(0, contentSize);
+      return entries;
+    };
 
-    const expectedChecksum = data.slice(contentSize);
-    const actualChecksum = createHash('sha1').update(content).digest();
+    const validateChecksum = (): void => {
+      const contentSize = data.length - GitIndex.CHECKSUM_SIZE;
+      const content = data.slice(0, contentSize);
 
-    if (!GitIndex.compareChecksums(expectedChecksum, actualChecksum)) {
-      throw new ObjectException('Index checksum mismatch');
-    }
+      const expectedChecksum = data.slice(contentSize);
+      const actualChecksum = createHash('sha1').update(content).digest();
 
-    return new GitIndex(version, entries);
+      if (!GitIndex.compareChecksums(expectedChecksum, actualChecksum)) {
+        throw new ObjectException('Index checksum mismatch');
+      }
+    };
+
+    validateSignature();
+    validateVersion();
+    const entries = readEntries();
+    validateChecksum();
+    return new GitIndex(GitIndex.VERSION, entries);
   }
 
   /**
    * Check if the index has been modified compared to file stats
    * This is used to detect changes between the index and working directory
    */
-  isEntryModified(
+  public isEntryModified(
     entry: IndexEntry,
     stats: {
       mtimeMs: number;
