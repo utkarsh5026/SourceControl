@@ -1,9 +1,8 @@
-import { Repository } from '@/core/repo';
+import { ObjectReader, Repository } from '@/core/repo';
 import { FileUtils, logger } from '@/utils';
 import path from 'path';
 import fs from 'fs-extra';
 import { FileBackup, FileOperation } from './types';
-import { BlobObject, ObjectValidator } from '@/core/objects';
 
 /**
  * FileOperationService handles individual file system operations.
@@ -120,14 +119,11 @@ export class FileOperationService {
    * Write a file from a blob with proper mode/permissions
    */
   private async writeFileFromBlob(filePath: string, blobSha: string, mode: string): Promise<void> {
-    // Read the blob content
-    const blob = await this.readBlob(blobSha);
+    const blob = await ObjectReader.readBlob(this.repository, blobSha);
     const content = blob.content();
 
-    // Ensure directory exists
     await FileUtils.createDirectories(path.dirname(filePath));
 
-    // Handle different file types based on mode
     const fileMode = parseInt(mode, 8);
     const fileType = (fileMode >> 12) & 0xf;
 
@@ -135,10 +131,7 @@ export class FileOperationService {
       // Symbolic link (120000)
       await this.createSymlink(filePath, content);
     } else {
-      // Regular file or executable
       await fs.writeFile(filePath, content);
-
-      // Set executable permissions if needed
       if (fileType === 0x8 && fileMode & 0o111) {
         try {
           await fs.chmod(filePath, fileMode & 0o777);
@@ -167,17 +160,6 @@ export class FileOperationService {
       // Fall back to writing target as regular file
       await fs.writeFile(linkPath, targetBuffer);
     }
-  }
-
-  /**
-   * Read and validate a blob object
-   */
-  private async readBlob(blobSha: string): Promise<BlobObject> {
-    const blobObj = await this.repository.readObject(blobSha);
-    if (!ObjectValidator.isBlob(blobObj)) {
-      throw new Error(`Invalid blob: ${blobSha}`);
-    }
-    return blobObj as BlobObject;
   }
 
   /**
