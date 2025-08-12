@@ -29,6 +29,8 @@ export class BranchManager {
   private branchRefService: BranchRefService;
   private branchInfoService: BranchInfoService;
 
+  public static readonly DEFAULT_BRANCH = 'master';
+
   constructor(repository: Repository) {
     this.repository = repository;
     this.refManager = new RefManager(repository);

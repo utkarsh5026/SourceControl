@@ -7,7 +7,7 @@ import { TreeBuilder } from '@/core/tree';
 import { TypedConfig } from '@/core/config';
 import { CommitOptions, CommitResult } from './types';
 import { GitIndex } from '@/core/index';
-import { CommitObject, ObjectType, CommitPerson } from '@/core/objects/';
+import { CommitObject, CommitPerson, ObjectValidator } from '@/core/objects/';
 import { logger } from '@/utils/cli/logger';
 
 /**
@@ -71,10 +71,9 @@ export class CommitManager {
 
     if (!options.allowEmpty && parentShas.length > 0) {
       const parentCommit = await this.repository.readObject(parentShas[0]!);
-      if (parentCommit && parentCommit.type() === ObjectType.COMMIT) {
-        const parent = parentCommit as CommitObject;
-        if (parent.treeSha === treeSha)
-          throw new Error('No changes to commit (tree is identical to parent)');
+
+      if (ObjectValidator.isCommit(parentCommit) && parentCommit.treeSha === treeSha) {
+        throw new Error('No changes to commit (tree is identical to parent)');
       }
     }
 
@@ -105,13 +104,11 @@ export class CommitManager {
    * Get commit information
    */
   public async getCommit(sha: string): Promise<CommitResult | null> {
-    const commitObject = await this.repository.readObject(sha);
+    const commit = await this.repository.readObject(sha);
 
-    if (!commitObject || commitObject.type() !== ObjectType.COMMIT) {
+    if (!ObjectValidator.isCommit(commit)) {
       return null;
     }
-
-    const commit = commitObject as CommitObject;
 
     return {
       sha: await commit.sha(),
@@ -167,8 +164,8 @@ export class CommitManager {
 
       if (amend) {
         const headCommit = await this.repository.readObject(headSha);
-        if (headCommit && headCommit.type() === ObjectType.COMMIT) {
-          return (headCommit as CommitObject).parentShas;
+        if (ObjectValidator.isCommit(headCommit)) {
+          return headCommit.parentShas;
         }
       }
 
