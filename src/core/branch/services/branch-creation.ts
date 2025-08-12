@@ -21,7 +21,7 @@ export class BranchCreator {
    */
   public async createBranch(
     branchName: string,
-    options: CreateBranchOptions = {}
+    options: Omit<CreateBranchOptions, 'checkout'> = {}
   ): Promise<BranchInfo> {
     BranchValidator.validateAndThrow(branchName);
 

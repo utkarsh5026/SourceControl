@@ -68,6 +68,14 @@ export class BranchRefService {
   }
 
   /**
+   * Checks if HEAD is detached
+   */
+  public async isDetached(): Promise<boolean> {
+    const headContent = await this.refManager.readRef(BranchRefService.HEAD_FILE);
+    return !headContent?.startsWith(BranchRefService.HEAD_PREFIX);
+  }
+
+  /**
    * Updates HEAD to point to a branch
    */
   public async setCurrentBranch(branchName: string): Promise<void> {
