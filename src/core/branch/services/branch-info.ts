@@ -1,8 +1,12 @@
+import path from 'path';
+import fs from 'fs-extra';
+
 import { Repository } from '@/core/repo';
 import { ObjectValidator } from '@/core/objects';
-import { Queue } from '@/utils';
+import { FileUtils, Queue } from '@/utils';
 import { BranchRefService } from './branch-ref';
 import { BranchInfo } from '../types';
+import { RefManager } from '@/core/refs';
 
 /**
  * BranchInfoService is a service for getting detailed information about a branch.
@@ -10,8 +14,40 @@ import { BranchInfo } from '../types';
 export class BranchInfoService {
   constructor(
     private repository: Repository,
+    private refManager: RefManager,
     private refService: BranchRefService
   ) {}
+
+  /**
+   * Lists all branches with detailed information
+   */
+  public async listBranches(): Promise<BranchInfo[]> {
+    const branchDir = path.join(this.refManager.getRefsPath(), BranchRefService.BRANCH_DIR_NAME);
+
+    if (!(await FileUtils.exists(branchDir))) {
+      return [];
+    }
+
+    const branchNames = await fs.readdir(branchDir);
+    const branches: BranchInfo[] = [];
+
+    for (const name of branchNames) {
+      if (name.startsWith('.')) continue;
+
+      try {
+        const info = await this.getBranchInfo(name);
+        branches.push(info);
+      } catch (error) {
+        // Skip invalid branches
+      }
+    }
+
+    return branches.sort((a, b) => {
+      if (a.isCurrentBranch) return -1;
+      if (b.isCurrentBranch) return 1;
+      return a.name.localeCompare(b.name);
+    });
+  }
 
   /**
    * Gets detailed information about a branch
