@@ -2,9 +2,11 @@ import { BranchInfoService } from '../../core/branch/services/branch-info';
 import { Repository } from '../../core/repo';
 import { BranchRefService } from '../../core/branch/services/branch-ref';
 import { ObjectValidator } from '../../core/objects';
+import { RefManager } from '../../core/refs';
 
 type RepositoryLike = Pick<Repository, 'readObject'>;
 type BranchRefServiceLike = Pick<BranchRefService, 'getBranchSha' | 'getCurrentBranch'>;
+type RefManagerLike = Pick<RefManager, 'getRefsPath'>;
 
 const makeMockRepo = () => {
   const mock: jest.Mocked<RepositoryLike> = {
@@ -21,6 +23,15 @@ const makeMockRefService = () => {
   return mock;
 };
 
+const makeMockRefManager = () => {
+  const mock: jest.Mocked<RefManagerLike> = {
+    getRefsPath: jest.fn(),
+  };
+  return mock;
+};
+
+let refManagerMock: jest.Mocked<RefManagerLike>;
+
 describe('BranchInfoService', () => {
   let repoMock: jest.Mocked<RepositoryLike>;
   let branchRefMock: jest.Mocked<BranchRefServiceLike>;
@@ -29,8 +40,10 @@ describe('BranchInfoService', () => {
   beforeEach(() => {
     repoMock = makeMockRepo();
     branchRefMock = makeMockRefService();
+    refManagerMock = makeMockRefManager();
     service = new BranchInfoService(
       repoMock as unknown as Repository,
+      refManagerMock as unknown as RefManager,
       branchRefMock as unknown as BranchRefService
     );
   });
