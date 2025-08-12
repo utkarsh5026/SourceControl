@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import { CommitManager } from '@/core/commit';
 import { BranchManager } from '@/core/branch';
 import { Repository } from '@/core/repo';
-import { CommitObject, ObjectType } from '@/core/objects';
+import { CommitObject, ObjectValidator } from '@/core/objects';
 import { getRepo } from '@/utils/helpers';
 import { logger } from '@/utils';
 import chalk from 'chalk';
@@ -109,7 +109,7 @@ async function getCommitHistory(
     visited.add(sha);
 
     const obj = await repository.readObject(sha);
-    if (!obj || obj.type() !== ObjectType.COMMIT) continue;
+    if (!ObjectValidator.isCommit(obj)) continue;
 
     const commit = obj as CommitObject;
 

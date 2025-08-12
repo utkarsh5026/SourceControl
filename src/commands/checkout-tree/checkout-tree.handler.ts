@@ -1,6 +1,6 @@
 import fs from 'fs-extra';
 import path from 'path';
-import type { Repository } from '@/core/repo';
+import { ObjectReader, type Repository } from '@/core/repo';
 import { TreeObject, BlobObject, ObjectType, CommitObject } from '@/core/objects';
 import { logger, FileUtils } from '@/utils';
 import { TreeEntry } from '@/core/objects/tree/tree-entry';
@@ -33,11 +33,7 @@ export const extractTreeToDirectory = async (
           throw new Error('commit has no tree');
         }
 
-        const treeFromCommit = await repository.readObject(treeSha);
-        if (!treeFromCommit || treeFromCommit.type() !== ObjectType.TREE) {
-          throw new Error('invalid tree object in commit');
-        }
-        treeObj = treeFromCommit as TreeObject;
+        treeObj = await ObjectReader.readTree(repository, treeSha);
         break;
       case ObjectType.TREE:
         treeObj = obj as TreeObject;
