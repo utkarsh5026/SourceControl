@@ -22,3 +22,8 @@ export type CheckoutOptions = {
   orphan?: boolean; // create orphan branch
   detach?: boolean; // checkout in detached HEAD state
 };
+
+export type BranchValidationResult = {
+  isValid: boolean;
+  errors: string[];
+};
