@@ -3,6 +3,7 @@ import { TreeObject } from './tree/tree-object';
 import { CommitObject } from './commit/commit-object';
 import { CommitPerson } from './commit/commit-person';
 import { GitObject, ObjectType, ObjectTypeHelper } from './base';
+import { ObjectValidator } from './utils/validate';
 
 export {
   BlobObject,
@@ -12,4 +13,5 @@ export {
   ObjectTypeHelper,
   CommitObject,
   CommitPerson,
+  ObjectValidator,
 };
