@@ -1,6 +1,5 @@
-import { Repository } from '@/core/repo';
+import { ObjectReader, Repository } from '@/core/repo';
 import { RefManager } from '@/core/refs';
-import { ObjectValidator } from '@/core/objects';
 import { logger } from '@/utils';
 import path from 'path';
 
@@ -48,17 +47,12 @@ export class TreeWalker {
    * @returns Map of file paths to their SHA-1 hashes
    */
   public async getCommitFiles(commitSha: string): Promise<Map<string, string>> {
-    const commitObject = await this.repository.readObject(commitSha);
-    if (!ObjectValidator.isCommit(commitObject)) {
-      throw new Error(`Invalid commit: ${commitSha}`);
-    }
-
-    const { treeSha } = commitObject;
-    if (!treeSha) {
+    const commit = await ObjectReader.readCommit(this.repository, commitSha);
+    if (!commit.treeSha) {
       throw new Error('Commit has no tree');
     }
 
-    return await this.walkTree(treeSha);
+    return await this.walkTree(commit.treeSha);
   }
 
   /**
@@ -74,14 +68,10 @@ export class TreeWalker {
   public async walkTree(treeSha: string, basePath: string = ''): Promise<Map<string, string>> {
     const files = new Map<string, string>();
     try {
-      const tree = await this.repository.readObject(treeSha);
-      if (!ObjectValidator.isTree(tree)) {
-        throw new Error('Failed to read tree object');
-      }
+      const tree = await ObjectReader.readTree(this.repository, treeSha);
 
-      const { entries } = tree;
       await Promise.all(
-        entries.map(async (entry) => {
+        tree.entries.map(async (entry) => {
           const fullPath = basePath ? path.join(basePath, entry.name) : entry.name;
 
           if (entry.isDirectory()) {
