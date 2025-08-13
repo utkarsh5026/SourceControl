@@ -250,19 +250,10 @@ export class WorkingDirectoryManager {
       const absolutePath = path.join(workDir, filePath);
 
       try {
-        const stats = await fs.stat(absolutePath);
-
         const entry = IndexEntry.fromFileStats(
           filePath,
           {
-            ctimeMs: stats.ctimeMs,
-            mtimeMs: stats.mtimeMs,
-            dev: stats.dev,
-            ino: stats.ino,
-            mode: stats.mode,
-            uid: stats.uid,
-            gid: stats.gid,
-            size: stats.size,
+            ...(await fs.stat(absolutePath)),
           },
           sha
         );
