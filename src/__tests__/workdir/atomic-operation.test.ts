@@ -2,13 +2,8 @@ import path from 'path';
 import os from 'os';
 import fs from 'fs-extra';
 
-import { AtomicOperationManager } from '../../core/work-dir/internal/atomic-operation';
-import { FileOperationService } from '../../core/work-dir/internal/file-operation';
-import type {
-  FileOperation,
-  FileBackup,
-  OperationResult,
-} from '../../core/work-dir/internal/types';
+import { AtomicOperationManager, FileOperationService } from '../../core/work-dir/internal';
+import type { FileOperation, FileBackup } from '../../core/work-dir/internal/types';
 import type { Repository } from '../../core/repo';
 import { BlobObject } from '../../core/objects';
 
