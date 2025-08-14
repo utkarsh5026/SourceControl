@@ -52,3 +52,10 @@ export interface IndexUpdateResult {
   entriesRemoved: number;
   errors: string[];
 }
+
+export interface OperationResult {
+  success: boolean;
+  operationsApplied: number;
+  totalOperations: number;
+  error?: Error;
+}
