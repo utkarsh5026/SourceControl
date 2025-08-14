@@ -37,15 +37,10 @@ export class BranchCheckout {
   private async validateTarget(target: string, options: CheckoutOptions): Promise<void> {
     const branchExists = await this.refService.exists(target);
 
-    if (branchExists) {
-      return; // Valid branch
+    if (branchExists || options.create) {
+      return;
     }
 
-    if (options.create) {
-      return; // Will create the branch
-    }
-
-    // Check if it's a valid commit SHA
     try {
       await ObjectReader.readCommit(this.repository, target);
     } catch {
@@ -54,7 +49,6 @@ export class BranchCheckout {
 
     // Try partial SHA matching (if target is short SHA)
     if (target.length >= 4 && target.length < 40 && /^[0-9a-f]+$/i.test(target)) {
-      // TODO: Implement partial SHA resolution
       logger.warn(`Partial SHA matching not yet implemented for: ${target}`);
     }
 
