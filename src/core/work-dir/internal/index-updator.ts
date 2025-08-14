@@ -207,6 +207,61 @@ export class IndexUpdater {
   }
 
   /**
+   * Repair index by updating entries that are inconsistent
+   */
+  public async repairIndex(): Promise<IndexUpdateResult> {
+    const result: IndexUpdateResult = {
+      success: true,
+      entriesAdded: 0,
+      entriesUpdated: 0,
+      entriesRemoved: 0,
+      errors: [],
+    };
+
+    try {
+      const index = await GitIndex.read(this.indexPath);
+      const entriesToRemove: string[] = [];
+
+      for (const entry of index.entries) {
+        const absolutePath = path.join(this.workingDirectory, entry.filePath);
+
+        try {
+          const stats = await fs.stat(absolutePath);
+          const mtimeSeconds = Math.floor(stats.mtimeMs / 1000);
+          if (entry.modificationTime.seconds !== mtimeSeconds) {
+            const updatedEntry = IndexEntry.fromFileStats(
+              entry.filePath,
+              {
+                ...stats,
+              },
+              entry.contentHash
+            );
+
+            index.removeEntry(entry.filePath);
+            index.add(updatedEntry);
+            result.entriesUpdated++;
+          }
+        } catch (error) {
+          entriesToRemove.push(entry.filePath);
+        }
+      }
+
+      for (const filePath of entriesToRemove) {
+        index.removeEntry(filePath);
+        result.entriesRemoved++;
+      }
+
+      await index.write(this.indexPath);
+      logger.info(`Index repaired: ~${result.entriesUpdated} -${result.entriesRemoved}`);
+    } catch (error) {
+      result.success = false;
+      result.errors.push(`Failed to repair index: ${(error as Error).message}`);
+    }
+
+    return result;
+  }
+
+  /**
    * Create an index entry for a file
    */
   private async createIndexEntry(filePath: string, fileInfo: TreeFileInfo): Promise<IndexEntry> {
