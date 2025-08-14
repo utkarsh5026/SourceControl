@@ -44,3 +44,11 @@ export interface FileStatusDetail {
   status: 'modified' | 'deleted' | 'size-changed' | 'time-changed' | 'content-changed';
   reason?: string;
 }
+
+export interface IndexUpdateResult {
+  success: boolean;
+  entriesAdded: number;
+  entriesUpdated: number;
+  entriesRemoved: number;
+  errors: string[];
+}
