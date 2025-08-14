@@ -12,6 +12,18 @@ export class TreeAnalyzer {
   constructor(private repository: Repository) {}
 
   /**
+   * Get all files from a specific commit
+   */
+  public async getCommitFiles(commitSha: string): Promise<Map<string, TreeFileInfo>> {
+    const commit = await ObjectReader.readCommit(this.repository, commitSha);
+    if (!commit.treeSha) {
+      throw new Error('Commit has no tree');
+    }
+
+    return await this.getTreeFiles(commit.treeSha);
+  }
+
+  /**
    * Check if two trees are identical
    */
   public async areTreesIdentical(treeSha1: string, treeSha2: string): Promise<boolean> {
