@@ -94,7 +94,7 @@ export class CommitManager {
       sha: commitSha,
       treeSha,
       parentShas,
-      message: commit.message!,
+      message: commit.message || options.message,
       author,
       committer,
     };
@@ -184,7 +184,7 @@ export class CommitManager {
 
     const now = new Date();
     const timestamp = Math.floor(now.getTime() / 1000);
-    const timezoneOffset = now.getTimezoneOffset() * -60;
+    const timezoneOffset = -now.getTimezoneOffset() * 60;
 
     return new CommitPerson(name, email, timestamp, timezoneOffset.toString());
   }
@@ -199,12 +199,19 @@ export class CommitManager {
 
       logger.debug(`Updated branch ${currentBranch} to ${commitSha}`);
     } catch (error) {
-      const defaultBranch = this.config.defaultBranch || BranchManager.DEFAULT_BRANCH;
+      // Check if this is specifically a "no current branch" error
+      // If getCurrentBranch fails, we're likely on an initial commit
+      try {
+        const defaultBranch = this.config.defaultBranch || BranchManager.DEFAULT_BRANCH;
 
-      await this.refManager.updateRef(`heads/${defaultBranch}`, commitSha);
-      await this.refManager.updateRef('HEAD', `ref: refs/heads/${defaultBranch}`);
+        await this.refManager.updateRef(`heads/${defaultBranch}`, commitSha);
+        await this.refManager.updateRef('HEAD', `ref: refs/heads/${defaultBranch}`);
 
-      logger.debug(`Created initial branch ${defaultBranch} at ${commitSha}`);
+        logger.debug(`Created initial branch ${defaultBranch} at ${commitSha}`);
+      } catch (refError) {
+        logger.error(`Failed to update references: ${refError}`);
+        throw new Error(`Failed to update repository references: ${refError}`);
+      }
     }
   }
 }
