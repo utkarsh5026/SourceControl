@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import { GitObject, ObjectType, BlobObject } from '@/core/objects';
+import { GitObject, ObjectType, BlobObject, TreeObject, CommitObject } from '@/core/objects';
 import { display, logger } from '@/utils';
 
 export const prettyPrintObject = async (obj: GitObject, objectId: string): Promise<void> => {
@@ -13,12 +13,14 @@ export const prettyPrintObject = async (obj: GitObject, objectId: string): Promi
       break;
 
     case ObjectType.TREE:
-      logger.error('fatal: tree objects not yet supported');
-      process.exit(1);
+      const tree = obj as TreeObject;
+      printPrettyTree(objectId, tree);
+      break;
 
     case ObjectType.COMMIT:
-      logger.error('fatal: commit objects not yet supported');
-      process.exit(1);
+      const commit = obj as CommitObject;
+      printPrettyCommit(objectId, commit);
+      break;
 
     case ObjectType.TAG:
       logger.error('fatal: tag objects not yet supported');
@@ -79,4 +81,91 @@ const printPrettyContent = (objectId: string, type: ObjectType, content: string)
   ].join('\n');
 
   display.info(header + '\n' + content, title);
+};
+
+const printPrettyTree = (objectId: string, tree: TreeObject): void => {
+  const title = chalk.bold.blue('🌳 Tree Object');
+
+  const objectLabel = chalk.gray('Object:');
+  const objectValue = chalk.cyan(objectId);
+
+  const typeLabel = chalk.gray('Type:');
+  const typeValue = chalk.green.bold('tree');
+
+  const sizeLabel = chalk.gray('Size:');
+  const sizeValue = chalk.magenta(`${tree.size()} bytes`);
+
+  const entriesLabel = chalk.gray('Entries:');
+  const entriesValue = chalk.yellow(`${tree.entries.length} items`);
+
+  const header = [
+    `${objectLabel} ${objectValue}`,
+    `${typeLabel} ${typeValue}`,
+    `${sizeLabel} ${sizeValue}`,
+    `${entriesLabel} ${entriesValue}`,
+    chalk.gray('─'.repeat(50)),
+  ].join('\n');
+
+  const entries = tree.entries.map(entry => {
+    const modeColor = entry.isDirectory() ? chalk.blue : 
+                     entry.isExecutable() ? chalk.green : chalk.white;
+    const nameColor = entry.isDirectory() ? chalk.blue.bold : chalk.white;
+    const typeIcon = entry.isDirectory() ? '📁' : 
+                    entry.isExecutable() ? '⚡' : 
+                    entry.isSymbolicLink() ? '🔗' : 
+                    entry.isSubmodule() ? '📦' : '📄';
+    
+    return `${typeIcon} ${modeColor(entry.mode)} ${nameColor(entry.name)} ${chalk.gray(entry.sha)}`;
+  }).join('\n');
+
+  display.info(header + '\n' + entries, title);
+};
+
+const printPrettyCommit = (objectId: string, commit: CommitObject): void => {
+  const title = chalk.bold.blue('📝 Commit Object');
+
+  const objectLabel = chalk.gray('Object:');
+  const objectValue = chalk.cyan(objectId);
+
+  const typeLabel = chalk.gray('Type:');
+  const typeValue = chalk.green.bold('commit');
+
+  const sizeLabel = chalk.gray('Size:');
+  const sizeValue = chalk.magenta(`${commit.size()} bytes`);
+
+  const treeLabel = chalk.gray('Tree:');
+  const treeValue = chalk.yellow(commit.treeSha || 'N/A');
+
+  const parentLabel = chalk.gray('Parents:');
+  const parentValue = commit.parentShas.length > 0 ? 
+    commit.parentShas.map(sha => chalk.yellow(sha)).join(', ') : 
+    chalk.gray('none (initial commit)');
+
+  const authorLabel = chalk.gray('Author:');
+  const authorValue = commit.author ? 
+    `${chalk.white(commit.author.name)} <${chalk.cyan(commit.author.email)}> ${chalk.gray(new Date(commit.author.timestamp * 1000).toISOString())}` : 
+    chalk.gray('N/A');
+
+  const committerLabel = chalk.gray('Committer:');
+  const committerValue = commit.committer ? 
+    `${chalk.white(commit.committer.name)} <${chalk.cyan(commit.committer.email)}> ${chalk.gray(new Date(commit.committer.timestamp * 1000).toISOString())}` : 
+    chalk.gray('N/A');
+
+  const messageLabel = chalk.gray('Message:');
+
+  const header = [
+    `${objectLabel} ${objectValue}`,
+    `${typeLabel} ${typeValue}`,
+    `${sizeLabel} ${sizeValue}`,
+    `${treeLabel} ${treeValue}`,
+    `${parentLabel} ${parentValue}`,
+    `${authorLabel} ${authorValue}`,
+    `${committerLabel} ${committerValue}`,
+    `${messageLabel}`,
+    chalk.gray('─'.repeat(50)),
+  ].join('\n');
+
+  const message = commit.message || chalk.gray('(no message)');
+
+  display.info(header + '\n' + message, title);
 };
