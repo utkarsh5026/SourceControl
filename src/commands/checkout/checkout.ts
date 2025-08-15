@@ -1,7 +1,8 @@
 import { Command } from 'commander';
-import { BranchManager, WorkingDirectoryManager } from '@/core/branch';
+import { BranchManager } from '@/core/branch';
 import { IndexManager } from '@/core/index';
 import { getRepo } from '@/utils/helpers';
+import { WorkingDirectoryManager } from '@/core/work-dir';
 import { logger } from '@/utils';
 import chalk from 'chalk';
 
