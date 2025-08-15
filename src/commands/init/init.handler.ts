@@ -24,7 +24,7 @@ export const initializeRepositoryWithFeedback = async (
   const { cwd } = pathScurry;
   const existingRepo = await SourceRepository.findRepository(cwd);
   if (existingRepo) {
-    displayReinitializationInfo(existingRepo.workingDirectory().toString());
+    displayReinitializationInfo(existingRepo.workingDirectory().fullpath());
     return;
   }
 

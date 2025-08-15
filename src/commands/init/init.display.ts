@@ -1,5 +1,7 @@
+import { SourceRepository } from '@/core/repo';
 import { display } from '@/utils';
 import chalk from 'chalk';
+import path from 'path';
 
 export interface InitOptions {
   bare?: boolean;
@@ -79,7 +81,7 @@ export const displayReinitializationInfo = (repoPath: string) => {
   const message = [
     `The directory ${chalk.white(repoPath)} already contains a source control repository.`,
     '',
-    `${chalk.green('✓')} Reinitialized existing repository in ${chalk.white(repoPath + '/.source/')}`,
+    `${chalk.green('✓')} Reinitialized existing repository in ${chalk.white(path.join(repoPath, SourceRepository.DEFAULT_GIT_DIR))}`,
     '',
     `${chalk.blue('ℹ️')} No changes were made to the existing repository structure.`,
   ].join('\n');
