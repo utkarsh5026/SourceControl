@@ -110,100 +110,186 @@ export class ConfigParser {
    * Recursively parse sections and subsections
    */
   private static parseSection(
-    data: any,
+    configData: ConfigFileStructure,
     result: Map<string, ConfigEntry[]>,
     source: string,
     level: ConfigLevel,
-    prefix: string = ''
+    keyPrefix: string = ''
   ): void {
-    Object.entries(data).forEach(([key, value]) => {
-      const fullKey = prefix ? `${prefix}.${key}` : key;
+    Object.entries(configData).forEach(([sectionKey, sectionValue]) => {
+      const fullKey = this.buildFullKey(keyPrefix, sectionKey);
+      this.processConfigValue(fullKey, sectionValue, result, source, level);
+    });
+  }
 
-      if (Array.isArray(value)) {
-        value.forEach((item) => {
-          if (typeof item !== 'string') return;
-          this.addEntry(result, fullKey, item, source, level);
-        });
-        return;
-      }
+  /**
+   * Build the full configuration key from prefix and section key
+   */
+  private static buildFullKey(prefix: string, key: string): string {
+    return prefix ? `${prefix}.${key}` : key;
+  }
 
-      if (typeof value === 'object' && value !== null) {
-        this.parseSection(value, result, source, level, fullKey);
-        return;
-      }
+  /**
+   * Process a configuration value based on its type
+   */
+  private static processConfigValue(
+    key: string,
+    value: any,
+    result: Map<string, ConfigEntry[]>,
+    source: string,
+    level: ConfigLevel
+  ): void {
+    if (Array.isArray(value)) {
+      this.processArrayValue(key, value, result, source, level);
+    } else if (this.isNestedObject(value)) {
+      this.parseSection(value, result, source, level, key);
+    } else if (typeof value === 'string') {
+      this.addEntry(result, key, value, source, level);
+    }
+  }
 
-      if (typeof value === 'string') {
-        this.addEntry(result, fullKey, value, source, level);
-        return;
+  /**
+   * Process array configuration values
+   */
+  private static processArrayValue(
+    key: string,
+    values: any[],
+    result: Map<string, ConfigEntry[]>,
+    source: string,
+    level: ConfigLevel
+  ): void {
+    values.forEach((item) => {
+      if (typeof item === 'string') {
+        this.addEntry(result, key, item, source, level);
       }
     });
   }
 
   /**
-   * Add an entry to the result map
+   * Check if a value is a nested configuration object
+   */
+  private static isNestedObject(value: any): boolean {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+  }
+
+  /**
+   * Add a configuration entry to the result map
    */
   private static addEntry(
-    result: Map<string, ConfigEntry[]>,
-    key: string,
-    value: string,
+    entryMap: Map<string, ConfigEntry[]>,
+    configKey: string,
+    configValue: string,
     source: string,
     level: ConfigLevel
   ): void {
-    if (!result.has(key)) {
-      result.set(key, []);
-    }
+    this.ensureKeyExists(entryMap, configKey);
+    
+    const configEntry = this.createConfigEntry(configKey, configValue, level, source);
+    entryMap.get(configKey)!.push(configEntry);
+  }
 
-    const entry = new ConfigEntry(key, value, level, source, 0);
-    result.get(key)!.push(entry);
+  /**
+   * Ensure a key exists in the entry map
+   */
+  private static ensureKeyExists(entryMap: Map<string, ConfigEntry[]>, key: string): void {
+    if (!entryMap.has(key)) {
+      entryMap.set(key, []);
+    }
+  }
+
+  /**
+   * Create a new configuration entry
+   */
+  private static createConfigEntry(
+    key: string,
+    value: string,
+    level: ConfigLevel,
+    source: string
+  ): ConfigEntry {
+    const DEFAULT_LINE_NUMBER = 0;
+    return new ConfigEntry(key, value, level, source, DEFAULT_LINE_NUMBER);
   }
 
   /**
    * Set a nested value in the configuration object
    */
-  private static setNestedValue(obj: any, path: string, value: string): void {
-    const parts = path.split('.');
-    const finalKey = parts.pop()!;
-    let current = obj;
+  private static setNestedValue(configObject: ConfigFileStructure, keyPath: string, value: string): void {
+    const pathSegments = keyPath.split('.');
+    const finalKey = pathSegments.pop()!;
+    const targetObject = this.navigateToTargetObject(configObject, pathSegments);
+    
+    this.setValueInObject(targetObject, finalKey, value);
+  }
 
-    for (const part of parts) {
-      if (!(part in current) || typeof current[part] !== 'object' || Array.isArray(current[part])) {
-        current[part] = {};
+  /**
+   * Navigate through the object hierarchy to reach the target object
+   */
+  private static navigateToTargetObject(rootObject: any, pathSegments: string[]): any {
+    let currentObject = rootObject;
+
+    for (const segment of pathSegments) {
+      if (!this.hasValidObjectProperty(currentObject, segment)) {
+        currentObject[segment] = {};
       }
-      current = current[part];
+      currentObject = currentObject[segment];
     }
 
-    if (finalKey in current) {
-      const existing = current[finalKey];
-      if (Array.isArray(existing)) current[finalKey].push(value);
-      else current[finalKey] = [existing, value];
+    return currentObject;
+  }
+
+  /**
+   * Check if an object has a valid property for navigation
+   */
+  private static hasValidObjectProperty(obj: any, propertyKey: string): boolean {
+    return propertyKey in obj && 
+           typeof obj[propertyKey] === 'object' && 
+           !Array.isArray(obj[propertyKey]);
+  }
+
+  /**
+   * Set a value in an object, handling existing values appropriately
+   */
+  private static setValueInObject(targetObject: any, key: string, newValue: string): void {
+    if (key in targetObject) {
+      const existingValue = targetObject[key];
+      targetObject[key] = Array.isArray(existingValue) 
+        ? [...existingValue, newValue]
+        : [existingValue, newValue];
     } else {
-      current[finalKey] = value;
+      targetObject[key] = newValue;
     }
   }
 
   /**
    * Validate a configuration section
    */
-  private static validateSection(obj: any, path: string, errors: string[]): void {
-    Object.entries(obj).forEach(([key, value]) => {
-      const fullPath = path ? `${path}.${key}` : key;
+  private static validateSection(configSection: any, currentPath: string, errors: string[]): void {
+    Object.entries(configSection).forEach(([key, value]) => {
+      const valuePath = this.buildFullKey(currentPath, key);
+      this.validateConfigValue(valuePath, value, errors);
+    });
+  }
 
-      if (Array.isArray(value)) {
-        value.forEach((item) => {
-          if (typeof item !== 'string')
-            errors.push(`Configuration array at '${fullPath}' must contain only strings`);
-        });
-        return;
-      }
+  /**
+   * Validate a single configuration value
+   */
+  private static validateConfigValue(path: string, value: any, errors: string[]): void {
+    if (Array.isArray(value)) {
+      this.validateArrayValue(path, value, errors);
+    } else if (this.isNestedObject(value)) {
+      this.validateSection(value, path, errors);
+    } else if (typeof value !== 'string') {
+      errors.push(`Configuration value at '${path}' must be a string`);
+    }
+  }
 
-      if (typeof value === 'object' && value !== null) {
-        this.validateSection(value, fullPath, errors);
-        return;
-      }
-
-      if (typeof value !== 'string') {
-        errors.push(`Configuration value at '${fullPath}' must be a string`);
-        return;
+  /**
+   * Validate array configuration values
+   */
+  private static validateArrayValue(path: string, values: any[], errors: string[]): void {
+    values.forEach((item) => {
+      if (typeof item !== 'string') {
+        errors.push(`Configuration array at '${path}' must contain only strings`);
       }
     });
   }
