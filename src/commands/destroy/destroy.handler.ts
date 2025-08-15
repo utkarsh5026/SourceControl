@@ -20,8 +20,8 @@ export const destroyRepositoryWithFeedback = async (targetPath: PathScurry['cwd'
     return;
   }
 
-  const repoPath = existingRepo.workingDirectory().toString();
-  const gitPath = existingRepo.gitDirectory().toString();
+  const repoPath = existingRepo.workingDirectory().fullpath();
+  const gitPath = existingRepo.gitDirectory().fullpath();
 
   await displayConfirmationPrompt(repoPath);
 

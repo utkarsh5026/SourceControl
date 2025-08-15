@@ -19,13 +19,8 @@ export const destroyCommand = new Command('destroy')
     'Directory to destroy repository in (defaults to current directory)',
     '.'
   )
-  .action(async (directory: string, options: DestroyOptions) => {
+  .action(async (directory: string) => {
     try {
-      const globalOptions = options as any;
-      if (globalOptions.verbose) {
-        logger.level = 'debug';
-      }
-
       const targetPath = path.resolve(directory);
       const pathScurry = new PathScurry(targetPath);
 

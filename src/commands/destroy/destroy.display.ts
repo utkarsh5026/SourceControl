@@ -1,3 +1,4 @@
+import { SourceRepository } from '@/core/repo';
 import { display } from '@/utils';
 import chalk from 'chalk';
 
@@ -17,7 +18,7 @@ export const displaySuccessMessage = (repoPath: string) => {
   const details = [
     `${chalk.gray('📍 Location:')} ${chalk.white(repoPath)}`,
     `${chalk.gray('🗑️  Action:')} ${chalk.white('Source Control Repository Removed')}`,
-    `${chalk.gray('📁 Directory:')} ${chalk.white('.source/ (removed)')}`,
+    `${chalk.gray('📁 Directory:')} ${chalk.white(`${SourceRepository.DEFAULT_GIT_DIR} ${chalk.red('removed')}`)}`,
     `${chalk.gray('📄 Files:')} ${chalk.white('Working directory files preserved')}`,
   ].join('\n');
 
@@ -46,7 +47,7 @@ export const displayConfirmationPrompt = async (repoPath: string): Promise<void>
   const title = chalk.red('⚠️  Confirm Repository Destruction');
 
   const warning = [
-    `You are about to ${chalk.red('permanently delete')} the source control repository in:`,
+    `We are going to ${chalk.red('permanently delete')} the source control repository in:`,
     `${chalk.white(repoPath)}`,
     '',
     `${chalk.yellow('This action will:')}`,
@@ -55,12 +56,9 @@ export const displayConfirmationPrompt = async (repoPath: string): Promise<void>
     `${chalk.red('✗')} Delete all repository metadata`,
     `${chalk.green('✓')} Preserve working directory files`,
     '',
-    `${chalk.blue('To proceed, use the --force flag:')}`,
-    `${chalk.green('sc destroy --force')}`,
   ].join('\n');
 
   display.warning(warning, title);
-  process.exit(0);
 };
 
 /**
