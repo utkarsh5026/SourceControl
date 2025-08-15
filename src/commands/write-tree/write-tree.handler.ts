@@ -1,9 +1,10 @@
 import { BlobObject, TreeObject } from '@/core/objects';
 import { TreeEntry, EntryType } from '@/core/objects/tree/tree-entry';
-import { Repository } from '@/core/repo';
+import { Repository, SourceRepository } from '@/core/repo';
 import { FileUtils } from '@/utils';
 import path from 'path';
 import fs from 'fs-extra';
+import { IgnorePattern } from '@/core/ignore';
 
 export const createTreeFromDirectory = async (
   repository: Repository,
@@ -16,8 +17,9 @@ export const createTreeFromDirectory = async (
     const items = await fs.readdir(dirPath, { withFileTypes: true });
 
     for (const item of items) {
-      if (excludeGitDir && (item.name === '.git' || item.name === '.source')) continue;
-      if (item.name.startsWith('.') && item.name !== '.gitignore') continue;
+      if (excludeGitDir && (item.name === '.git' || item.name === SourceRepository.DEFAULT_GIT_DIR))
+        continue;
+      if (item.name.startsWith('.') && item.name !== IgnorePattern.DEFAULT_SOURCE) continue;
 
       const entry = await createTreeEntry(repository, dirPath, item, excludeGitDir);
       entries.push(entry);

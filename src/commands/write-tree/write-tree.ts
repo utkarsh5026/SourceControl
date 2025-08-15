@@ -17,7 +17,7 @@ export const writeTreeCommand = new Command('write-tree')
   .action(async (options: WriteTreeOptions) => {
     try {
       const repository = await getRepo();
-      const workingDir = repository.workingDirectory().toString();
+      const workingDir = repository.workingDirectory().fullpath();
       const targetDir = options.prefix ? path.resolve(workingDir, options.prefix) : workingDir;
 
       if (!(await FileUtils.isDirectory(targetDir)))
