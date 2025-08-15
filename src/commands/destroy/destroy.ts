@@ -1,14 +1,8 @@
 import { Command } from 'commander';
 import { PathScurry } from 'path-scurry';
-import { logger } from '@/utils';
 import path from 'path';
 import { destroyRepositoryWithFeedback } from './destroy.handler';
 import { displayDestroyError } from './destroy.display';
-
-interface DestroyOptions {
-  force?: boolean;
-  verbose?: boolean;
-}
 
 export const destroyCommand = new Command('destroy')
   .description('Remove a Git repository completely')
