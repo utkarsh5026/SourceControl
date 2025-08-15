@@ -1,5 +1,6 @@
 import { RefManager } from '@/core/refs';
 import { Repository } from '@/core/repo';
+import { WorkingDirectoryManager } from '@/core/work-dir';
 import path from 'path';
 import { FileUtils } from '@/utils';
 import { BranchInfo, CreateBranchOptions, CheckoutOptions } from './types';
@@ -11,7 +12,6 @@ import {
   BranchRename,
   BranchDelete,
 } from './services';
-import { WorkingDirectoryManager } from './workdir-manager';
 
 /**
  * BranchManager for comprehensive branch operations
