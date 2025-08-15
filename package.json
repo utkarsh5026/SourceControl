@@ -23,7 +23,7 @@
     "prebuild": "npm run clean",
     "prepublishOnly": "npm run build",
     "release": "npm run build && npm publish",
-    "build:exe": "npm run build && pkg dist/cli.js --targets node18-win-x64 --output build/sourcecontrol.exe",
+    "build:exe": "npm run build && pkg dist/cli.js --targets node18-win-x64 --output bin/sourcecontrol.exe",
     "build:exe:all": "npm run build && pkg dist/cli.js --targets node18-win-x64,node18-macos-x64,node18-linux-x64 --out-path build/",
     "prep:bin": "node -e \"require('fs').mkdirSync('bin',{recursive:true})\"",
     "build:exe:fast": "npm run prep:bin && pkg dist/cli.js --targets node18-win-x64 --output bin/sourcecontrol.exe",
