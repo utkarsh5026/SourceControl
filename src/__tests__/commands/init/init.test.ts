@@ -16,10 +16,11 @@ describe('init command', () => {
 
   test('has correct command configuration', () => {
     expect(initCommand.name()).toBe('init');
-    expect(initCommand.description()).toBe('Create an empty Git repository or reinitialize an existing one');
-    
+    expect(initCommand.description()).toBe(
+      '🎆 Create an empty Git repository or reinitialize an existing one'
+    );
+
     // Verify command has options configured
     expect(initCommand.options.length).toBeGreaterThan(0);
   });
-
 });
