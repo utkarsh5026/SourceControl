@@ -2,11 +2,10 @@
 
 <div align="center">
 
-[![npm version](https://badge.fury.io/js/sourcecontrol.svg)](https://badge.fury.io/js/sourcecontrol)
+[![npm version](https://badge.fury.io/js/sourcecontrol.svg)](https://www.npmjs.com/package/sourcecontrol)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Build Status](https://img.shields.io/github/actions/workflow/status/owner/repo/ci.yml?branch=main)](https://github.com/owner/repo/actions)
-[![Coverage](https://img.shields.io/codecov/c/github/owner/repo)](https://codecov.io/gh/owner/repo)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/owner/repo/ci.yml?branch=main)](https://github.com/utkarsh5026/SourceControl/actions)
 
 </div>
 
