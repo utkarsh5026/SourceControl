@@ -2,31 +2,31 @@
 
 <div align="center">
 
-[![npm version](https://badge.fury.io/js/sourcecontrol.svg)](https://www.npmjs.com/package/sourcecontrol)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Build Status](https://img.shields.io/github/actions/workflow/status/owner/repo/ci.yml?branch=main)](https://github.com/utkarsh5026/SourceControl/actions)
+![Application](./images/project.png)
 
 </div>
 
-🚀 **A modern, powerful TypeScript CLI application for advanced source control operations** 
+🚀 **A modern, powerful TypeScript CLI application for advanced source control operations**
 
 Built with cutting-edge technologies and developer experience in mind, SourceControl CLI brings Git operations to the next level with beautiful interfaces, smart automation, and robust error handling.
 
 ## ✨ Features
 
 ### 🎯 **Core Capabilities**
+
 - 🚀 **Modern TypeScript** - Built with TypeScript 5.x for bulletproof type safety and IntelliSense
 - 🎨 **Beautiful CLI Interface** - Stunning colorful output with animated progress indicators and elegant spinners
 - 🔧 **Smart Interactive Commands** - Intuitive prompts, auto-completion, and intelligent confirmations
 - ⚡ **Lightning Fast & Reliable** - Optimized Git operations with comprehensive error handling and recovery
 
 ### 🛡️ **Quality & Testing**
+
 - 🧪 **Thoroughly Tested** - Comprehensive test suite with Jest covering 90%+ code coverage
 - 📊 **Code Quality** - ESLint + Prettier + TypeScript strict mode for pristine code
 - 🔍 **Error Handling** - Graceful error recovery with helpful user guidance
 
 ### 🎁 **Developer Experience**
+
 - 📦 **Zero-Config Installation** - One command setup with automatic dependency management
 - 🎪 **Plugin Architecture** - Extensible system for custom commands and workflows
 - 📚 **Rich Documentation** - Comprehensive guides, examples, and API documentation
@@ -35,6 +35,7 @@ Built with cutting-edge technologies and developer experience in mind, SourceCon
 ## 📦 Installation
 
 ### 🌍 **Global Installation** (Recommended)
+
 ```bash
 # Install globally for system-wide access
 npm install -g sourcecontrol
@@ -44,6 +45,7 @@ sc --version
 ```
 
 ### 🔧 **Local Development Setup**
+
 ```bash
 # 📥 Clone the repository
 git clone https://github.com/your-org/sourcecontrol.git
@@ -63,6 +65,7 @@ npm test
 ```
 
 ### 🐳 **Docker Installation**
+
 ```bash
 # Run directly with Docker
 docker run -it --rm -v $(pwd):/workspace sourcecontrol/cli
@@ -115,11 +118,13 @@ sc branch    # 🌿 Interactive branch management with fuzzy search
 ### Command Options
 
 #### Global Options
+
 - `-v, --verbose` - Enable verbose logging
 - `-q, --quiet` - Suppress output
 - `--config <path>` - Specify custom config file
 
 #### Status Command
+
 ```bash
 sc status [options]
   -s, --short     Show short-format output
@@ -127,6 +132,7 @@ sc status [options]
 ```
 
 #### Commit Command
+
 ```bash
 sc commit [options]
   -m, --message <msg>  Commit message
@@ -136,6 +142,7 @@ sc commit [options]
 ```
 
 #### Branch Command
+
 ```bash
 sc branch [options] [name]
   -a, --all                List local and remote branches
@@ -145,6 +152,7 @@ sc branch [options] [name]
 ```
 
 #### Remote Command
+
 ```bash
 sc remote [subcommand] [name] [url]
   -v, --verbose    Show URLs
@@ -160,6 +168,7 @@ Subcommands:
 🔧 **SourceControl** uses a smart configuration system with multiple levels and automatic detection:
 
 📁 **Configuration Files** (in order of precedence):
+
 1. `./sourcecontrol.config.json` (project-specific)
 2. `~/.sourcecontrol/config.json` (user global)
 3. `/etc/sourcecontrol/config.json` (system-wide)
@@ -234,8 +243,9 @@ src/
 Robust testing setup with Jest, TypeScript support, and comprehensive coverage:
 
 🎯 **Testing Pyramid**:
+
 - **Unit Tests** - Individual component testing
-- **Integration Tests** - Command workflow testing  
+- **Integration Tests** - Command workflow testing
 - **E2E Tests** - Full CLI experience testing
 
 ```bash
@@ -252,12 +262,14 @@ npm run test:coverage
 ### 🌟 **Code Quality Stack**
 
 🔍 **Static Analysis**:
+
 - 🎯 **ESLint** - Advanced linting with TypeScript and security rules
 - 🎨 **Prettier** - Consistent code formatting across the entire codebase
 - 🛡️ **TypeScript** - Strict type checking and compilation with latest features
 - 🧪 **Jest** - Comprehensive unit and integration testing framework
 
 🚀 **Quality Gates**:
+
 - Pre-commit hooks with Husky
 - Automated CI/CD quality checks
 - Code coverage thresholds (90%+)
@@ -266,6 +278,7 @@ npm run test:coverage
 ## 📚 Dependencies
 
 ### 🚀 **Production Dependencies**
+
 - 🎯 `commander` - Powerful CLI argument parsing and command structure
 - 🌈 `chalk` - Beautiful terminal colors and styling
 - ❓ `inquirer` - Rich interactive command-line prompts
@@ -276,6 +289,7 @@ npm run test:coverage
 - 🔐 `keytar` - Secure credential storage for Git authentication
 
 ### 🛠️ **Development Dependencies**
+
 - 📘 `typescript` - TypeScript compiler with latest features
 - 🧪 `jest` - Delightful JavaScript testing framework
 - 🔍 `eslint` - Pluggable JavaScript and TypeScript linting
@@ -289,6 +303,7 @@ npm run test:coverage
 We love contributions! Here's how to get started:
 
 ### 🚀 **Quick Start**
+
 1. 🍴 **Fork** the repository
 2. 🌿 **Create** a feature branch (`git checkout -b feature/amazing-feature`)
 3. ✨ **Make** your changes with love
@@ -299,6 +314,7 @@ We love contributions! Here's how to get started:
 8. 🎯 **Open** a Pull Request with detailed description
 
 ### 🎯 **Contribution Guidelines**
+
 - 📖 Follow our [Code of Conduct](CODE_OF_CONDUCT.md)
 - 📝 Use [Conventional Commits](https://conventionalcommits.org/)
 - 🧪 Maintain or improve test coverage
@@ -306,6 +322,7 @@ We love contributions! Here's how to get started:
 - 🔍 Run `npm run lint` before submitting
 
 ### 🏆 **Recognition**
+
 All contributors are celebrated in our [Contributors Hall of Fame](CONTRIBUTORS.md)!
 
 ## License
@@ -315,24 +332,28 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## 🗺️ Roadmap
 
 ### 🎯 **Phase 1: Core Enhancement** (Q1 2024)
+
 - [ ] 🚀 Add push/pull commands with smart conflict resolution
 - [ ] 🎣 Git hooks support with custom triggers
 - [ ] 🔌 Plugin system with marketplace
 - [ ] 📋 Configuration templates for popular workflows
 
 ### 🚀 **Phase 2: Advanced Features** (Q2 2024)
+
 - [ ] 🤝 AI-powered merge conflict resolution helpers
 - [ ] 🌿 Advanced branch operations (rebase, cherry-pick)
 - [ ] 🌊 Git flow support with visual workflows
 - [ ] ⚡ Performance optimizations and caching
 
 ### 🌟 **Phase 3: Intelligence** (Q3 2024)
+
 - [ ] 🤖 AI commit message generation
 - [ ] 📊 Repository analytics and insights
 - [ ] 🔍 Smart code review suggestions
 - [ ] 🎯 Predictive branch naming
 
 ### 🎪 **Phase 4: Integration** (Q4 2024)
+
 - [ ] 🔗 GitHub/GitLab/Bitbucket deep integration
 - [ ] 💬 Slack/Teams notifications
 - [ ] 📱 Mobile companion app
