@@ -16,7 +16,7 @@ import chalk from 'chalk';
  * - Restore files from a commit
  */
 export const checkoutCommand = new Command('checkout')
-  .description('Switch branches or restore working tree files')
+  .description('🔄 Switch branches or restore working tree files')
   .argument('<branch-or-commit>', 'Branch name or commit SHA to checkout')
   .option('-b, --branch <name>', 'Create and checkout a new branch')
   .option('-B, --force-branch <name>', 'Create/reset and checkout a branch')

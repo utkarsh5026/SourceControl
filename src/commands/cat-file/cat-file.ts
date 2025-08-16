@@ -11,7 +11,7 @@ interface CatFileOptions {
 }
 
 export const catFileCommand = new Command('cat-file')
-  .description('Provide content or type and size information for repository objects')
+  .description('📄 Provide content or type and size information for repository objects')
   .option('-p, --pretty-print', 'Pretty-print the contents of the object', true)
   .option('-t, --type', 'Show the object type', true)
   .option('-s, --size', 'Show the object size', true)

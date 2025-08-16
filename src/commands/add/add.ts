@@ -8,7 +8,7 @@ import { displayAddResults, handleAddError, performDryRun } from './add.display'
 import { AddCommandOptions } from './add.types';
 
 export const addCommand = new Command('add')
-  .description('Add file contents to the staging area')
+  .description('➕ Add file contents to the staging area')
   .option('-A, --all', 'Add all files (new, modified, and deleted)')
   .option('-u, --update', 'Update already tracked files only')
   .option('-f, --force', 'Allow adding otherwise ignored files')

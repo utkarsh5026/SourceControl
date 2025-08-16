@@ -17,7 +17,7 @@ import { displayShortStatus, displayLongStatus } from './status.display';
  * - Ignored files (with --ignored flag)
  */
 export const statusCommand = new Command('status')
-  .description('Show the working tree status')
+  .description('📈 Show the working tree status')
   .option('-s, --short', 'Give output in short format')
   .option('-b, --branch', 'Show branch information')
   .option('-v, --verbose', 'Be verbose')

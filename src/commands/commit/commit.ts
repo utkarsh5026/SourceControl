@@ -18,7 +18,7 @@ import { displayStagedChanges, displayCommitResult } from './commit.display';
  * - Empty commits
  */
 export const commitCommand = new Command('commit')
-  .description('Record changes to the repository')
+  .description('📝 Record changes to the repository')
   .option('-m, --message <message>', 'Commit message')
   .option('-a, --all', 'Automatically stage all modified files')
   .option('--amend', 'Amend the previous commit')

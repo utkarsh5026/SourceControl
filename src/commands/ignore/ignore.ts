@@ -25,7 +25,7 @@ interface IgnoreOptions {
 }
 
 export const ignoreCommand = new Command('ignore')
-  .description('Manage ignored file patterns')
+  .description('🙈 Manage ignored file patterns')
   .option('-a, --add <patterns...>', 'Add patterns to .sourceignore')
   .option('-l, --list', 'List all ignore patterns')
   .option('-c, --check <files...>', 'Check if files are ignored')

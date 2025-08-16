@@ -3,7 +3,7 @@ import { type InitOptions, displayInitError } from './init.display';
 import { initializeRepositoryWithFeedback } from './init.handler';
 
 export const initCommand = new Command('init')
-  .description('Create an empty Git repository or reinitialize an existing one')
+  .description('🎆 Create an empty Git repository or reinitialize an existing one')
   .option('--bare', 'Create a bare repository')
   .option('--template <template>', 'Directory from which templates will be used')
   .option('--shared[=<permissions>]', 'Specify that the Git repository is to be shared', false)

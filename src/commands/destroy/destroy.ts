@@ -5,7 +5,7 @@ import { destroyRepositoryWithFeedback } from './destroy.handler';
 import { displayDestroyError } from './destroy.display';
 
 export const destroyCommand = new Command('destroy')
-  .description('Remove a Git repository completely')
+  .description('🗑️ Remove a Git repository completely')
   .option('-f, --force', 'Force removal without confirmation')
   .option('-q, --quiet', 'Only print error and warning messages')
   .argument(

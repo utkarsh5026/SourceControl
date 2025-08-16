@@ -15,7 +15,7 @@ import chalk from 'chalk';
  * - Clear error messages for common mistakes
  */
 export const switchCommand = new Command('switch')
-  .description('Switch branches')
+  .description('🔀 Switch branches')
   .argument('<branch>', 'Branch to switch to')
   .option('-c, --create <n>', 'Create and switch to a new branch')
   .option('-C, --force-create <n>', 'Force create and switch to a new branch')

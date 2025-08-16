@@ -18,7 +18,7 @@ import chalk from 'chalk';
  * - Author/date filtering
  */
 export const logCommand = new Command('log')
-  .description('Show commit logs')
+  .description('📅 Show commit logs')
   .argument('[branch]', 'Branch or commit to start from')
   .option('-n, --max-count <n>', 'Limit number of commits', '50')
   .option('--oneline', 'Show each commit on one line')
