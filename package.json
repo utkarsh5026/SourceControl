@@ -2,10 +2,14 @@
   "name": "sourcecontrol",
   "version": "1.0.0",
   "description": "A modern TypeScript CLI application for source control",
-  "main": "dist/index.js",
+  "main": "dist/cli.js",
   "bin": {
     "sourcecontrol": "dist/cli.js",
     "sc": "dist/cli.js"
+  },
+    "repository": {
+    "type": "git",
+    "url": "git+https://github.com/utkarsh5026/SourceControl.git"
   },
   "scripts": {
     "build": "tsc && tsc-alias",
