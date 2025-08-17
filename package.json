@@ -1,6 +1,6 @@
 {
   "name": "sourcecontrol",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A modern TypeScript CLI application for source control",
   "main": "dist/cli.js",
   "bin": {
