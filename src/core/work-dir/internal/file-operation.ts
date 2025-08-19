@@ -119,7 +119,7 @@ export class FileOperationService {
    * Write a file from a blob with proper mode/permissions
    */
   private async writeFileFromBlob(filePath: string, blobSha: string, mode: string): Promise<void> {
-    const blob = await ObjectReader.readBlob(this.repository, blobSha);
+    const blob = await ObjectReader.reabBlobOrThrow(this.repository, blobSha);
     const content = blob.content();
 
     await FileUtils.createDirectories(path.dirname(filePath));

@@ -28,7 +28,10 @@ export class ObjectReader {
   /**
    * Read and validate a blob object from the repository
    */
-  public static async readBlob(repository: Repository, blobSha: string): Promise<BlobObject> {
+  public static async reabBlobOrThrow(
+    repository: Repository,
+    blobSha: string
+  ): Promise<BlobObject> {
     const obj = await repository.readObject(blobSha);
     if (!ObjectValidator.isBlob(obj)) {
       throw new RepositoryException(`Invalid blob: ${blobSha}`);
