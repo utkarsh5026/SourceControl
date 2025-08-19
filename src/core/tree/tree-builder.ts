@@ -158,18 +158,27 @@ export class TreeBuilder {
    */
   private createFileTreeEntry(indexEntry: IndexEntry): TreeEntry {
     const fileName = path.basename(indexEntry.filePath);
-
-    let gitMode: string;
-    if (indexEntry.isSymlink) {
-      gitMode = EntryType.SYMBOLIC_LINK;
-    } else if (indexEntry.isGitlink) {
-      gitMode = EntryType.SUBMODULE;
-    } else if ((indexEntry.fileMode & 0o111) !== 0) {
-      gitMode = EntryType.EXECUTABLE_FILE;
-    } else {
-      gitMode = EntryType.REGULAR_FILE;
-    }
+    const gitMode = this.determineGitMode(indexEntry);
 
     return new TreeEntry(gitMode, fileName, indexEntry.contentHash);
+  }
+
+  /**
+   * Determine the appropriate Git mode for a file based on its properties
+   */
+  private determineGitMode(indexEntry: IndexEntry): string {
+    if (indexEntry.isSymlink) {
+      return EntryType.SYMBOLIC_LINK;
+    }
+
+    if (indexEntry.isGitlink) {
+      return EntryType.SUBMODULE;
+    }
+
+    if ((indexEntry.fileMode & 0o111) !== 0) {
+      return EntryType.EXECUTABLE_FILE;
+    }
+
+    return EntryType.REGULAR_FILE;
   }
 }
