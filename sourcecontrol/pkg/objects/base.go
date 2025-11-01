@@ -33,13 +33,13 @@ type BaseObject interface {
 	Type() ObjectType
 
 	// Content returns the raw content of the object
-	Content() []byte
+	Content() ([]byte, error)
 
 	// Hash returns the SHA-1 hash of the object (20 bytes)
-	Hash() [20]byte
+	Hash() ([20]byte, error)
 
 	// Size returns the size of the content in bytes
-	Size() int64
+	Size() (int64, error)
 
 	// Serialize writes the object in Git's storage format
 	Serialize(w io.Writer) error
@@ -61,6 +61,11 @@ func ParseObjectType(s string) (ObjectType, error) {
 // CreateSha creates a SHA-1 hash from data
 func CreateSha(data []byte) [20]byte {
 	return sha1.Sum(data)
+}
+
+// createSha is a private alias for backward compatibility
+func createSha(data []byte) [20]byte {
+	return CreateSha(data)
 }
 
 // ParseHeader parses the object header
@@ -90,6 +95,11 @@ func ParseHeader(data []byte, ot ObjectType) (size int64, contentStart int, err 
 	}
 
 	return size, nullIndex + 1, nil
+}
+
+// parseHeader is a private alias for backward compatibility
+func parseHeader(data []byte, ot ObjectType) (size int64, contentStart int, err error) {
+	return ParseHeader(data, ot)
 }
 
 // ParseContent parses the content of an object
