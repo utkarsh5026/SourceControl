@@ -72,12 +72,10 @@ func (sr *SourceRepository) Initialize(path scpath.RepositoryPath) error {
 	sr.workingDir = path
 	sr.sourceDir = path.SourcePath()
 
-	// Create directory structure
 	if err := sr.createDirectories(); err != nil {
 		return fmt.Errorf("failed to create directories: %w", err)
 	}
 
-	// Initialize object store
 	if err := sr.objectStore.Initialize(sr.workingDir); err != nil {
 		return fmt.Errorf("failed to initialize object store: %w", err)
 	}
@@ -172,29 +170,36 @@ func (sr *SourceRepository) createDirectories() error {
 
 // createInitialFiles creates the initial files for a new repository
 func (sr *SourceRepository) createInitialFiles() error {
-	// Create HEAD file
-	headContent := "ref: refs/heads/master\n"
-	headPath := sr.workingDir.HeadPath()
-	if err := os.WriteFile(headPath.String(), []byte(headContent), 0644); err != nil {
-		return fmt.Errorf("failed to create HEAD file: %w", err)
-	}
-
-	// Create description file
-	descriptionContent := "Unnamed repository; edit this file 'description' to name the repository.\n"
-	descriptionPath := sr.sourceDir.Join("description")
-	if err := os.WriteFile(descriptionPath.String(), []byte(descriptionContent), 0644); err != nil {
-		return fmt.Errorf("failed to create description file: %w", err)
-	}
-
-	// Create config file
-	configContent := `[core]
+	files := []struct {
+		path    string
+		content string
+		name    string
+	}{
+		{
+			path:    sr.workingDir.HeadPath().String(),
+			content: "ref: refs/heads/master\n",
+			name:    "HEAD",
+		},
+		{
+			path:    sr.sourceDir.Join("description").String(),
+			content: "Unnamed repository; edit this file 'description' to name the repository.\n",
+			name:    "description",
+		},
+		{
+			path: sr.workingDir.ConfigPath().String(),
+			content: `[core]
     repositoryformatversion = 0
     filemode = false
     bare = false
-`
-	configPath := sr.workingDir.ConfigPath()
-	if err := os.WriteFile(configPath.String(), []byte(configContent), 0644); err != nil {
-		return fmt.Errorf("failed to create config file: %w", err)
+`,
+			name: "config",
+		},
+	}
+
+	for _, file := range files {
+		if err := os.WriteFile(file.path, []byte(file.content), 0644); err != nil {
+			return fmt.Errorf("failed to create %s file: %w", file.name, err)
+		}
 	}
 
 	return nil
