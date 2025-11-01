@@ -137,23 +137,6 @@ func (h ObjectHash) HasPrefix(prefix string) bool {
 	return strings.HasPrefix(string(h), strings.ToLower(prefix))
 }
 
-// MarshalText implements encoding.TextMarshaler
-func (h ObjectHash) MarshalText() ([]byte, error) {
-	return []byte(h), nil
-}
-
-// UnmarshalText implements encoding.TextUnmarshaler
-func (h *ObjectHash) UnmarshalText(text []byte) error {
-	hash, err := NewObjectHashFromString(string(text))
-	if err != nil {
-		return err
-	}
-	*h = hash
-	return nil
-}
-
-// ShortHash methods
-
 // String returns the short hash as a string
 func (sh ShortHash) String() string {
 	return string(sh)

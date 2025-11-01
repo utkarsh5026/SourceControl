@@ -1,7 +1,6 @@
 package objects
 
 import (
-	"bytes"
 	"crypto/sha1"
 	"fmt"
 	"io"
@@ -65,51 +64,6 @@ func ParseObjectType(s string) (ObjectType, error) {
 // Deprecated: Use ComputeHash instead
 func CreateSha(data []byte) [20]byte {
 	return sha1.Sum(data)
-}
-
-// ParseHeader parses the object header
-func ParseHeader(data []byte, ot ObjectType) (size int64, contentStart int, err error) {
-	nullIndex := bytes.IndexByte(data, NullByte)
-
-	if nullIndex == -1 {
-		return -1, -1, fmt.Errorf("invalid object header: missing null byte")
-	}
-
-	spaceIndex := bytes.IndexByte(data[:nullIndex], SpaceByte)
-	if spaceIndex == -1 {
-		return -1, -1, fmt.Errorf("invalid object header: missing space")
-	}
-
-	sizeBytes := data[spaceIndex+1 : nullIndex]
-	typeBytes := data[:spaceIndex]
-
-	if string(typeBytes) != ot.String() {
-		return -1, -1, fmt.Errorf("object type mismatch: expected %s, got %s", ot.String(), string(typeBytes))
-	}
-
-	_, err = fmt.Sscanf(string(sizeBytes), "%d", &size)
-
-	if err != nil {
-		return -1, -1, fmt.Errorf("error in scanning bytes: %w", err)
-	}
-
-	return size, nullIndex + 1, nil
-}
-
-// ParseContent parses the content of an object
-// Deprecated: Use SerializedObject.Content() instead
-func ParseContent(data []byte, ot ObjectType) ([]byte, error) {
-	size, contentStart, err := ParseHeader(data, ot)
-	if err != nil {
-		return nil, err
-	}
-
-	content := data[contentStart:]
-	if int64(len(content)) != size {
-		return nil, fmt.Errorf("tree size mismatch: expected %d, got %d", size, len(content))
-	}
-
-	return content, nil
 }
 
 // ParseSerializedObject parses a serialized object and validates the type
