@@ -63,11 +63,6 @@ func CreateSha(data []byte) [20]byte {
 	return sha1.Sum(data)
 }
 
-// createSha is a private alias for backward compatibility
-func createSha(data []byte) [20]byte {
-	return CreateSha(data)
-}
-
 // ParseHeader parses the object header
 func ParseHeader(data []byte, ot ObjectType) (size int64, contentStart int, err error) {
 	nullIndex := bytes.IndexByte(data, NullByte)
@@ -97,11 +92,6 @@ func ParseHeader(data []byte, ot ObjectType) (size int64, contentStart int, err 
 	return size, nullIndex + 1, nil
 }
 
-// parseHeader is a private alias for backward compatibility
-func parseHeader(data []byte, ot ObjectType) (size int64, contentStart int, err error) {
-	return ParseHeader(data, ot)
-}
-
 // ParseContent parses the content of an object
 func ParseContent(data []byte, ot ObjectType) ([]byte, error) {
 	size, contentStart, err := ParseHeader(data, ot)
@@ -115,4 +105,9 @@ func ParseContent(data []byte, ot ObjectType) ([]byte, error) {
 	}
 
 	return content, nil
+}
+
+func CreateHeader(ot ObjectType, contentSize int64) []byte {
+	header := fmt.Sprintf("%s %d%c", ot.String(), contentSize, NullByte)
+	return []byte(header)
 }
