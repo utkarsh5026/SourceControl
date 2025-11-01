@@ -80,7 +80,10 @@ func TestTreeContent(t *testing.T) {
 	entry, _ := NewTreeEntry("100644", "test.txt", sha)
 
 	tree := NewTree([]*TreeEntry{entry})
-	content := tree.Content()
+	content, err := tree.Content()
+	if err != nil {
+		t.Fatalf("Content() error = %v", err)
+	}
 
 	// Verify content is the serialized entry
 	expectedContent, _ := entry.Serialize()
@@ -96,9 +99,17 @@ func TestTreeSize(t *testing.T) {
 
 	tree := NewTree([]*TreeEntry{entry1, entry2})
 
-	expectedSize := int64(len(tree.Content()))
-	if tree.Size() != expectedSize {
-		t.Errorf("Size() = %v, want %v", tree.Size(), expectedSize)
+	content, err := tree.Content()
+	if err != nil {
+		t.Fatalf("Content() error = %v", err)
+	}
+	expectedSize := int64(len(content))
+	size, err := tree.Size()
+	if err != nil {
+		t.Fatalf("Size() error = %v", err)
+	}
+	if size != expectedSize {
+		t.Errorf("Size() = %v, want %v", size, expectedSize)
 	}
 }
 
@@ -107,10 +118,16 @@ func TestTreeHash(t *testing.T) {
 	entry, _ := NewTreeEntry("100644", "test.txt", sha)
 
 	tree := NewTree([]*TreeEntry{entry})
-	hash1 := tree.Hash()
+	hash1, err := tree.Hash()
+	if err != nil {
+		t.Fatalf("Hash() error = %v", err)
+	}
 
 	// Hash should be consistent
-	hash2 := tree.Hash()
+	hash2, err := tree.Hash()
+	if err != nil {
+		t.Fatalf("Hash() error = %v", err)
+	}
 	if hash1 != hash2 {
 		t.Errorf("Hash() not consistent: %x != %x", hash1, hash2)
 	}
@@ -193,8 +210,16 @@ func TestParseTree(t *testing.T) {
 	}
 
 	// Verify hash
-	if parsedTree.Hash() != originalTree.Hash() {
-		t.Errorf("ParseTree() hash = %x, want %x", parsedTree.Hash(), originalTree.Hash())
+	parsedHash, err := parsedTree.Hash()
+	if err != nil {
+		t.Fatalf("parsedTree.Hash() error = %v", err)
+	}
+	originalHash, err := originalTree.Hash()
+	if err != nil {
+		t.Fatalf("originalTree.Hash() error = %v", err)
+	}
+	if parsedHash != originalHash {
+		t.Errorf("ParseTree() hash = %x, want %x", parsedHash, originalHash)
 	}
 }
 
@@ -263,23 +288,32 @@ func TestTreeBaseObjectInterface(t *testing.T) {
 		t.Errorf("Type() = %v, want %v", tree.Type(), objects.TreeType)
 	}
 
-	content := tree.Content()
+	content, err := tree.Content()
+	if err != nil {
+		t.Fatalf("Content() error = %v", err)
+	}
 	if content == nil {
 		t.Error("Content() returned nil")
 	}
 
-	hash := tree.Hash()
+	hash, err := tree.Hash()
+	if err != nil {
+		t.Fatalf("Hash() error = %v", err)
+	}
 	if len(hash) != 20 {
 		t.Errorf("Hash() length = %v, want 20", len(hash))
 	}
 
-	size := tree.Size()
+	size, err := tree.Size()
+	if err != nil {
+		t.Fatalf("Size() error = %v", err)
+	}
 	if size != int64(len(content)) {
 		t.Errorf("Size() = %v, want %v", size, len(content))
 	}
 
 	var buf bytes.Buffer
-	err := tree.Serialize(&buf)
+	err = tree.Serialize(&buf)
 	if err != nil {
 		t.Errorf("Serialize() error = %v", err)
 	}
@@ -340,8 +374,16 @@ func TestTreeRoundTrip(t *testing.T) {
 	}
 
 	// Hashes should match
-	if parsedTree.Hash() != originalTree.Hash() {
-		t.Errorf("Hash mismatch: got %x, want %x", parsedTree.Hash(), originalTree.Hash())
+	parsedHash, err := parsedTree.Hash()
+	if err != nil {
+		t.Fatalf("parsedTree.Hash() error = %v", err)
+	}
+	originalHash, err := originalTree.Hash()
+	if err != nil {
+		t.Fatalf("originalTree.Hash() error = %v", err)
+	}
+	if parsedHash != originalHash {
+		t.Errorf("Hash mismatch: got %x, want %x", parsedHash, originalHash)
 	}
 }
 
@@ -389,7 +431,10 @@ func TestTreeContentWithMultipleEntries(t *testing.T) {
 	entry2, _ := NewTreeEntry("100644", "b.txt", sha2)
 
 	tree := NewTree([]*TreeEntry{entry1, entry2})
-	content := tree.Content()
+	content, err := tree.Content()
+	if err != nil {
+		t.Fatalf("Content() error = %v", err)
+	}
 
 	// Content should be concatenation of serialized entries
 	serialized1, _ := entry1.Serialize()
