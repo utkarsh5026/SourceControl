@@ -267,7 +267,7 @@ func ParseCommit(data []byte) (*Commit, error) {
 	}
 
 	// Cache the hash
-	hash := objects.CreateObjectHash(objects.SerializedObject(data))
+	hash := objects.NewObjectHash(objects.SerializedObject(data))
 	commit.hash = &hash
 
 	return commit, nil

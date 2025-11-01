@@ -67,11 +67,6 @@ func CreateSha(data []byte) [20]byte {
 	return sha1.Sum(data)
 }
 
-// CreateObjectHash creates an ObjectHash from serialized data
-func CreateObjectHash(data SerializedObject) ObjectHash {
-	return NewObjectHash(data.Bytes())
-}
-
 // ParseHeader parses the object header
 func ParseHeader(data []byte, ot ObjectType) (size int64, contentStart int, err error) {
 	nullIndex := bytes.IndexByte(data, NullByte)

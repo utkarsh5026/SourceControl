@@ -27,7 +27,7 @@ func ParseBlob(data []byte) (*Blob, error) {
 		return nil, err
 	}
 
-	hash := objects.CreateObjectHash(objects.SerializedObject(data))
+	hash := objects.NewObjectHash(objects.SerializedObject(data))
 	return &Blob{
 		content: content,
 		hash:    &hash,

@@ -70,7 +70,7 @@ func ParseTree(data []byte) (*Tree, error) {
 	}
 	tree.sortEntries()
 
-	hash := objects.CreateObjectHash(objects.SerializedObject(data))
+	hash := objects.NewObjectHash(objects.SerializedObject(data))
 	tree.hash = &hash
 
 	return tree, nil
