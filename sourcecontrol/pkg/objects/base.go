@@ -1,10 +1,10 @@
 package objects
 
 import (
+	"bytes"
 	"crypto/sha1"
 	"fmt"
 	"io"
-	"slices"
 )
 
 // ObjectType represents the type of Git object
@@ -18,7 +18,8 @@ const (
 )
 
 const (
-	NullByte = byte(0)
+	NullByte  = byte(0)
+	SpaceByte = byte(' ')
 )
 
 // String implements the Stringer interface
@@ -62,13 +63,13 @@ func createSha(data []byte) [20]byte {
 }
 
 func parseHeader(data []byte, ot ObjectType) (size int64, contentStart int, err error) {
-	nullIndex := slices.IndexFunc(data, func(b byte) bool { return b == NullByte })
+	nullIndex := bytes.IndexByte(data, NullByte)
 
 	if nullIndex == -1 {
 		return -1, -1, fmt.Errorf("invalid object header: missing null byte")
 	}
 
-	spaceIndex := slices.IndexFunc(data[:nullIndex], func(b byte) bool { return b == ' ' })
+	spaceIndex := bytes.IndexByte(data[:nullIndex], SpaceByte)
 	if spaceIndex == -1 {
 		return -1, -1, fmt.Errorf("invalid object header: missing space")
 	}
