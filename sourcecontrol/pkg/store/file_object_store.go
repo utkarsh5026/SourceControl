@@ -73,7 +73,7 @@ func (fos *FileObjectStore) WriteObject(obj objects.BaseObject) (objects.ObjectH
 	}
 	serialized := objects.SerializedObject(buf.Bytes())
 
-	hash := objects.CreateObjectHash(serialized)
+	hash := objects.NewObjectHash(serialized.Bytes())
 
 	filePath, err := fos.resolveObjectPath(hash)
 	if err != nil {
@@ -112,17 +112,9 @@ func (fos *FileObjectStore) WriteObject(obj objects.BaseObject) (objects.ObjectH
 //
 // Returns nil if the object doesn't exist.
 func (fos *FileObjectStore) ReadObject(hash objects.ObjectHash) (objects.BaseObject, error) {
-	if fos.objectsPath == "" {
-		return nil, fmt.Errorf("object store not initialized")
-	}
-
-	if err := hash.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid hash: %w", err)
-	}
-
-	filePath, err := fos.resolveObjectPath(hash)
+	filePath, err := fos.validateAndResolvePath(hash)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve object path: %w", err)
+		return nil, err
 	}
 
 	if _, err := os.Stat(filePath.String()); os.IsNotExist(err) {
@@ -151,17 +143,9 @@ func (fos *FileObjectStore) ReadObject(hash objects.ObjectHash) (objects.BaseObj
 //
 // Returns true if the object exists, false otherwise.
 func (fos *FileObjectStore) HasObject(hash objects.ObjectHash) (bool, error) {
-	if fos.objectsPath == "" {
-		return false, fmt.Errorf("object store not initialized")
-	}
-
-	if err := hash.Validate(); err != nil {
-		return false, fmt.Errorf("invalid hash: %w", err)
-	}
-
-	filePath, err := fos.resolveObjectPath(hash)
+	filePath, err := fos.validateAndResolvePath(hash)
 	if err != nil {
-		return false, fmt.Errorf("failed to resolve object path: %w", err)
+		return false, err
 	}
 
 	_, err = os.Stat(filePath.String())
@@ -255,4 +239,29 @@ func (fos *FileObjectStore) ObjectCount() (int, error) {
 	}
 
 	return count, nil
+}
+
+func (fos *FileObjectStore) validateAndResolvePath(hash objects.ObjectHash) (scpath.WorkingPath, error) {
+	if err := fos.ensureInitialized(); err != nil {
+		return "", err
+	}
+
+	if err := hash.Validate(); err != nil {
+		return "", fmt.Errorf("invalid hash: %w", err)
+	}
+
+	filePath, err := fos.resolveObjectPath(hash)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve object path: %w", err)
+	}
+
+	return filePath, nil
+}
+
+// ensureInitialized checks if the object store is initialized and returns an error if not
+func (fos *FileObjectStore) ensureInitialized() error {
+	if !fos.objectsPath.IsValid() {
+		return fmt.Errorf("object store not initialized")
+	}
+	return nil
 }
