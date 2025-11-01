@@ -1,8 +1,9 @@
-package objects
+package blob
 
 import (
 	"bytes"
 	"testing"
+	"github.com/utkarsh5026/SourceControl/pkg/objects"
 )
 
 func TestNewBlob(t *testing.T) {
@@ -49,8 +50,8 @@ func TestNewBlob(t *testing.T) {
 				t.Errorf("Size() = %d, want %d", blob.Size(), tt.wantLen)
 			}
 
-			if blob.Type() != BlobType {
-				t.Errorf("Type() = %v, want %v", blob.Type(), BlobType)
+			if blob.Type() != objects.BlobType {
+				t.Errorf("Type() = %v, want %v", blob.Type(), objects.BlobType)
 			}
 
 			// Verify hash is non-zero
@@ -64,8 +65,8 @@ func TestNewBlob(t *testing.T) {
 
 func TestBlob_Type(t *testing.T) {
 	blob := NewBlob([]byte("test"))
-	if got := blob.Type(); got != BlobType {
-		t.Errorf("Type() = %v, want %v", got, BlobType)
+	if got := blob.Type(); got != objects.BlobType {
+		t.Errorf("Type() = %v, want %v", got, objects.BlobType)
 	}
 }
 
@@ -162,7 +163,7 @@ func TestBlob_Serialize(t *testing.T) {
 
 			// Check header format: "blob <size>\0"
 			expectedHeader := append([]byte("blob "), []byte(string(rune(len(tt.data))))...)
-			expectedHeader = append(expectedHeader, NullByte)
+			expectedHeader = append(expectedHeader, objects.NullByte)
 
 			// Verify the serialized data starts with correct header
 			if !bytes.HasPrefix(serialized, []byte("blob ")) {
@@ -170,7 +171,7 @@ func TestBlob_Serialize(t *testing.T) {
 			}
 
 			// Verify null byte exists
-			nullIndex := bytes.IndexByte(serialized, NullByte)
+			nullIndex := bytes.IndexByte(serialized, objects.NullByte)
 			if nullIndex == -1 {
 				t.Error("Serialized data should contain null byte")
 			}
@@ -271,15 +272,15 @@ func TestParseBlob(t *testing.T) {
 			}
 
 			// Verify the content is correct
-			nullIndex := bytes.IndexByte(tt.data, NullByte)
+			nullIndex := bytes.IndexByte(tt.data, objects.NullByte)
 			expectedContent := tt.data[nullIndex+1:]
 
 			if !bytes.Equal(blob.Content(), expectedContent) {
 				t.Errorf("Content() = %v, want %v", blob.Content(), expectedContent)
 			}
 
-			if blob.Type() != BlobType {
-				t.Errorf("Type() = %v, want %v", blob.Type(), BlobType)
+			if blob.Type() != objects.BlobType {
+				t.Errorf("Type() = %v, want %v", blob.Type(), objects.BlobType)
 			}
 		})
 	}
@@ -386,5 +387,5 @@ func TestBlob_HashConsistency(t *testing.T) {
 
 func TestBlob_InterfaceCompliance(t *testing.T) {
 	// Verify that *Blob implements BaseObject interface
-	var _ BaseObject = (*Blob)(nil)
+	var _ objects.BaseObject = (*Blob)(nil)
 }

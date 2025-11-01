@@ -58,11 +58,13 @@ func ParseObjectType(s string) (ObjectType, error) {
 	}
 }
 
-func createSha(data []byte) [20]byte {
+// CreateSha creates a SHA-1 hash from data
+func CreateSha(data []byte) [20]byte {
 	return sha1.Sum(data)
 }
 
-func parseHeader(data []byte, ot ObjectType) (size int64, contentStart int, err error) {
+// ParseHeader parses the object header
+func ParseHeader(data []byte, ot ObjectType) (size int64, contentStart int, err error) {
 	nullIndex := bytes.IndexByte(data, NullByte)
 
 	if nullIndex == -1 {
@@ -88,4 +90,19 @@ func parseHeader(data []byte, ot ObjectType) (size int64, contentStart int, err 
 	}
 
 	return size, nullIndex + 1, nil
+}
+
+// ParseContent parses the content of an object
+func ParseContent(data []byte, ot ObjectType) ([]byte, error) {
+	size, contentStart, err := ParseHeader(data, ot)
+	if err != nil {
+		return nil, err
+	}
+
+	content := data[contentStart:]
+	if int64(len(content)) != size {
+		return nil, fmt.Errorf("tree size mismatch: expected %d, got %d", size, len(content))
+	}
+
+	return content, nil
 }
