@@ -40,18 +40,18 @@ func (b *Blob) Type() objects.ObjectType {
 }
 
 // Content returns the raw content of the blob
-func (b *Blob) Content() []byte {
-	return b.data
+func (b *Blob) Content() ([]byte, error) {
+	return b.data, nil
 }
 
 // Hash returns the SHA-1 hash of the blob
-func (b *Blob) Hash() [20]byte {
-	return b.sha
+func (b *Blob) Hash() ([20]byte, error) {
+	return b.sha, nil
 }
 
 // Size returns the size of the content in bytes
-func (b *Blob) Size() int64 {
-	return int64(len(b.data))
+func (b *Blob) Size() (int64, error) {
+	return int64(len(b.data)), nil
 }
 
 // Serialize writes the blob in Git's storage format
