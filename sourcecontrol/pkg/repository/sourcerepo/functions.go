@@ -8,16 +8,16 @@ import (
 	"github.com/utkarsh5026/SourceControl/pkg/repository/scpath"
 )
 
-// FindRepository finds a repository by walking up the directory tree from the start path.
-// It returns the first repository found, or nil if no repository is found.
+// FindRepository searches for a source control repository by traversing up the directory tree
+// from the given start path. It implements a bottom-up search strategy to locate the nearest
+// repository in the parent directory hierarchy.
 //
-// The search starts at startPath and walks up the directory tree until:
-// 1. A repository is found (directory containing .source)
-// 2. The root of the filesystem is reached
+// Parameters:
+//   - startPath: The initial directory path from which to begin the search
 //
-// Example:
-// If startPath is /home/user/project/src/main and a repository exists at /home/user/project,
-// this function will find and return that repository.
+// Returns:
+//   - *SourceRepository: A pointer to the found repository, fully initialized and ready to use
+//   - error: An error if the search fails due to filesystem issues or initialization problems
 func FindRepository(startPath scpath.RepositoryPath) (*SourceRepository, error) {
 	currentPath := startPath.String()
 
@@ -55,8 +55,15 @@ func FindRepository(startPath scpath.RepositoryPath) (*SourceRepository, error) 
 	}
 }
 
-// RepositoryExists checks if a repository exists at the given path
-// by checking for the existence of the .source directory
+// RepositoryExists checks whether a valid source control repository exists at the specified path.
+// A repository is considered to exist if there is a .source directory at the given location.
+//
+// Parameters:
+//   - path: The repository path to check for existence
+//
+// Returns:
+//   - bool: true if a valid repository exists at the path, false otherwise
+//   - error: An error if the filesystem check fails (excluding non-existence errors)
 func RepositoryExists(path scpath.RepositoryPath) (bool, error) {
 	sourcePath := path.SourcePath()
 	info, err := os.Stat(sourcePath.String())
@@ -72,8 +79,15 @@ func RepositoryExists(path scpath.RepositoryPath) (bool, error) {
 	return info.IsDir(), nil
 }
 
-// Open opens an existing repository at the given path
-// Returns an error if the repository doesn't exist
+// Open opens and initializes an existing source control repository at the specified path.
+// This function is used to work with repositories that have already been initialized.
+//
+// Parameters:
+//   - path: The root directory path of the repository to open
+//
+// Returns:
+//   - *SourceRepository: A fully initialized repository instance ready for operations
+//   - error: An error if the repository doesn't exist or initialization fails
 func Open(path scpath.RepositoryPath) (*SourceRepository, error) {
 	exists, err := RepositoryExists(path)
 	if err != nil {
