@@ -39,14 +39,14 @@ import (
 // - This ensures that "file" comes before "file.txt" and "dir/" comes before "dir2"
 type Tree struct {
 	entries []*TreeEntry
-	sha     *[20]byte
+	hash    *objects.ObjectHash
 }
 
 // NewTree creates a new Tree object with the given entries
 func NewTree(entries []*TreeEntry) *Tree {
 	tree := &Tree{
 		entries: entries,
-		sha:     nil,
+		hash:    nil,
 	}
 	tree.sortEntries()
 	return tree
@@ -54,29 +54,24 @@ func NewTree(entries []*TreeEntry) *Tree {
 
 // ParseTree parses a tree object from serialized data (with header)
 func ParseTree(data []byte) (*Tree, error) {
-	size, contentStart, err := objects.ParseHeader(data, objects.TreeType)
+	content, err := objects.ParseSerializedObject(data, objects.TreeType)
 	if err != nil {
 		return nil, err
 	}
 
-	content := data[contentStart:]
-	if int64(len(content)) != size {
-		return nil, fmt.Errorf("tree size mismatch: expected %d, got %d", size, len(content))
-	}
-
-	entries, err := parseEntries(content)
+	entries, err := parseEntries(content.Bytes())
 	if err != nil {
 		return nil, err
 	}
 
 	tree := &Tree{
 		entries: entries,
-		sha:     nil,
+		hash:    nil,
 	}
 	tree.sortEntries()
 
-	sha := objects.CreateSha(data)
-	tree.sha = &sha
+	hash := objects.CreateObjectHash(objects.SerializedObject(data))
+	tree.hash = &hash
 
 	return tree, nil
 }
@@ -87,36 +82,46 @@ func (t *Tree) Type() objects.ObjectType {
 }
 
 // Content returns the raw content of the tree (serialized entries without header)
-func (t *Tree) Content() ([]byte, error) {
-	return t.serializeContent()
+func (t *Tree) Content() (objects.ObjectContent, error) {
+	data, err := t.serializeContent()
+	if err != nil {
+		return nil, err
+	}
+	return objects.ObjectContent(data), nil
 }
 
 // Hash returns the SHA-1 hash of the tree
-func (t *Tree) Hash() ([20]byte, error) {
-	if t.sha != nil {
-		return *t.sha, nil
+func (t *Tree) Hash() (objects.ObjectHash, error) {
+	if t.hash != nil {
+		return *t.hash, nil
 	}
 
-	// Calculate SHA if not cached
 	content, err := t.Content()
 	if err != nil {
-		return [20]byte{}, fmt.Errorf("failed to get content: %w", err)
+		return "", fmt.Errorf("failed to get content: %w", err)
 	}
 
-	header := fmt.Sprintf("%s %d%c", objects.TreeType, len(content), objects.NullByte)
-	fullData := append([]byte(header), content...)
-	sha := objects.CreateSha(fullData)
-	t.sha = &sha
-	return sha, nil
+	hash := objects.ComputeObjectHash(objects.TreeType, content)
+	t.hash = &hash
+	return hash, nil
+}
+
+// RawHash returns the SHA-1 hash as a 20-byte array
+func (t *Tree) RawHash() (objects.RawHash, error) {
+	hash, err := t.Hash()
+	if err != nil {
+		return objects.RawHash{}, err
+	}
+	return hash.Raw()
 }
 
 // Size returns the size of the content in bytes
-func (t *Tree) Size() (int64, error) {
+func (t *Tree) Size() (objects.ObjectSize, error) {
 	content, err := t.Content()
 	if err != nil {
 		return 0, err
 	}
-	return int64(len(content)), nil
+	return content.Size(), nil
 }
 
 // Serialize writes the tree in Git's storage format
@@ -126,14 +131,10 @@ func (t *Tree) Serialize(w io.Writer) error {
 		return fmt.Errorf("failed to get content: %w", err)
 	}
 
-	header := fmt.Sprintf("%s %d%c", objects.TreeType, len(content), objects.NullByte)
+	serialized := objects.NewSerializedObject(objects.TreeType, content)
 
-	if _, err := w.Write([]byte(header)); err != nil {
-		return fmt.Errorf("failed to write tree header: %w", err)
-	}
-
-	if _, err := w.Write(content); err != nil {
-		return fmt.Errorf("failed to write tree content: %w", err)
+	if _, err := w.Write(serialized.Bytes()); err != nil {
+		return fmt.Errorf("failed to write tree: %w", err)
 	}
 
 	return nil
@@ -146,7 +147,7 @@ func (t *Tree) String() string {
 		return fmt.Sprintf("Tree{entries: %d, error: %v}", len(t.entries), err)
 	}
 	size, _ := t.Size()
-	return fmt.Sprintf("Tree{entries: %d, size: %d, hash: %x}", len(t.entries), size, hash)
+	return fmt.Sprintf("Tree{entries: %d, size: %s, hash: %s}", len(t.entries), size, hash.Short())
 }
 
 // Entries returns a copy of the tree entries to prevent external modification

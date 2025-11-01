@@ -48,7 +48,7 @@ type Commit struct {
 	Author     *CommitPerson
 	Committer  *CommitPerson
 	Message    string
-	sha        *[20]byte // cached SHA
+	hash       *objects.ObjectHash // cached hash
 }
 
 // CommitBuilder provides a fluent interface for building commits
@@ -154,7 +154,7 @@ func (c *Commit) Type() objects.ObjectType {
 }
 
 // Content returns the raw content of the commit (without header)
-func (c *Commit) Content() ([]byte, error) {
+func (c *Commit) Content() (objects.ObjectContent, error) {
 	var buf strings.Builder
 
 	// Tree line
@@ -185,35 +185,42 @@ func (c *Commit) Content() ([]byte, error) {
 	// Message
 	buf.WriteString(c.Message)
 
-	return []byte(buf.String()), nil
+	return objects.ObjectContent(buf.String()), nil
 }
 
 // Hash returns the SHA-1 hash of the commit
-func (c *Commit) Hash() ([20]byte, error) {
-	if c.sha != nil {
-		return *c.sha, nil
+func (c *Commit) Hash() (objects.ObjectHash, error) {
+	if c.hash != nil {
+		return *c.hash, nil
 	}
 
-	// Calculate SHA if not cached
+	// Calculate hash if not cached
 	content, err := c.Content()
 	if err != nil {
-		return [20]byte{}, fmt.Errorf("failed to get content: %w", err)
+		return "", fmt.Errorf("failed to get content: %w", err)
 	}
 
-	header := fmt.Sprintf("%s %d%c", objects.CommitType, len(content), objects.NullByte)
-	fullData := append([]byte(header), content...)
-	sha := objects.CreateSha(fullData)
-	c.sha = &sha
-	return sha, nil
+	hash := objects.ComputeObjectHash(objects.CommitType, content)
+	c.hash = &hash
+	return hash, nil
+}
+
+// RawHash returns the SHA-1 hash as a 20-byte array
+func (c *Commit) RawHash() (objects.RawHash, error) {
+	hash, err := c.Hash()
+	if err != nil {
+		return objects.RawHash{}, err
+	}
+	return hash.Raw()
 }
 
 // Size returns the size of the content in bytes
-func (c *Commit) Size() (int64, error) {
+func (c *Commit) Size() (objects.ObjectSize, error) {
 	content, err := c.Content()
 	if err != nil {
 		return 0, err
 	}
-	return int64(len(content)), nil
+	return content.Size(), nil
 }
 
 // Serialize writes the commit in Git's storage format
@@ -227,14 +234,10 @@ func (c *Commit) Serialize(w io.Writer) error {
 		return fmt.Errorf("failed to get content: %w", err)
 	}
 
-	header := fmt.Sprintf("%s %d%c", objects.CommitType, len(content), objects.NullByte)
+	serialized := objects.NewSerializedObject(objects.CommitType, content)
 
-	if _, err := w.Write([]byte(header)); err != nil {
-		return fmt.Errorf("failed to write commit header: %w", err)
-	}
-
-	if _, err := w.Write(content); err != nil {
-		return fmt.Errorf("failed to write commit content: %w", err)
+	if _, err := w.Write(serialized.Bytes()); err != nil {
+		return fmt.Errorf("failed to write commit: %w", err)
 	}
 
 	return nil
@@ -247,25 +250,25 @@ func (c *Commit) String() string {
 		return fmt.Sprintf("Commit{tree: %s, parents: %d, error: %v}",
 			c.TreeSHA, len(c.ParentSHAs), err)
 	}
-	return fmt.Sprintf("Commit{hash: %x, tree: %s, parents: %d, message: %.50s...}",
-		hash, c.TreeSHA, len(c.ParentSHAs), c.Message)
+	return fmt.Sprintf("Commit{hash: %s, tree: %s, parents: %d, message: %.50s...}",
+		hash.Short(), c.TreeSHA, len(c.ParentSHAs), c.Message)
 }
 
 // ParseCommit parses a commit object from serialized data (with header)
 func ParseCommit(data []byte) (*Commit, error) {
-	content, err := objects.ParseContent(data, objects.CommitType)
+	content, err := objects.ParseSerializedObject(data, objects.CommitType)
 	if err != nil {
 		return nil, err
 	}
 
-	commit, err := parseCommitContent(string(content))
+	commit, err := parseCommitContent(content.String())
 	if err != nil {
 		return nil, err
 	}
 
-	// Cache the SHA
-	sha := objects.CreateSha(data)
-	commit.sha = &sha
+	// Cache the hash
+	hash := objects.CreateObjectHash(objects.SerializedObject(data))
+	commit.hash = &hash
 
 	return commit, nil
 }
@@ -378,12 +381,12 @@ func validateSHA(sha string) error {
 }
 
 // ShortSHA returns the first 7 characters of the commit SHA
-func (c *Commit) ShortSHA() (string, error) {
+func (c *Commit) ShortSHA() (objects.ShortHash, error) {
 	hash, err := c.Hash()
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("%x", hash[:4])[:7], nil
+	return hash.Short(), nil
 }
 
 // Equal compares two commits for equality

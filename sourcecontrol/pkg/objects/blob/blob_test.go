@@ -46,15 +46,15 @@ func TestNewBlob(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Content() error = %v", err)
 			}
-			if !bytes.Equal(content, tt.data) {
-				t.Errorf("Content() = %v, want %v", content, tt.data)
+			if !bytes.Equal(content.Bytes(), tt.data) {
+				t.Errorf("Content() = %v, want %v", content.Bytes(), tt.data)
 			}
 
 			size, err := blob.Size()
 			if err != nil {
 				t.Fatalf("Size() error = %v", err)
 			}
-			if size != int64(tt.wantLen) {
+			if size.Int64() != int64(tt.wantLen) {
 				t.Errorf("Size() = %d, want %d", size, tt.wantLen)
 			}
 
@@ -67,8 +67,7 @@ func TestNewBlob(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Hash() error = %v", err)
 			}
-			zeroHash := [20]byte{}
-			if hash == zeroHash {
+			if hash.IsZero() {
 				t.Error("Hash() returned zero hash")
 			}
 		})
@@ -90,8 +89,8 @@ func TestBlob_Content(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Content() error = %v", err)
 	}
-	if !bytes.Equal(content, data) {
-		t.Errorf("Content() = %v, want %v", content, data)
+	if !bytes.Equal(content.Bytes(), data) {
+		t.Errorf("Content() = %v, want %v", content.Bytes(), data)
 	}
 
 	// Ensure returned content is the actual data, not a copy
@@ -99,13 +98,14 @@ func TestBlob_Content(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Content() error = %v", err)
 	}
-	if len(content) > 0 {
-		content[0] = 'X'
+	contentBytes := content.Bytes()
+	if len(contentBytes) > 0 {
+		contentBytes[0] = 'X'
 		content2, err := blob.Content()
 		if err != nil {
 			t.Fatalf("Content() error = %v", err)
 		}
-		if content2[0] != 'X' {
+		if content2.Bytes()[0] != 'X' {
 			t.Error("Content() should return reference to actual data")
 		}
 	}
@@ -129,7 +129,7 @@ func TestBlob_Size(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Size() error = %v", err)
 			}
-			if got != tt.want {
+			if got.Int64() != tt.want {
 				t.Errorf("Size() = %v, want %v", got, tt.want)
 			}
 		})
@@ -216,9 +216,9 @@ func TestBlob_Serialize(t *testing.T) {
 			}
 
 			// Verify content after null byte matches original data
-			content := serialized[nullIndex+1:]
-			if !bytes.Equal(content, tt.data) {
-				t.Errorf("Content after null byte = %v, want %v", content, tt.data)
+			contentBytes := serialized[nullIndex+1:]
+			if !bytes.Equal(contentBytes, tt.data) {
+				t.Errorf("Content after null byte = %v, want %v", contentBytes, tt.data)
 			}
 		})
 	}
@@ -318,8 +318,8 @@ func TestParseBlob(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Content() error = %v", err)
 			}
-			if !bytes.Equal(content, expectedContent) {
-				t.Errorf("Content() = %v, want %v", content, expectedContent)
+			if !bytes.Equal(content.Bytes(), expectedContent) {
+				t.Errorf("Content() = %v, want %v", content.Bytes(), expectedContent)
 			}
 
 			if blob.Type() != objects.BlobType {
@@ -383,9 +383,9 @@ func TestBlob_SerializeAndParse_RoundTrip(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parsed.Content() error = %v", err)
 			}
-			if !bytes.Equal(originalContent, parsedContent) {
+			if !bytes.Equal(originalContent.Bytes(), parsedContent.Bytes()) {
 				t.Errorf("Content mismatch: original = %v, parsed = %v",
-					originalContent, parsedContent)
+					originalContent.Bytes(), parsedContent.Bytes())
 			}
 
 			originalSize, err := original.Size()
@@ -397,7 +397,7 @@ func TestBlob_SerializeAndParse_RoundTrip(t *testing.T) {
 				t.Fatalf("parsed.Size() error = %v", err)
 			}
 			if originalSize != parsedSize {
-				t.Errorf("Size mismatch: original = %d, parsed = %d",
+				t.Errorf("Size mismatch: original = %v, parsed = %v",
 					originalSize, parsedSize)
 			}
 
@@ -439,17 +439,11 @@ func TestBlob_HashConsistency(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Hash() error = %v", err)
 	}
-	hexHash := make([]byte, 40)
-	const hexDigits = "0123456789abcdef"
-	for i, b := range hash {
-		hexHash[i*2] = hexDigits[b>>4]
-		hexHash[i*2+1] = hexDigits[b&0xf]
-	}
 
-	if string(hexHash) != expectedHash {
+	if hash.String() != expectedHash {
 		t.Logf("Hash mismatch for 'what is up, doc?'")
 		t.Logf("Expected: %s", expectedHash)
-		t.Logf("Got:      %s", hexHash)
+		t.Logf("Got:      %s", hash)
 		// Note: This test will fail if the hash calculation is incorrect
 		// The expected hash is from Git's actual behavior
 	}

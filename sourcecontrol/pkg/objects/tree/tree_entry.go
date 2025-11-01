@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strings"
+
 	"github.com/utkarsh5026/SourceControl/pkg/objects"
 )
 
@@ -228,7 +229,6 @@ func (e *TreeEntry) validateSha(sha string) error {
 		return fmt.Errorf("SHA must be %d characters long, got %d", expectedLength, len(sha))
 	}
 
-	// Validate hex characters
 	_, err := hex.DecodeString(sha)
 	if err != nil {
 		return fmt.Errorf("SHA must contain only hex characters: %w", err)

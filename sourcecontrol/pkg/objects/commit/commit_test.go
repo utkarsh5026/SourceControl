@@ -179,11 +179,11 @@ func TestCommit_Content(t *testing.T) {
 		Message("Test commit message").
 		Build()
 
-	contentBytes, err := commit.Content()
+	contentObj, err := commit.Content()
 	if err != nil {
 		t.Fatalf("Content() error = %v", err)
 	}
-	content := string(contentBytes)
+	content := contentObj.String()
 
 	// Check that content contains expected parts
 	if !strings.Contains(content, "tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904") {
@@ -307,7 +307,7 @@ func TestParseCommit(t *testing.T) {
 		t.Fatalf("original.Hash() error = %v", err)
 	}
 	if parsedHash != originalHash {
-		t.Errorf("Hash = %x, want %x", parsedHash, originalHash)
+		t.Errorf("Hash = %s, want %s", parsedHash, originalHash)
 	}
 }
 
@@ -372,9 +372,9 @@ func TestCommit_Hash(t *testing.T) {
 		t.Error("Hash() not consistent")
 	}
 
-	// Hash should be 20 bytes
-	if len(hash1) != 20 {
-		t.Errorf("Hash() length = %v, want 20", len(hash1))
+	// Hash should be valid (40 hex characters)
+	if !hash1.IsValid() {
+		t.Errorf("Hash() is not valid: %s", hash1)
 	}
 }
 
@@ -525,8 +525,8 @@ func TestCommit_ShortSHA(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ShortSHA() error = %v", err)
 	}
-	if len(shortSHA) != 7 {
-		t.Errorf("ShortSHA() length = %v, want 7", len(shortSHA))
+	if shortSHA.Length() != 7 {
+		t.Errorf("ShortSHA() length = %v, want 7", shortSHA.Length())
 	}
 }
 
@@ -551,24 +551,24 @@ func TestCommit_BaseObjectInterface(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Content() error = %v", err)
 	}
-	if content == nil {
-		t.Error("Content() returned nil")
+	if content.IsEmpty() {
+		t.Error("Content() should not be empty")
 	}
 
 	hash, err := commit.Hash()
 	if err != nil {
 		t.Fatalf("Hash() error = %v", err)
 	}
-	if len(hash) != 20 {
-		t.Errorf("Hash() length = %v, want 20", len(hash))
+	if !hash.IsValid() {
+		t.Errorf("Hash() is not valid: %s", hash)
 	}
 
 	size, err := commit.Size()
 	if err != nil {
 		t.Fatalf("Size() error = %v", err)
 	}
-	if size != int64(len(content)) {
-		t.Errorf("Size() = %v, want %v", size, len(content))
+	if size.Int64() != int64(len(content.Bytes())) {
+		t.Errorf("Size() = %v, want %v", size, len(content.Bytes()))
 	}
 
 	var buf bytes.Buffer
@@ -643,11 +643,11 @@ func TestCommit_HeaderSize(t *testing.T) {
 		Build()
 
 	headerSize := commit.HeaderSize()
-	contentBytes, err := commit.Content()
+	contentObj, err := commit.Content()
 	if err != nil {
 		t.Fatalf("Content() error = %v", err)
 	}
-	content := string(contentBytes)
+	content := contentObj.String()
 
 	// Header size should not include the message
 	if headerSize >= len(content) {
