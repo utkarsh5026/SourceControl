@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+
 	"github.com/utkarsh5026/SourceControl/pkg/objects"
 )
 
@@ -86,32 +87,45 @@ func (t *Tree) Type() objects.ObjectType {
 }
 
 // Content returns the raw content of the tree (serialized entries without header)
-func (t *Tree) Content() []byte {
+func (t *Tree) Content() ([]byte, error) {
 	return t.serializeContent()
 }
 
 // Hash returns the SHA-1 hash of the tree
-func (t *Tree) Hash() [20]byte {
+func (t *Tree) Hash() ([20]byte, error) {
 	if t.sha != nil {
-		return *t.sha
+		return *t.sha, nil
 	}
 
 	// Calculate SHA if not cached
-	header := fmt.Sprintf("%s %d%c", objects.TreeType, t.Size(), objects.NullByte)
-	fullData := append([]byte(header), t.Content()...)
+	content, err := t.Content()
+	if err != nil {
+		return [20]byte{}, fmt.Errorf("failed to get content: %w", err)
+	}
+
+	header := fmt.Sprintf("%s %d%c", objects.TreeType, len(content), objects.NullByte)
+	fullData := append([]byte(header), content...)
 	sha := objects.CreateSha(fullData)
 	t.sha = &sha
-	return sha
+	return sha, nil
 }
 
 // Size returns the size of the content in bytes
-func (t *Tree) Size() int64 {
-	return int64(len(t.Content()))
+func (t *Tree) Size() (int64, error) {
+	content, err := t.Content()
+	if err != nil {
+		return 0, err
+	}
+	return int64(len(content)), nil
 }
 
 // Serialize writes the tree in Git's storage format
 func (t *Tree) Serialize(w io.Writer) error {
-	content := t.Content()
+	content, err := t.Content()
+	if err != nil {
+		return fmt.Errorf("failed to get content: %w", err)
+	}
+
 	header := fmt.Sprintf("%s %d%c", objects.TreeType, len(content), objects.NullByte)
 
 	if _, err := w.Write([]byte(header)); err != nil {
@@ -127,13 +141,19 @@ func (t *Tree) Serialize(w io.Writer) error {
 
 // String returns a human-readable representation
 func (t *Tree) String() string {
-	hash := t.Hash()
-	return fmt.Sprintf("Tree{entries: %d, size: %d, hash: %x}", len(t.entries), t.Size(), hash)
+	hash, err := t.Hash()
+	if err != nil {
+		return fmt.Sprintf("Tree{entries: %d, error: %v}", len(t.entries), err)
+	}
+	size, _ := t.Size()
+	return fmt.Sprintf("Tree{entries: %d, size: %d, hash: %x}", len(t.entries), size, hash)
 }
 
-// Entries returns the tree entries
+// Entries returns a copy of the tree entries to prevent external modification
 func (t *Tree) Entries() []*TreeEntry {
-	return t.entries
+	entries := make([]*TreeEntry, len(t.entries))
+	copy(entries, t.entries)
+	return entries
 }
 
 // IsEmpty returns true if the tree has no entries
@@ -149,23 +169,23 @@ func (t *Tree) sortEntries() {
 }
 
 // serializeContent serializes all entries into a byte array
-func (t *Tree) serializeContent() []byte {
+func (t *Tree) serializeContent() ([]byte, error) {
 	if len(t.entries) == 0 {
-		return []byte{}
+		return []byte{}, nil
 	}
 
 	var buf bytes.Buffer
 	for _, entry := range t.entries {
 		serialized, err := entry.Serialize()
 		if err != nil {
-			// In a production system, we should handle this error better
-			// For now, we'll panic as this indicates a serious issue
-			panic(fmt.Sprintf("failed to serialize tree entry: %v", err))
+			return nil, fmt.Errorf("failed to serialize tree entry: %w", err)
 		}
-		buf.Write(serialized)
+		if _, err := buf.Write(serialized); err != nil {
+			return nil, fmt.Errorf("failed to write serialized entry: %w", err)
+		}
 	}
 
-	return buf.Bytes()
+	return buf.Bytes(), nil
 }
 
 // parseEntries parses tree entries from content
