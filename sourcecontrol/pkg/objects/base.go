@@ -33,13 +33,16 @@ type BaseObject interface {
 	Type() ObjectType
 
 	// Content returns the raw content of the object
-	Content() ([]byte, error)
+	Content() (ObjectContent, error)
 
-	// Hash returns the SHA-1 hash of the object (20 bytes)
-	Hash() ([20]byte, error)
+	// Hash returns the SHA-1 hash of the object
+	Hash() (ObjectHash, error)
+
+	// RawHash returns the SHA-1 hash as a 20-byte array
+	RawHash() (RawHash, error)
 
 	// Size returns the size of the content in bytes
-	Size() (int64, error)
+	Size() (ObjectSize, error)
 
 	// Serialize writes the object in Git's storage format
 	Serialize(w io.Writer) error
@@ -59,8 +62,14 @@ func ParseObjectType(s string) (ObjectType, error) {
 }
 
 // CreateSha creates a SHA-1 hash from data
+// Deprecated: Use ComputeHash instead
 func CreateSha(data []byte) [20]byte {
 	return sha1.Sum(data)
+}
+
+// CreateObjectHash creates an ObjectHash from serialized data
+func CreateObjectHash(data SerializedObject) ObjectHash {
+	return NewObjectHash(data.Bytes())
 }
 
 // ParseHeader parses the object header
@@ -93,6 +102,7 @@ func ParseHeader(data []byte, ot ObjectType) (size int64, contentStart int, err 
 }
 
 // ParseContent parses the content of an object
+// Deprecated: Use SerializedObject.Content() instead
 func ParseContent(data []byte, ot ObjectType) ([]byte, error) {
 	size, contentStart, err := ParseHeader(data, ot)
 	if err != nil {
@@ -105,6 +115,22 @@ func ParseContent(data []byte, ot ObjectType) ([]byte, error) {
 	}
 
 	return content, nil
+}
+
+// ParseSerializedObject parses a serialized object and validates the type
+func ParseSerializedObject(data []byte, expectedType ObjectType) (ObjectContent, error) {
+	serialized := SerializedObject(data)
+
+	objType, err := serialized.Type()
+	if err != nil {
+		return nil, err
+	}
+
+	if objType != expectedType {
+		return nil, fmt.Errorf("object type mismatch: expected %s, got %s", expectedType, objType)
+	}
+
+	return serialized.Content()
 }
 
 func CreateHeader(ot ObjectType, contentSize int64) []byte {
