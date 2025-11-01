@@ -42,12 +42,20 @@ func TestNewBlob(t *testing.T) {
 				t.Fatal("NewBlob returned nil")
 			}
 
-			if !bytes.Equal(blob.Content(), tt.data) {
-				t.Errorf("Content() = %v, want %v", blob.Content(), tt.data)
+			content, err := blob.Content()
+			if err != nil {
+				t.Fatalf("Content() error = %v", err)
+			}
+			if !bytes.Equal(content, tt.data) {
+				t.Errorf("Content() = %v, want %v", content, tt.data)
 			}
 
-			if blob.Size() != int64(tt.wantLen) {
-				t.Errorf("Size() = %d, want %d", blob.Size(), tt.wantLen)
+			size, err := blob.Size()
+			if err != nil {
+				t.Fatalf("Size() error = %v", err)
+			}
+			if size != int64(tt.wantLen) {
+				t.Errorf("Size() = %d, want %d", size, tt.wantLen)
 			}
 
 			if blob.Type() != objects.BlobType {
@@ -55,8 +63,12 @@ func TestNewBlob(t *testing.T) {
 			}
 
 			// Verify hash is non-zero
+			hash, err := blob.Hash()
+			if err != nil {
+				t.Fatalf("Hash() error = %v", err)
+			}
 			zeroHash := [20]byte{}
-			if blob.Hash() == zeroHash {
+			if hash == zeroHash {
 				t.Error("Hash() returned zero hash")
 			}
 		})
@@ -74,15 +86,26 @@ func TestBlob_Content(t *testing.T) {
 	data := []byte("test content")
 	blob := NewBlob(data)
 
-	if !bytes.Equal(blob.Content(), data) {
-		t.Errorf("Content() = %v, want %v", blob.Content(), data)
+	content, err := blob.Content()
+	if err != nil {
+		t.Fatalf("Content() error = %v", err)
+	}
+	if !bytes.Equal(content, data) {
+		t.Errorf("Content() = %v, want %v", content, data)
 	}
 
 	// Ensure returned content is the actual data, not a copy
-	content := blob.Content()
+	content, err = blob.Content()
+	if err != nil {
+		t.Fatalf("Content() error = %v", err)
+	}
 	if len(content) > 0 {
 		content[0] = 'X'
-		if blob.Content()[0] != 'X' {
+		content2, err := blob.Content()
+		if err != nil {
+			t.Fatalf("Content() error = %v", err)
+		}
+		if content2[0] != 'X' {
 			t.Error("Content() should return reference to actual data")
 		}
 	}
@@ -102,7 +125,11 @@ func TestBlob_Size(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			blob := NewBlob(tt.data)
-			if got := blob.Size(); got != tt.want {
+			got, err := blob.Size()
+			if err != nil {
+				t.Fatalf("Size() error = %v", err)
+			}
+			if got != tt.want {
 				t.Errorf("Size() = %v, want %v", got, tt.want)
 			}
 		})
@@ -115,13 +142,25 @@ func TestBlob_Hash(t *testing.T) {
 	blob1 := NewBlob(data)
 	blob2 := NewBlob(data)
 
-	if blob1.Hash() != blob2.Hash() {
+	hash1, err := blob1.Hash()
+	if err != nil {
+		t.Fatalf("Hash() error = %v", err)
+	}
+	hash2, err := blob2.Hash()
+	if err != nil {
+		t.Fatalf("Hash() error = %v", err)
+	}
+	if hash1 != hash2 {
 		t.Error("Same content should produce same hash")
 	}
 
 	// Different content should produce different hash
 	blob3 := NewBlob([]byte("different data"))
-	if blob1.Hash() == blob3.Hash() {
+	hash3, err := blob3.Hash()
+	if err != nil {
+		t.Fatalf("Hash() error = %v", err)
+	}
+	if hash1 == hash3 {
 		t.Error("Different content should produce different hash")
 	}
 }
@@ -275,8 +314,12 @@ func TestParseBlob(t *testing.T) {
 			nullIndex := bytes.IndexByte(tt.data, objects.NullByte)
 			expectedContent := tt.data[nullIndex+1:]
 
-			if !bytes.Equal(blob.Content(), expectedContent) {
-				t.Errorf("Content() = %v, want %v", blob.Content(), expectedContent)
+			content, err := blob.Content()
+			if err != nil {
+				t.Fatalf("Content() error = %v", err)
+			}
+			if !bytes.Equal(content, expectedContent) {
+				t.Errorf("Content() = %v, want %v", content, expectedContent)
 			}
 
 			if blob.Type() != objects.BlobType {
@@ -332,19 +375,43 @@ func TestBlob_SerializeAndParse_RoundTrip(t *testing.T) {
 			}
 
 			// Compare
-			if !bytes.Equal(original.Content(), parsed.Content()) {
+			originalContent, err := original.Content()
+			if err != nil {
+				t.Fatalf("original.Content() error = %v", err)
+			}
+			parsedContent, err := parsed.Content()
+			if err != nil {
+				t.Fatalf("parsed.Content() error = %v", err)
+			}
+			if !bytes.Equal(originalContent, parsedContent) {
 				t.Errorf("Content mismatch: original = %v, parsed = %v",
-					original.Content(), parsed.Content())
+					originalContent, parsedContent)
 			}
 
-			if original.Size() != parsed.Size() {
+			originalSize, err := original.Size()
+			if err != nil {
+				t.Fatalf("original.Size() error = %v", err)
+			}
+			parsedSize, err := parsed.Size()
+			if err != nil {
+				t.Fatalf("parsed.Size() error = %v", err)
+			}
+			if originalSize != parsedSize {
 				t.Errorf("Size mismatch: original = %d, parsed = %d",
-					original.Size(), parsed.Size())
+					originalSize, parsedSize)
 			}
 
-			if original.Hash() != parsed.Hash() {
+			originalHash, err := original.Hash()
+			if err != nil {
+				t.Fatalf("original.Hash() error = %v", err)
+			}
+			parsedHash, err := parsed.Hash()
+			if err != nil {
+				t.Fatalf("parsed.Hash() error = %v", err)
+			}
+			if originalHash != parsedHash {
 				t.Errorf("Hash mismatch: original = %x, parsed = %x",
-					original.Hash(), parsed.Hash())
+					originalHash, parsedHash)
 			}
 
 			if original.Type() != parsed.Type() {
@@ -368,7 +435,10 @@ func TestBlob_HashConsistency(t *testing.T) {
 	expectedHash := "bd9dbf5aae1a3862dd1526723246b20206e5fc37"
 
 	// Convert hash to hex string for comparison
-	hash := blob.Hash()
+	hash, err := blob.Hash()
+	if err != nil {
+		t.Fatalf("Hash() error = %v", err)
+	}
 	hexHash := make([]byte, 40)
 	const hexDigits = "0123456789abcdef"
 	for i, b := range hash {
