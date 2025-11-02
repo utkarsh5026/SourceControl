@@ -13,24 +13,35 @@ import (
 // structure and provides access to Git objects, references, and configuration.
 //
 // This struct represents a standard Git repository with the following structure:
-// ┌─ <working-directory>/
-// │ ├─ .source/ ← Git metadata directory
-// │ │ ├─ objects/ ← Object storage (blobs, trees, commits, tags)
-// │ │ │ ├─ ab/ ← Object subdirectories (first 2 chars of SHA)
-// │ │ │ │ └─ cdef123... ← Object files (remaining 38 chars of SHA)
-// │ │ │ └─ ...
-// │ │ ├─ refs/ ← References (branches and tags)
-// │ │ │ ├─ heads/ ← Branch references
-// │ │ │ └─ tags/ ← Tag references
-// │ │ ├─ HEAD ← Current branch pointer
-// │ │ ├─ config ← Repository configuration
-// │ │ └─ description ← Repository description
-// │ ├─ file1.txt ← Working directory files
-// │ ├─ file2.txt
-// │ └─ ...
+//
+//	┌─ <working-directory>/
+//	│ ├─ .source/ ← Git metadata directory
+//	│ │ ├─ objects/ ← Object storage (blobs, trees, commits, tags)
+//	│ │ │ ├─ ab/ ← Object subdirectories (first 2 chars of SHA)
+//	│ │ │ │ └─ cdef123... ← Object files (remaining 38 chars of SHA)
+//	│ │ │ └─ ...
+//	│ │ ├─ refs/ ← References (branches and tags)
+//	│ │ │ ├─ heads/ ← Branch references
+//	│ │ │ └─ tags/ ← Tag references
+//	│ │ ├─ HEAD ← Current branch pointer
+//	│ │ ├─ config ← Repository configuration
+//	│ │ └─ description ← Repository description
+//	│ ├─ file1.txt ← Working directory files
+//	│ ├─ file2.txt
+//	│ └─ ...
 //
 // The repository manages both the working directory (user files) and the Source
 // directory (metadata and object storage).
+//
+// Fields:
+//   - workingDir: The root directory of the repository where user files are stored
+//   - sourceDir: The .source directory containing all Git metadata and objects
+//   - objectStore: Interface for reading and writing Git objects (blobs, trees, commits, tags)
+//   - initialized: Flag indicating whether the repository has been properly initialized
+//
+// Thread Safety:
+// This struct is not thread-safe. External synchronization is required when
+// accessing a SourceRepository instance from multiple goroutines.
 type SourceRepository struct {
 	workingDir  scpath.RepositoryPath
 	sourceDir   scpath.SourcePath
@@ -38,7 +49,20 @@ type SourceRepository struct {
 	initialized bool
 }
 
-// NewSourceRepository creates a new SourceRepository instance
+// NewSourceRepository creates a new SourceRepository instance in an uninitialized state.
+//
+// The returned repository must be initialized by calling Initialize() before use.
+// The repository is configured with a FileObjectStore for persistent object storage.
+//
+// Returns:
+//   - *SourceRepository: A new uninitialized repository instance
+//
+// Example:
+//
+//	repo := NewSourceRepository()
+//	if err := repo.Initialize(scpath.RepositoryPath("/path/to/repo")); err != nil {
+//	    log.Fatal(err)
+//	}
 func NewSourceRepository() *SourceRepository {
 	return &SourceRepository{
 		objectStore: store.NewFileObjectStore(),
@@ -47,19 +71,40 @@ func NewSourceRepository() *SourceRepository {
 }
 
 // Initialize creates a new repository at the given path.
-// It creates all necessary directory structures and initial files.
+//
+// This method sets up the complete repository structure including all necessary
+// directories and initial configuration files. It will fail if a repository
+// already exists at the specified path.
 //
 // Directory structure created:
-// - .source/
-// - .source/objects/
-// - .source/refs/
-// - .source/refs/heads/
-// - .source/refs/tags/
+//   - .source/              (main Git metadata directory)
+//   - .source/objects/      (object database for blobs, trees, commits, tags)
+//   - .source/refs/         (references directory)
+//   - .source/refs/heads/   (branch references)
+//   - .source/refs/tags/    (tag references)
 //
 // Files created:
-// - .source/HEAD (points to refs/heads/master)
-// - .source/config (repository configuration)
-// - .source/description (repository description)
+//   - .source/HEAD          (points to refs/heads/master by default)
+//   - .source/config        (repository configuration with core settings)
+//   - .source/description   (human-readable repository description)
+//
+// Parameters:
+//   - path: The directory path where the repository should be initialized
+//
+// Returns:
+//   - error: nil on success, or an error if:
+//   - A repository already exists at the path
+//   - Directory creation fails
+//   - Object store initialization fails
+//   - Initial file creation fails
+//
+// Example:
+//
+//	repo := NewSourceRepository()
+//	err := repo.Initialize(scpath.RepositoryPath("/path/to/new/repo"))
+//	if err != nil {
+//	    log.Fatalf("Failed to initialize repository: %v", err)
+//	}
 func (sr *SourceRepository) Initialize(path scpath.RepositoryPath) error {
 	exists, err := RepositoryExists(path)
 	if err != nil {
@@ -89,7 +134,22 @@ func (sr *SourceRepository) Initialize(path scpath.RepositoryPath) error {
 	return nil
 }
 
-// WorkingDirectory returns the path to the repository's working directory
+// WorkingDirectory returns the path to the repository's working directory.
+//
+// The working directory is the root directory of the repository where user files
+// and directories are stored. It is the parent directory of the .source folder.
+//
+// Returns:
+//   - scpath.RepositoryPath: The absolute path to the working directory
+//
+// Panics:
+//   - If the repository has not been initialized via Initialize()
+//
+// Example:
+//
+//	repo := NewSourceRepository()
+//	repo.Initialize(scpath.RepositoryPath("/home/user/myrepo"))
+//	workDir := repo.WorkingDirectory() // Returns "/home/user/myrepo"
 func (sr *SourceRepository) WorkingDirectory() scpath.RepositoryPath {
 	if !sr.initialized {
 		panic("repository not initialized")
@@ -97,7 +157,17 @@ func (sr *SourceRepository) WorkingDirectory() scpath.RepositoryPath {
 	return sr.workingDir
 }
 
-// SourceDirectory returns the path to the .source directory
+// SourceDirectory returns the path to the .source metadata directory.
+//
+// The .source directory contains all Git metadata including objects, references,
+// configuration files, and the HEAD pointer. This is equivalent to the .git
+// directory in standard Git repositories.
+//
+// Returns:
+//   - scpath.SourcePath: The absolute path to the .source directory
+//
+// Panics:
+//   - If the repository has not been initialized via Initialize()
 func (sr *SourceRepository) SourceDirectory() scpath.SourcePath {
 	if !sr.initialized {
 		panic("repository not initialized")
@@ -105,12 +175,42 @@ func (sr *SourceRepository) SourceDirectory() scpath.SourcePath {
 	return sr.sourceDir
 }
 
-// ObjectStore returns the object store for this repository
+// ObjectStore returns the object store for this repository.
+//
+// The object store provides the interface for reading and writing Git objects
+// (blobs, trees, commits, and tags) to persistent storage.
+//
+// Returns:
+//   - store.ObjectStore: The object store instance used by this repository
 func (sr *SourceRepository) ObjectStore() store.ObjectStore {
 	return sr.objectStore
 }
 
-// ReadObject reads a Git object by its SHA-1 hash
+// ReadObject reads a Git object by its SHA-1 hash from the object store.
+//
+// This method retrieves and deserializes a Git object (blob, tree, commit, or tag)
+// from the repository's object database. The object is identified by its SHA-1
+// hash, which is computed from the object's content.
+//
+// Parameters:
+//   - hash: The SHA-1 hash of the object to read (40 character hex string)
+//
+// Returns:
+//   - objects.BaseObject: The deserialized Git object
+//   - error: nil on success, or an error if:
+//   - The repository is not initialized
+//   - The object does not exist
+//   - The object file is corrupted
+//   - Deserialization fails
+//
+// Example:
+//
+//	hash := objects.ObjectHash("a1b2c3d4e5f6...")
+//	obj, err := repo.ReadObject(hash)
+//	if err != nil {
+//	    log.Fatalf("Failed to read object: %v", err)
+//	}
+//	fmt.Printf("Object type: %s\n", obj.Type())
 func (sr *SourceRepository) ReadObject(hash objects.ObjectHash) (objects.BaseObject, error) {
 	if !sr.initialized {
 		return nil, fmt.Errorf("repository not initialized")
@@ -123,7 +223,35 @@ func (sr *SourceRepository) ReadObject(hash objects.ObjectHash) (objects.BaseObj
 	return obj, nil
 }
 
-// WriteObject writes a Git object to the repository and returns its hash
+// WriteObject writes a Git object to the repository and returns its SHA-1 hash.
+//
+// This method serializes a Git object (blob, tree, commit, or tag) and stores it
+// in the repository's object database. The object is content-addressable, meaning
+// its SHA-1 hash is computed from its content and serves as its unique identifier.
+//
+// The object is stored in the following location:
+//
+//	.source/objects/<first-2-chars-of-hash>/<remaining-38-chars-of-hash>
+//
+// Parameters:
+//   - obj: The Git object to write (must implement objects.BaseObject interface)
+//
+// Returns:
+//   - objects.ObjectHash: The SHA-1 hash of the written object
+//   - error: nil on success, or an error if:
+//   - The repository is not initialized
+//   - Serialization fails
+//   - File system write fails
+//   - Hash computation fails
+//
+// Example:
+//
+//	blob := objects.NewBlob([]byte("Hello, World!"))
+//	hash, err := repo.WriteObject(blob)
+//	if err != nil {
+//	    log.Fatalf("Failed to write object: %v", err)
+//	}
+//	fmt.Printf("Object written with hash: %s\n", hash)
 func (sr *SourceRepository) WriteObject(obj objects.BaseObject) (objects.ObjectHash, error) {
 	if !sr.initialized {
 		return "", fmt.Errorf("repository not initialized")
@@ -136,7 +264,16 @@ func (sr *SourceRepository) WriteObject(obj objects.BaseObject) (objects.ObjectH
 	return hash, nil
 }
 
-// Exists checks if a repository exists at the working directory
+// Exists checks if a valid repository exists at the working directory.
+//
+// This method verifies that a .source directory exists at the working directory
+// path and contains the necessary repository structure.
+//
+// Returns:
+//   - bool: true if a valid repository exists, false otherwise
+//   - error: nil on success, or an error if:
+//   - The repository is not initialized
+//   - File system access fails
 func (sr *SourceRepository) Exists() (bool, error) {
 	if !sr.initialized {
 		return false, fmt.Errorf("repository not initialized")
@@ -144,19 +281,42 @@ func (sr *SourceRepository) Exists() (bool, error) {
 	return RepositoryExists(sr.workingDir)
 }
 
-// IsInitialized returns whether the repository has been initialized
+// IsInitialized returns whether the repository has been properly initialized.
+//
+// A repository is considered initialized after a successful call to Initialize().
+// This flag indicates that all directory structures and initial files have been
+// created, and the repository is ready for use.
+//
+// Returns:
+//   - bool: true if Initialize() has been successfully called, false otherwise
 func (sr *SourceRepository) IsInitialized() bool {
 	return sr.initialized
 }
 
-// createDirectories creates all necessary directories for the repository
+// createDirectories creates all necessary directories for the repository structure.
+//
+// This internal method creates the complete directory hierarchy required for a
+// Git repository, including the main .source directory and all subdirectories
+// for objects and references.
+//
+// Directories created:
+//   - .source/              (main metadata directory)
+//   - .source/objects/      (object database)
+//   - .source/refs/         (references root)
+//   - .source/refs/heads/   (branch references)
+//   - .source/refs/tags/    (tag references)
+//
+// All directories are created with permissions 0755 (rwxr-xr-x).
+//
+// Returns:
+//   - error: nil on success, or an error if any directory creation fails
 func (sr *SourceRepository) createDirectories() error {
 	directories := []scpath.SourcePath{
 		sr.sourceDir,
 		sr.sourceDir.ObjectsPath(),
 		sr.sourceDir.RefsPath(),
-		sr.sourceDir.RefsPath().Join("heads"),
-		sr.sourceDir.RefsPath().Join("tags"),
+		sr.sourceDir.RefsPath().Join(scpath.HeadsDir),
+		sr.sourceDir.RefsPath().Join(scpath.TagsDir),
 	}
 
 	for _, dir := range directories {
@@ -168,7 +328,23 @@ func (sr *SourceRepository) createDirectories() error {
 	return nil
 }
 
-// createInitialFiles creates the initial files for a new repository
+// createInitialFiles creates the initial configuration and metadata files for a new repository.
+//
+// This internal method creates three essential files that every Git repository needs:
+//
+//  1. HEAD: Points to the current branch (initially refs/heads/master)
+//  2. description: Contains a human-readable description of the repository
+//  3. config: Contains the repository configuration in Git INI format
+//
+// The config file includes:
+//   - repositoryformatversion = 0 (Git object format version)
+//   - filemode = false (disable executable bit tracking on Windows)
+//   - bare = false (this is a repository with a working directory)
+//
+// All files are created with permissions 0644 (rw-r--r--).
+//
+// Returns:
+//   - error: nil on success, or an error if any file creation fails
 func (sr *SourceRepository) createInitialFiles() error {
 	files := []struct {
 		path    scpath.SourcePath
