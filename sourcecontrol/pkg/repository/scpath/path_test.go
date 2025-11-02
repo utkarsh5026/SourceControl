@@ -49,7 +49,7 @@ func TestRepositoryPath_SourcePath(t *testing.T) {
 
 func TestRepositoryPath_ObjectsPath(t *testing.T) {
 	repo := RepositoryPath("/home/user/repo")
-	objectsPath := repo.ObjectsPath()
+	objectsPath := repo.SourcePath().ObjectsPath()
 
 	expected := filepath.Join("/home/user/repo", ".source", "objects")
 	if objectsPath.String() != expected {

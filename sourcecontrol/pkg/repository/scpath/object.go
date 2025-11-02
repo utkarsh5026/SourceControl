@@ -49,8 +49,8 @@ func (op ObjectPath) Suffix() string {
 	return string(op[3:])
 }
 
-// ToWorkingPath converts to a working path within the objects directory
-func (op ObjectPath) ToWorkingPath(objectsDir WorkingPath) WorkingPath {
+// ToSourcePath converts to a source path within the objects directory
+func (op ObjectPath) ToSourcePath(objectsDir SourcePath) SourcePath {
 	return objectsDir.Join(op.Prefix(), op.Suffix())
 }
 

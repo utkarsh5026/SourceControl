@@ -10,9 +10,13 @@ import (
 // Example: "/home/user/myproject" or "C:\Users\user\myproject"
 type RepositoryPath string
 
-// WorkingPath represents a path within the working directory
-// This is typically an absolute path
-type WorkingPath string
+// AbsolutePath represents any absolute path in the repository filesystem
+// This can be used for paths anywhere in the repository structure
+type AbsolutePath string
+
+// SourcePath represents a path within the .source directory (Git metadata)
+// Example: "/repo/.source" or "/repo/.source/refs/heads"
+type SourcePath string
 
 // RelativePath represents a normalized relative path (forward slashes, no ..)
 // Example: "src/main.go" or "docs/README.md"
@@ -26,36 +30,25 @@ type ObjectPath string
 // Examples: "refs/heads/main", "refs/tags/v1.0.0", "HEAD"
 type RefPath string
 
-// IndexPath represents the path to the Git index file
-// Typically ".source/index"
-type IndexPath string
-
-// ConfigPath represents a path to a configuration file
-type ConfigPath string
-
-// RepositoryPath methods
-
-// WorkingPath methods
-
 // String returns the path as a string
-func (wp WorkingPath) String() string {
-	return string(wp)
+func (ap AbsolutePath) String() string {
+	return string(ap)
 }
 
 // IsValid checks if this is a valid path
-func (wp WorkingPath) IsValid() bool {
-	return len(wp) > 0
+func (ap AbsolutePath) IsValid() bool {
+	return len(ap) > 0
 }
 
-// Join joins path elements to the working path
-func (wp WorkingPath) Join(elem ...string) WorkingPath {
-	parts := append([]string{string(wp)}, elem...)
-	return WorkingPath(filepath.Join(parts...))
+// Join joins path elements to the absolute path
+func (ap AbsolutePath) Join(elem ...string) AbsolutePath {
+	parts := append([]string{string(ap)}, elem...)
+	return AbsolutePath(filepath.Join(parts...))
 }
 
 // RelativeTo returns a relative path from the base path
-func (wp WorkingPath) RelativeTo(base RepositoryPath) (RelativePath, error) {
-	rel, err := filepath.Rel(string(base), string(wp))
+func (ap AbsolutePath) RelativeTo(base RepositoryPath) (RelativePath, error) {
+	rel, err := filepath.Rel(string(base), string(ap))
 	if err != nil {
 		return "", fmt.Errorf("failed to get relative path: %w", err)
 	}
@@ -63,13 +56,71 @@ func (wp WorkingPath) RelativeTo(base RepositoryPath) (RelativePath, error) {
 }
 
 // Base returns the last element of the path
-func (wp WorkingPath) Base() string {
-	return filepath.Base(string(wp))
+func (ap AbsolutePath) Base() string {
+	return filepath.Base(string(ap))
 }
 
 // Dir returns all but the last element of the path
-func (wp WorkingPath) Dir() WorkingPath {
-	return WorkingPath(filepath.Dir(string(wp)))
+func (ap AbsolutePath) Dir() AbsolutePath {
+	return AbsolutePath(filepath.Dir(string(ap)))
+}
+
+// SourcePath methods
+
+// String returns the path as a string
+func (sp SourcePath) String() string {
+	return string(sp)
+}
+
+// IsValid checks if this is a valid source path
+func (sp SourcePath) IsValid() bool {
+	return len(sp) > 0
+}
+
+// Join joins path elements to the source path
+func (sp SourcePath) Join(elem ...string) SourcePath {
+	parts := append([]string{string(sp)}, elem...)
+	return SourcePath(filepath.Join(parts...))
+}
+
+// ToAbsolutePath converts to an absolute path
+func (sp SourcePath) ToAbsolutePath() AbsolutePath {
+	return AbsolutePath(sp)
+}
+
+// Base returns the last element of the path
+func (sp SourcePath) Base() string {
+	return filepath.Base(string(sp))
+}
+
+// Dir returns all but the last element of the path
+func (sp SourcePath) Dir() SourcePath {
+	return SourcePath(filepath.Dir(string(sp)))
+}
+
+// ObjectsPath returns the path to the objects directory
+func (sp SourcePath) ObjectsPath() SourcePath {
+	return sp.Join(ObjectsDir)
+}
+
+// RefsPath returns the path to the refs directory
+func (sp SourcePath) RefsPath() SourcePath {
+	return sp.Join(RefsDir)
+}
+
+// HeadPath returns the path to the HEAD file
+func (sp SourcePath) HeadPath() SourcePath {
+	return sp.Join(HeadFile)
+}
+
+// IndexPath returns the path to the index file
+func (sp SourcePath) IndexPath() SourcePath {
+	return sp.Join(IndexFile)
+}
+
+// ConfigPath returns the path to the config file
+func (sp SourcePath) ConfigPath() SourcePath {
+	return sp.Join(ConfigFile)
 }
 
 // String returns the reference path as a string
@@ -131,9 +182,9 @@ func (rp RefPath) ShortName() string {
 	return s
 }
 
-// ToWorkingPath converts to a working path within the repository
-func (rp RefPath) ToWorkingPath(repoPath RepositoryPath) WorkingPath {
-	return repoPath.Join(SourceDir, string(rp))
+// ToSourcePath converts to a source path within the repository
+func (rp RefPath) ToSourcePath(repoPath RepositoryPath) SourcePath {
+	return SourcePath(repoPath.Join(SourceDir, string(rp)))
 }
 
 // NewBranchRef creates a branch reference path
@@ -158,30 +209,6 @@ func NewTagRef(name string) (RefPath, error) {
 		return "", fmt.Errorf("invalid tag name: %s", name)
 	}
 	return refPath, nil
-}
-
-// IndexPath methods
-
-// String returns the index path as a string
-func (ip IndexPath) String() string {
-	return string(ip)
-}
-
-// ToWorkingPath converts to a working path
-func (ip IndexPath) ToWorkingPath() WorkingPath {
-	return WorkingPath(ip)
-}
-
-// ConfigPath methods
-
-// String returns the config path as a string
-func (cp ConfigPath) String() string {
-	return string(cp)
-}
-
-// ToWorkingPath converts to a working path
-func (cp ConfigPath) ToWorkingPath() WorkingPath {
-	return WorkingPath(cp)
 }
 
 // Helper functions

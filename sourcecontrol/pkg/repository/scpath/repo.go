@@ -16,39 +16,14 @@ func (rp RepositoryPath) IsValid() bool {
 }
 
 // Join joins path elements to the repository path
-func (rp RepositoryPath) Join(elem ...string) WorkingPath {
+func (rp RepositoryPath) Join(elem ...string) AbsolutePath {
 	parts := append([]string{string(rp)}, elem...)
-	return WorkingPath(filepath.Join(parts...))
+	return AbsolutePath(filepath.Join(parts...))
 }
 
 // SourcePath returns the path to the .source directory
-func (rp RepositoryPath) SourcePath() WorkingPath {
-	return rp.Join(SourceDir)
-}
-
-// ObjectsPath returns the path to the objects directory
-func (rp RepositoryPath) ObjectsPath() WorkingPath {
-	return rp.Join(SourceDir, ObjectsDir)
-}
-
-// RefsPath returns the path to the refs directory
-func (rp RepositoryPath) RefsPath() WorkingPath {
-	return rp.Join(SourceDir, RefsDir)
-}
-
-// IndexPath returns the path to the index file
-func (rp RepositoryPath) IndexPath() IndexPath {
-	return IndexPath(rp.Join(SourceDir, IndexFile))
-}
-
-// ConfigPath returns the path to the config file
-func (rp RepositoryPath) ConfigPath() ConfigPath {
-	return ConfigPath(rp.Join(SourceDir, ConfigFile))
-}
-
-// HeadPath returns the path to the HEAD file
-func (rp RepositoryPath) HeadPath() WorkingPath {
-	return rp.Join(SourceDir, HeadFile)
+func (rp RepositoryPath) SourcePath() SourcePath {
+	return SourcePath(filepath.Join(string(rp), SourceDir))
 }
 
 // NewRepositoryPath creates a new RepositoryPath from a string
