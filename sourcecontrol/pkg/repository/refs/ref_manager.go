@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
+	"github.com/utkarsh5026/SourceControl/pkg/objects"
 	"github.com/utkarsh5026/SourceControl/pkg/repository/scpath"
 	"github.com/utkarsh5026/SourceControl/pkg/repository/sourcerepo"
 )
@@ -64,15 +64,19 @@ func (rm *RefManager) ReadRef(ref scpath.RefPath) (string, error) {
 }
 
 // UpdateRef updates a reference with a new SHA-1 hash
-func (rm *RefManager) UpdateRef(ref scpath.RefPath, sha string) error {
+func (rm *RefManager) UpdateRef(ref scpath.RefPath, hash objects.ObjectHash) error {
+	// Validate the hash
+	if err := hash.Validate(); err != nil {
+		return fmt.Errorf("invalid hash: %w", err)
+	}
+
 	fullPath := rm.resolveReferencePath(ref)
 
-	// Create parent directories if needed
 	if err := os.MkdirAll(filepath.Dir(fullPath.String()), 0755); err != nil {
 		return fmt.Errorf("failed to create ref directory: %w", err)
 	}
 
-	content := sha + "\n"
+	content := hash.String() + "\n"
 	if err := os.WriteFile(fullPath.String(), []byte(content), 0644); err != nil {
 		return fmt.Errorf("failed to write ref %s: %w", ref, err)
 	}
@@ -81,7 +85,7 @@ func (rm *RefManager) UpdateRef(ref scpath.RefPath, sha string) error {
 }
 
 // ResolveToSHA resolves a reference to its final SHA-1 hash, following symbolic refs
-func (rm *RefManager) ResolveToSHA(ref scpath.RefPath) (string, error) {
+func (rm *RefManager) ResolveToSHA(ref scpath.RefPath) (objects.ObjectHash, error) {
 	currentRef := ref
 
 	for depth := 0; depth < MaxRefDepth; depth++ {
@@ -97,12 +101,13 @@ func (rm *RefManager) ResolveToSHA(ref scpath.RefPath) (string, error) {
 			continue
 		}
 
-		// Check if it's a valid SHA-1
-		if isSHA1(content) {
-			return content, nil
+		// Try to parse as ObjectHash (validates it's a valid SHA-1)
+		hash, err := objects.NewObjectHashFromString(content)
+		if err != nil {
+			return "", fmt.Errorf("invalid ref content: %s", content)
 		}
 
-		return "", fmt.Errorf("invalid ref content: %s", content)
+		return hash, nil
 	}
 
 	return "", fmt.Errorf("reference depth exceeded for %s", ref)
@@ -149,24 +154,14 @@ func (rm *RefManager) GetRefsPath() scpath.SourcePath {
 func (rm *RefManager) resolveReferencePath(ref scpath.RefPath) scpath.SourcePath {
 	refStr := strings.TrimSpace(ref.String())
 
-	// Handle HEAD reference
 	if refStr == scpath.HeadFile {
 		return rm.headPath
 	}
 
-	// If ref starts with "refs/", don't duplicate the refs root
-	if strings.HasPrefix(refStr, scpath.RefsDir+"/") {
-		// Remove the "refs/" prefix and join with refsPath
-		relPath := strings.TrimPrefix(refStr, scpath.RefsDir+"/")
+	if after, ok := strings.CutPrefix(refStr, scpath.RefsDir+"/"); ok {
+		relPath := after
 		return rm.refsPath.Join(relPath)
 	}
 
-	// Otherwise, join directly with refsPath
 	return rm.refsPath.Join(refStr)
-}
-
-// isSHA1 checks if a string is a valid SHA-1 hash
-func isSHA1(str string) bool {
-	sha1Regex := regexp.MustCompile(`^[0-9a-f]{40}$`)
-	return sha1Regex.MatchString(strings.ToLower(str))
 }

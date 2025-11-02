@@ -148,7 +148,12 @@ func TestRefManager_UpdateRef(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := rm.UpdateRef(tt.ref, tt.sha)
+			hash, err := objects.NewObjectHashFromString(tt.sha)
+			if err != nil {
+				t.Fatalf("Failed to create hash: %v", err)
+			}
+
+			err = rm.UpdateRef(tt.ref, hash)
 			if err != nil {
 				t.Fatalf("UpdateRef failed: %v", err)
 			}
@@ -178,7 +183,12 @@ func TestRefManager_ReadRef(t *testing.T) {
 	ref := scpath.RefPath("refs/heads/test")
 
 	// Write ref first
-	if err := rm.UpdateRef(ref, sha); err != nil {
+	hash, err := objects.NewObjectHashFromString(sha)
+	if err != nil {
+		t.Fatalf("Failed to create hash: %v", err)
+	}
+
+	if err := rm.UpdateRef(ref, hash); err != nil {
 		t.Fatalf("UpdateRef failed: %v", err)
 	}
 
@@ -281,7 +291,7 @@ func TestRefManager_ResolveToSHA(t *testing.T) {
 				t.Fatalf("ResolveToSHA failed: %v", err)
 			}
 
-			if result != tt.expectedSHA {
+			if result.String() != tt.expectedSHA {
 				t.Errorf("ResolveToSHA = %q, want %q", result, tt.expectedSHA)
 			}
 		})
@@ -300,7 +310,12 @@ func TestRefManager_DeleteRef(t *testing.T) {
 	sha := "1234567890abcdef1234567890abcdef12345678"
 
 	// Create ref
-	if err := rm.UpdateRef(ref, sha); err != nil {
+	hash, err := objects.NewObjectHashFromString(sha)
+	if err != nil {
+		t.Fatalf("Failed to create hash: %v", err)
+	}
+
+	if err := rm.UpdateRef(ref, hash); err != nil {
 		t.Fatalf("UpdateRef failed: %v", err)
 	}
 
@@ -364,7 +379,12 @@ func TestRefManager_Exists(t *testing.T) {
 	}
 
 	// Create ref
-	if err := rm.UpdateRef(ref, sha); err != nil {
+	hash, err := objects.NewObjectHashFromString(sha)
+	if err != nil {
+		t.Fatalf("Failed to create hash: %v", err)
+	}
+
+	if err := rm.UpdateRef(ref, hash); err != nil {
 		t.Fatalf("UpdateRef failed: %v", err)
 	}
 
@@ -393,29 +413,6 @@ func TestRefManager_GetPaths(t *testing.T) {
 	headPath := rm.GetHeadPath()
 	if headPath.String() != expectedHeadPath {
 		t.Errorf("GetHeadPath = %q, want %q", headPath, expectedHeadPath)
-	}
-}
-
-func TestIsSHA1(t *testing.T) {
-	tests := []struct {
-		input    string
-		expected bool
-	}{
-		{"1234567890abcdef1234567890abcdef12345678", true},
-		{"ABCDEF1234567890ABCDEF1234567890ABCDEF12", true},
-		{"123456789", false},
-		{"not-a-sha", false},
-		{"12345678901234567890123456789012345678ZZ", false},
-		{"", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			result := isSHA1(tt.input)
-			if result != tt.expected {
-				t.Errorf("isSHA1(%q) = %v, want %v", tt.input, result, tt.expected)
-			}
-		})
 	}
 }
 
