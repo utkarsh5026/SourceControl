@@ -10,11 +10,11 @@ import (
 
 func TestNewCommitPerson(t *testing.T) {
 	tests := []struct {
-		name      string
-		pname     string
-		email     string
-		when      time.Time
-		wantErr   bool
+		name        string
+		pname       string
+		email       string
+		when        time.Time
+		wantErr     bool
 		errContains string
 	}{
 		{
@@ -99,7 +99,7 @@ func TestCommitPerson_FormatForGit(t *testing.T) {
 			person: &CommitPerson{
 				Name:  "John Doe",
 				Email: "john@example.com",
-				When:  common.NewTimestamp(time.Unix(1609459200, 0).UTC()),
+				When:  common.NewTimestampFromTime(time.Unix(1609459200, 0).UTC()),
 			},
 			expected: "John Doe <john@example.com> 1609459200 +0000",
 		},
@@ -108,7 +108,7 @@ func TestCommitPerson_FormatForGit(t *testing.T) {
 			person: &CommitPerson{
 				Name:  "Jane Smith",
 				Email: "jane@example.com",
-				When:  common.NewTimestamp(time.Unix(1609459200, 0).In(time.FixedZone("IST", 5*3600+30*60))),
+				When:  common.NewTimestampFromTime(time.Unix(1609459200, 0).In(time.FixedZone("IST", 5*3600+30*60))),
 			},
 			expected: "Jane Smith <jane@example.com> 1609459200 +0530",
 		},
@@ -117,7 +117,7 @@ func TestCommitPerson_FormatForGit(t *testing.T) {
 			person: &CommitPerson{
 				Name:  "Bob Johnson",
 				Email: "bob@example.com",
-				When:  common.NewTimestamp(time.Unix(1609459200, 0).In(time.FixedZone("PST", -8*3600))),
+				When:  common.NewTimestampFromTime(time.Unix(1609459200, 0).In(time.FixedZone("PST", -8*3600))),
 			},
 			expected: "Bob Johnson <bob@example.com> 1609459200 -0800",
 		},
@@ -235,7 +235,7 @@ func TestCommitPerson_RoundTrip(t *testing.T) {
 	original := &CommitPerson{
 		Name:  "Test User",
 		Email: "test@example.com",
-		When:  common.NewTimestamp(time.Unix(1609459200, 0).In(time.FixedZone("IST", 5*3600+30*60))),
+		When:  common.NewTimestampFromTime(time.Unix(1609459200, 0).In(time.FixedZone("IST", 5*3600+30*60))),
 	}
 
 	gitFormat := original.FormatForGit()
@@ -263,7 +263,7 @@ func TestCommitPerson_RoundTrip(t *testing.T) {
 }
 
 func TestCommitPerson_Equal(t *testing.T) {
-	when := common.NewTimestamp(time.Unix(1609459200, 0).UTC())
+	when := common.NewTimestampFromTime(time.Unix(1609459200, 0).UTC())
 	person1 := &CommitPerson{
 		Name:  "John Doe",
 		Email: "john@example.com",
@@ -307,7 +307,7 @@ func TestCommitPerson_Equal(t *testing.T) {
 			other: &CommitPerson{
 				Name:  "John Doe",
 				Email: "john@example.com",
-				When:  common.NewTimestamp(time.Unix(1609459201, 0).UTC()),
+				When:  common.NewTimestampFromTime(time.Unix(1609459201, 0).UTC()),
 			},
 			expect: false,
 		},
@@ -332,7 +332,7 @@ func TestCommitPerson_String(t *testing.T) {
 	person := &CommitPerson{
 		Name:  "John Doe",
 		Email: "john@example.com",
-		When:  common.NewTimestamp(time.Unix(1609459200, 0).UTC()),
+		When:  common.NewTimestampFromTime(time.Unix(1609459200, 0).UTC()),
 	}
 
 	str := person.String()

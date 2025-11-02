@@ -41,7 +41,7 @@ func NewCommitPerson(name, email string, when time.Time) (*CommitPerson, error) 
 	return &CommitPerson{
 		Name:  strings.TrimSpace(name),
 		Email: strings.TrimSpace(email),
-		When:  common.NewTimestamp(when),
+		When:  common.NewTimestampFromTime(when),
 	}, nil
 }
 
@@ -108,7 +108,7 @@ func ParseCommitPerson(gitFormat string) (*CommitPerson, error) {
 
 	when := time.Unix(timestamp, 0).In(location)
 
-	return NewCommitPersonWithTimestamp(name, email, common.NewTimestamp(when))
+	return NewCommitPersonWithTimestamp(name, email, common.NewTimestampFromTime(when))
 }
 
 // String returns a human-readable representation
