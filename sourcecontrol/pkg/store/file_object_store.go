@@ -32,7 +32,7 @@ import (
 // Example for SHA "abcdef1234567890abcdef1234567890abcdef12":
 // File path: .source/objects/ab/cdef1234567890abcdef1234567890abcdef12
 type FileObjectStore struct {
-	objectsPath scpath.WorkingPath
+	objectsPath scpath.SourcePath
 }
 
 // NewFileObjectStore creates a new FileObjectStore instance
@@ -43,7 +43,7 @@ func NewFileObjectStore() *FileObjectStore {
 // Initialize sets up the object store by creating the objects directory structure.
 // It creates the .source/objects directory if it doesn't exist.
 func (fos *FileObjectStore) Initialize(repoPath scpath.RepositoryPath) error {
-	fos.objectsPath = repoPath.ObjectsPath()
+	fos.objectsPath = repoPath.SourcePath().ObjectsPath()
 
 	if err := os.MkdirAll(fos.objectsPath.String(), 0755); err != nil {
 		return fmt.Errorf("failed to initialize object store: %w", err)
@@ -167,13 +167,18 @@ func (fos *FileObjectStore) HasObject(hash objects.ObjectHash) (bool, error) {
 //
 // Example: hash "abcdef1234567890abcdef1234567890abcdef12"
 // Returns: .source/objects/ab/cdef1234567890abcdef1234567890abcdef12
-func (fos *FileObjectStore) resolveObjectPath(hash objects.ObjectHash) (scpath.WorkingPath, error) {
-	objPath, err := scpath.NewObjectPath(hash.String())
-	if err != nil {
-		return "", fmt.Errorf("failed to create object path: %w", err)
+func (fos *FileObjectStore) resolveObjectPath(hash objects.ObjectHash) (scpath.SourcePath, error) {
+	hashStr := hash.String()
+	if len(hashStr) != 40 {
+		return "", fmt.Errorf("invalid hash length: %d", len(hashStr))
 	}
 
-	return objPath.ToWorkingPath(fos.objectsPath), nil
+	objPath := fos.objectsPath.ObjectFilePath(hashStr)
+	if objPath == "" {
+		return "", fmt.Errorf("failed to create object path for hash: %s", hashStr)
+	}
+
+	return objPath, nil
 }
 
 // createObjectFromHeader determines the object type from the header and creates an appropriate
@@ -210,7 +215,7 @@ func (fos *FileObjectStore) IsInitialized() bool {
 }
 
 // GetObjectsPath returns the path to the objects directory
-func (fos *FileObjectStore) GetObjectsPath() scpath.WorkingPath {
+func (fos *FileObjectStore) GetObjectsPath() scpath.SourcePath {
 	return fos.objectsPath
 }
 
@@ -241,7 +246,7 @@ func (fos *FileObjectStore) ObjectCount() (int, error) {
 	return count, nil
 }
 
-func (fos *FileObjectStore) validateAndResolvePath(hash objects.ObjectHash) (scpath.WorkingPath, error) {
+func (fos *FileObjectStore) validateAndResolvePath(hash objects.ObjectHash) (scpath.SourcePath, error) {
 	if err := fos.ensureInitialized(); err != nil {
 		return "", err
 	}
