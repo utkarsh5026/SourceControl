@@ -95,7 +95,7 @@ func TestFileMode(t *testing.T) {
 func TestTimestamp(t *testing.T) {
 	t.Run("NewTimestamp", func(t *testing.T) {
 		now := time.Now()
-		ts := NewTimestamp(now)
+		ts := common.NewTimestampFromTime(now)
 
 		// Check that conversion round-trips correctly
 		gotTime := ts.Time()

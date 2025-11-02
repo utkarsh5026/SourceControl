@@ -6,9 +6,6 @@ import (
 	"github.com/utkarsh5026/SourceControl/pkg/common"
 )
 
-// NewTimestamp creates a Timestamp from a time.Time.
-var NewTimestamp = common.NewTimestamp
-
 // NewTimestampFromMillis creates a Timestamp from milliseconds.
 var NewTimestampFromMillis = common.NewTimestampFromMillis
 
