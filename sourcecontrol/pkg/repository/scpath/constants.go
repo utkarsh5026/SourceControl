@@ -25,10 +25,3 @@ const (
 	// HeadFile is the name of the HEAD file
 	HeadFile = "HEAD"
 )
-
-// Common reference paths
-const (
-	RefHeads RefPath = "refs/heads"
-	RefTags  RefPath = "refs/tags"
-	RefHEAD  RefPath = "HEAD"
-)
