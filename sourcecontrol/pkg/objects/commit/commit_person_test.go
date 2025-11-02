@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/utkarsh5026/SourceControl/pkg/common"
 )
 
 func TestNewCommitPerson(t *testing.T) {
@@ -97,7 +99,7 @@ func TestCommitPerson_FormatForGit(t *testing.T) {
 			person: &CommitPerson{
 				Name:  "John Doe",
 				Email: "john@example.com",
-				When:  time.Unix(1609459200, 0).UTC(),
+				When:  common.NewTimestamp(time.Unix(1609459200, 0).UTC()),
 			},
 			expected: "John Doe <john@example.com> 1609459200 +0000",
 		},
@@ -106,7 +108,7 @@ func TestCommitPerson_FormatForGit(t *testing.T) {
 			person: &CommitPerson{
 				Name:  "Jane Smith",
 				Email: "jane@example.com",
-				When:  time.Unix(1609459200, 0).In(time.FixedZone("IST", 5*3600+30*60)),
+				When:  common.NewTimestamp(time.Unix(1609459200, 0).In(time.FixedZone("IST", 5*3600+30*60))),
 			},
 			expected: "Jane Smith <jane@example.com> 1609459200 +0530",
 		},
@@ -115,7 +117,7 @@ func TestCommitPerson_FormatForGit(t *testing.T) {
 			person: &CommitPerson{
 				Name:  "Bob Johnson",
 				Email: "bob@example.com",
-				When:  time.Unix(1609459200, 0).In(time.FixedZone("PST", -8*3600)),
+				When:  common.NewTimestamp(time.Unix(1609459200, 0).In(time.FixedZone("PST", -8*3600))),
 			},
 			expected: "Bob Johnson <bob@example.com> 1609459200 -0800",
 		},
@@ -150,8 +152,8 @@ func TestParseCommitPerson(t *testing.T) {
 				if p.Email != "john@example.com" {
 					t.Errorf("Email = %v, want john@example.com", p.Email)
 				}
-				if p.When.Unix() != 1609459200 {
-					t.Errorf("When.Unix() = %v, want 1609459200", p.When.Unix())
+				if p.When.Seconds != 1609459200 {
+					t.Errorf("When.Seconds = %v, want 1609459200", p.When.Seconds)
 				}
 			},
 		},
@@ -163,7 +165,7 @@ func TestParseCommitPerson(t *testing.T) {
 				if p.Name != "Jane Smith" {
 					t.Errorf("Name = %v, want Jane Smith", p.Name)
 				}
-				_, offset := p.When.Zone()
+				_, offset := p.When.Time().Zone()
 				expectedOffset := 5*3600 + 30*60
 				if offset != expectedOffset {
 					t.Errorf("Timezone offset = %v, want %v", offset, expectedOffset)
@@ -175,7 +177,7 @@ func TestParseCommitPerson(t *testing.T) {
 			gitFormat: "Bob Johnson <bob@example.com> 1609459200 -0800",
 			wantErr:   false,
 			checkFunc: func(t *testing.T, p *CommitPerson) {
-				_, offset := p.When.Zone()
+				_, offset := p.When.Time().Zone()
 				expectedOffset := -8 * 3600
 				if offset != expectedOffset {
 					t.Errorf("Timezone offset = %v, want %v", offset, expectedOffset)
@@ -233,7 +235,7 @@ func TestCommitPerson_RoundTrip(t *testing.T) {
 	original := &CommitPerson{
 		Name:  "Test User",
 		Email: "test@example.com",
-		When:  time.Unix(1609459200, 0).In(time.FixedZone("IST", 5*3600+30*60)),
+		When:  common.NewTimestamp(time.Unix(1609459200, 0).In(time.FixedZone("IST", 5*3600+30*60))),
 	}
 
 	gitFormat := original.FormatForGit()
@@ -248,20 +250,20 @@ func TestCommitPerson_RoundTrip(t *testing.T) {
 	if parsed.Email != original.Email {
 		t.Errorf("Email = %v, want %v", parsed.Email, original.Email)
 	}
-	if parsed.When.Unix() != original.When.Unix() {
-		t.Errorf("When.Unix() = %v, want %v", parsed.When.Unix(), original.When.Unix())
+	if parsed.When.Seconds != original.When.Seconds {
+		t.Errorf("When.Seconds = %v, want %v", parsed.When.Seconds, original.When.Seconds)
 	}
 
 	// Check timezone
-	_, origOffset := original.When.Zone()
-	_, parsedOffset := parsed.When.Zone()
+	_, origOffset := original.When.Time().Zone()
+	_, parsedOffset := parsed.When.Time().Zone()
 	if origOffset != parsedOffset {
 		t.Errorf("Timezone offset = %v, want %v", parsedOffset, origOffset)
 	}
 }
 
 func TestCommitPerson_Equal(t *testing.T) {
-	when := time.Unix(1609459200, 0).UTC()
+	when := common.NewTimestamp(time.Unix(1609459200, 0).UTC())
 	person1 := &CommitPerson{
 		Name:  "John Doe",
 		Email: "john@example.com",
@@ -305,7 +307,7 @@ func TestCommitPerson_Equal(t *testing.T) {
 			other: &CommitPerson{
 				Name:  "John Doe",
 				Email: "john@example.com",
-				When:  time.Unix(1609459201, 0).UTC(),
+				When:  common.NewTimestamp(time.Unix(1609459201, 0).UTC()),
 			},
 			expect: false,
 		},
@@ -330,7 +332,7 @@ func TestCommitPerson_String(t *testing.T) {
 	person := &CommitPerson{
 		Name:  "John Doe",
 		Email: "john@example.com",
-		When:  time.Unix(1609459200, 0).UTC(),
+		When:  common.NewTimestamp(time.Unix(1609459200, 0).UTC()),
 	}
 
 	str := person.String()

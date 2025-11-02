@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/utkarsh5026/SourceControl/pkg/common"
 )
 
 // CommitPerson represents author or committer information in a Git commit.
@@ -19,7 +21,7 @@ import (
 type CommitPerson struct {
 	Name  string
 	Email string
-	When  time.Time
+	When  common.Timestamp
 }
 
 // personPattern is the regex pattern for parsing Git person format
@@ -39,6 +41,23 @@ func NewCommitPerson(name, email string, when time.Time) (*CommitPerson, error) 
 	return &CommitPerson{
 		Name:  strings.TrimSpace(name),
 		Email: strings.TrimSpace(email),
+		When:  common.NewTimestamp(when),
+	}, nil
+}
+
+// NewCommitPersonWithTimestamp creates a new CommitPerson with a Timestamp
+func NewCommitPersonWithTimestamp(name, email string, when common.Timestamp) (*CommitPerson, error) {
+	if err := validateName(name); err != nil {
+		return nil, err
+	}
+
+	if err := validateEmail(email); err != nil {
+		return nil, err
+	}
+
+	return &CommitPerson{
+		Name:  strings.TrimSpace(name),
+		Email: strings.TrimSpace(email),
 		When:  when,
 	}, nil
 }
@@ -46,8 +65,9 @@ func NewCommitPerson(name, email string, when time.Time) (*CommitPerson, error) 
 // FormatForGit formats person information in Git's standard format:
 // "Name <email> timestamp timezone"
 func (p *CommitPerson) FormatForGit() string {
-	timestamp := p.When.Unix()
-	_, offset := p.When.Zone()
+	when := p.When.Time()
+	timestamp := when.Unix()
+	_, offset := when.Zone()
 
 	// Format timezone as +HHMM or -HHMM
 	sign := "+"
@@ -88,12 +108,12 @@ func ParseCommitPerson(gitFormat string) (*CommitPerson, error) {
 
 	when := time.Unix(timestamp, 0).In(location)
 
-	return NewCommitPerson(name, email, when)
+	return NewCommitPersonWithTimestamp(name, email, common.NewTimestamp(when))
 }
 
 // String returns a human-readable representation
 func (p *CommitPerson) String() string {
-	return fmt.Sprintf("%s <%s> at %s", p.Name, p.Email, p.When.Format(time.RFC3339))
+	return fmt.Sprintf("%s <%s> at %s", p.Name, p.Email, p.When.String())
 }
 
 // Equal compares two CommitPerson instances for equality
@@ -103,7 +123,7 @@ func (p *CommitPerson) Equal(other *CommitPerson) bool {
 	}
 	return p.Name == other.Name &&
 		p.Email == other.Email &&
-		p.When.Unix() == other.When.Unix()
+		p.When.Equal(other.When)
 }
 
 // validateName validates the person name
