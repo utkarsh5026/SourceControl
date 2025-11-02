@@ -23,8 +23,15 @@ type Timestamp struct {
 	location    *time.Location // timezone for proper time conversion
 }
 
+func NewTimestamp(millis uint32, nanos uint32) Timestamp {
+	return Timestamp{
+		Seconds:     millis,
+		Nanoseconds: nanos,
+	}
+}
+
 // NewTimestamp creates a Timestamp from a time.Time.
-func NewTimestamp(t time.Time) Timestamp {
+func NewTimestampFromTime(t time.Time) Timestamp {
 	unix := t.Unix()
 	nanos := t.Nanosecond()
 	return Timestamp{
