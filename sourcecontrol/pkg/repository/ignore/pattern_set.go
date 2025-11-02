@@ -1,6 +1,9 @@
 package ignore
 
-import "strings"
+import (
+	"slices"
+	"strings"
+)
 
 // PatternSet is a collection of ignore patterns with efficient matching
 type PatternSet struct {
@@ -10,10 +13,7 @@ type PatternSet struct {
 
 // NewPatternSet creates a new empty pattern set
 func NewPatternSet() *PatternSet {
-	return &PatternSet{
-		patterns:         make([]*IgnorePattern, 0),
-		negationPatterns: make([]*IgnorePattern, 0),
-	}
+	return &PatternSet{}
 }
 
 // Add adds a pattern to the set
@@ -46,33 +46,23 @@ func (ps *PatternSet) AddPatternsFromText(text, source string) {
 // isDirectory: Whether the path is a directory
 // fromDirectory: Directory containing the .sourceignore file
 func (ps *PatternSet) IsIgnored(filePath string, isDirectory bool, fromDirectory string) bool {
-	// Check if any ignore pattern matches
-	checkIgnored := func() bool {
-		for _, pattern := range ps.patterns {
-			if pattern.Matches(filePath, isDirectory, fromDirectory) {
-				return true
-			}
-		}
+	ignored := slices.ContainsFunc(ps.patterns, func(p *IgnorePattern) bool {
+		return p.Matches(filePath, isDirectory, fromDirectory)
+	})
+
+	if !ignored {
 		return false
 	}
 
-	// Check if any negation pattern matches (which would un-ignore the file)
-	checkNegation := func() bool {
-		for _, pattern := range ps.negationPatterns {
-			if pattern.Matches(filePath, isDirectory, fromDirectory) {
-				return false
-			}
-		}
-		return true
-	}
-
-	return checkIgnored() && checkNegation()
+	return !slices.ContainsFunc(ps.negationPatterns, func(p *IgnorePattern) bool {
+		return p.Matches(filePath, isDirectory, fromDirectory)
+	})
 }
 
 // Clear removes all patterns from the set
 func (ps *PatternSet) Clear() {
-	ps.patterns = make([]*IgnorePattern, 0)
-	ps.negationPatterns = make([]*IgnorePattern, 0)
+	ps.patterns = nil
+	ps.negationPatterns = nil
 }
 
 // IgnoredPatterns returns all ignore patterns (non-negation patterns)
