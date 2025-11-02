@@ -22,10 +22,6 @@ type SourcePath string
 // Example: "src/main.go" or "docs/README.md"
 type RelativePath string
 
-// ObjectPath represents a path within .source/objects directory
-// Format: "ab/cdef123..." (2-char prefix + 38-char suffix)
-type ObjectPath string
-
 // RefPath represents a Git reference path
 // Examples: "refs/heads/main", "refs/tags/v1.0.0", "HEAD"
 type RefPath string
@@ -121,6 +117,17 @@ func (sp SourcePath) IndexPath() SourcePath {
 // ConfigPath returns the path to the config file
 func (sp SourcePath) ConfigPath() SourcePath {
 	return sp.Join(ConfigFile)
+}
+
+// ObjectFilePath returns the path to an object file given its hash
+// Example: hash "abcdef..." returns ".source/objects/ab/cdef..."
+func (sp SourcePath) ObjectFilePath(hash string) SourcePath {
+	if len(hash) != 40 {
+		return ""
+	}
+	prefix := hash[:2]
+	suffix := hash[2:]
+	return sp.Join(prefix, suffix)
 }
 
 // String returns the reference path as a string

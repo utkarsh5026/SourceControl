@@ -244,113 +244,57 @@ func TestRelativePath_Join(t *testing.T) {
 	}
 }
 
-func TestObjectPath_IsValid(t *testing.T) {
+func TestSourcePath_ObjectFilePath(t *testing.T) {
+	objectsPath := SourcePath(filepath.Join("/repo", ".source", "objects"))
+
 	tests := []struct {
-		name  string
-		path  ObjectPath
-		valid bool
+		name         string
+		hash         string
+		expectEmpty  bool
+		expectPrefix string
+		expectSuffix string
 	}{
 		{
-			name:  "valid object path",
-			path:  ObjectPath("ab/cdef0123456789abcdef0123456789abcdef01"),
-			valid: true,
+			name:         "valid hash",
+			hash:         "abcdef0123456789abcdef0123456789abcdef01",
+			expectEmpty:  false,
+			expectPrefix: "ab",
+			expectSuffix: "cdef0123456789abcdef0123456789abcdef01",
 		},
 		{
-			name:  "too short",
-			path:  ObjectPath("ab/cdef"),
-			valid: false,
+			name:         "different hash",
+			hash:         "1234567890abcdef1234567890abcdef12345678",
+			expectEmpty:  false,
+			expectPrefix: "12",
+			expectSuffix: "34567890abcdef1234567890abcdef12345678",
 		},
 		{
-			name:  "too long",
-			path:  ObjectPath("ab/cdef0123456789abcdef0123456789abcdef01234"),
-			valid: false,
+			name:        "invalid hash - too short",
+			hash:        "abcdef",
+			expectEmpty: true,
 		},
 		{
-			name:  "missing slash",
-			path:  ObjectPath("abcdef0123456789abcdef0123456789abcdef0123"),
-			valid: false,
-		},
-		{
-			name:  "slash at wrong position",
-			path:  ObjectPath("a/bcdef0123456789abcdef0123456789abcdef012"),
-			valid: false,
-		},
-		{
-			name:  "non-hex characters",
-			path:  ObjectPath("ab/xxxx0123456789abcdef0123456789abcdef01"),
-			valid: false,
+			name:        "invalid hash - too long",
+			hash:        "abcdef0123456789abcdef0123456789abcdef012345",
+			expectEmpty: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.path.IsValid(); got != tt.valid {
-				t.Errorf("IsValid() = %v, want %v for path %q", got, tt.valid, tt.path)
-			}
-		})
-	}
-}
+			got := objectsPath.ObjectFilePath(tt.hash)
 
-func TestObjectPath_Hash(t *testing.T) {
-	path := ObjectPath("ab/cdef0123456789abcdef0123456789abcdef01")
-	expected := "abcdef0123456789abcdef0123456789abcdef01"
-
-	if got := path.Hash(); got != expected {
-		t.Errorf("Hash() = %v, want %v", got, expected)
-	}
-}
-
-func TestObjectPath_PrefixSuffix(t *testing.T) {
-	path := ObjectPath("ab/cdef0123456789abcdef0123456789abcdef01")
-
-	if prefix := path.Prefix(); prefix != "ab" {
-		t.Errorf("Prefix() = %v, want ab", prefix)
-	}
-
-	if suffix := path.Suffix(); suffix != "cdef0123456789abcdef0123456789abcdef01" {
-		t.Errorf("Suffix() = %v, want cdef0123456789abcdef0123456789abcdef01", suffix)
-	}
-}
-
-func TestNewObjectPath(t *testing.T) {
-	tests := []struct {
-		name    string
-		hash    string
-		wantErr bool
-		wantVal ObjectPath
-	}{
-		{
-			name:    "valid hash",
-			hash:    "abcdef0123456789abcdef0123456789abcdef01",
-			wantErr: false,
-			wantVal: ObjectPath("ab/cdef0123456789abcdef0123456789abcdef01"),
-		},
-		{
-			name:    "too short",
-			hash:    "abcdef",
-			wantErr: true,
-		},
-		{
-			name:    "too long",
-			hash:    "abcdef0123456789abcdef0123456789abcdef01234",
-			wantErr: true,
-		},
-		{
-			name:    "non-hex",
-			hash:    "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx1234",
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewObjectPath(tt.hash)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("NewObjectPath() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.expectEmpty {
+				if got != "" {
+					t.Errorf("ObjectFilePath() = %v, want empty string", got)
+				}
 				return
 			}
-			if !tt.wantErr && got != tt.wantVal {
-				t.Errorf("NewObjectPath() = %v, want %v", got, tt.wantVal)
+
+			// Check if the path contains the expected components
+			expected := filepath.Join(objectsPath.String(), tt.expectPrefix, tt.expectSuffix)
+			if got.String() != expected {
+				t.Errorf("ObjectFilePath() = %v, want %v", got, expected)
 			}
 		})
 	}
