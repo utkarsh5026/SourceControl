@@ -24,26 +24,26 @@ import (
 // Binary Layout (62 bytes + filename + padding):
 //
 //	┌────────────────────────────────────────────────────┐
-//	│ ctime seconds    (4 bytes) │ ctime nanosecs (4)    │
+//	│ CreationTime seconds    (4 bytes) │ CreationTime nanosecs (4)    │
 //	│ mtime seconds    (4 bytes) │ mtime nanosecs (4)    │
 //	│ device ID        (4 bytes) │ inode         (4)     │
-//	│ mode             (4 bytes) │ uid           (4)     │
-//	│ gid              (4 bytes) │ file size     (4)     │
+//	│ mode             (4 bytes) │ UserID           (4)     │
+//	│ GroupID              (4 bytes) │ file size     (4)     │
 //	│ SHA-1 hash      (20 bytes)                         │
 //	│ flags            (2 bytes)                         │
 //	│ filename (variable) + null terminator + padding    │
 //	└────────────────────────────────────────────────────┘
 type Entry struct {
-	CTime common.Timestamp // Creation time
-	MTime common.Timestamp // Modification time
+	CreationTime     common.Timestamp
+	ModificationTime common.Timestamp
 
 	// File system metadata
-	DeviceID uint32   // Device ID
-	Inode    uint32   // Inode number
-	Mode     FileMode // File mode (type + permissions)
-	UID      uint32   // User ID
-	GID      uint32   // Group ID
-	Size     uint32   // File size in bytes
+	DeviceID    uint32   // Device ID
+	Inode       uint32   // Inode number
+	Mode        FileMode // File mode (type + permissions)
+	UserID      uint32   // User ID
+	GroupID     uint32   // Group ID
+	SizeInBytes uint32   // File size in bytes
 
 	// Git object reference
 	Hash objects.ObjectHash // SHA-1 hash of the blob
@@ -69,18 +69,18 @@ func NewEntry(path string) *Entry {
 // NewEntryFromFileInfo creates an Entry from file system information.
 func NewEntryFromFileInfo(path string, info os.FileInfo, hash objects.ObjectHash) (*Entry, error) {
 	entry := NewEntry(path)
-	entry.Size = uint32(info.Size())
+	entry.SizeInBytes = uint32(info.Size())
 	entry.Mode = FileMode(info.Mode())
 	entry.Hash = hash
 
 	// Set timestamps
 	modTime := info.ModTime()
-	entry.MTime = NewTimestamp(modTime)
+	entry.ModificationTime = NewTimestamp(modTime)
 
 	// Note: Go's FileInfo doesn't provide creation time or detailed stat info
 	// For a complete implementation, you'd use platform-specific syscalls
 	// For now, we'll use modification time for both
-	entry.CTime = NewTimestamp(modTime)
+	entry.CreationTime = NewTimestamp(modTime)
 
 	return entry, nil
 }
@@ -94,13 +94,13 @@ func (e *Entry) IsModified(info os.FileInfo) bool {
 	}
 
 	// Check file size
-	if e.Size != uint32(info.Size()) {
+	if e.SizeInBytes != uint32(info.Size()) {
 		return true
 	}
 
 	// Check modification time (seconds precision is usually sufficient)
 	mtimeSeconds := info.ModTime().Unix()
-	if int64(e.MTime.Seconds) != mtimeSeconds {
+	if int64(e.ModificationTime.Seconds) != mtimeSeconds {
 		return true
 	}
 
@@ -168,16 +168,16 @@ func (e *Entry) writeFixedFields(w io.Writer) error {
 
 	// Write timestamps
 	fields := []uint32{
-		e.CTime.Seconds,
-		e.CTime.Nanoseconds,
-		e.MTime.Seconds,
-		e.MTime.Nanoseconds,
+		e.CreationTime.Seconds,
+		e.CreationTime.Nanoseconds,
+		e.ModificationTime.Seconds,
+		e.ModificationTime.Nanoseconds,
 		e.DeviceID,
 		e.Inode,
 		uint32(e.Mode),
-		e.UID,
-		e.GID,
-		e.Size,
+		e.UserID,
+		e.GroupID,
+		e.SizeInBytes,
 	}
 
 	for _, field := range fields {
@@ -261,11 +261,11 @@ func (e *Entry) readFixedFields(data []byte) error {
 	buf := bytes.NewReader(data)
 
 	// Read timestamps
-	var ctimeSeconds, ctimeNanos, mtimeSeconds, mtimeNanos uint32
-	if err := binary.Read(buf, binary.BigEndian, &ctimeSeconds); err != nil {
+	var CreationTimeSeconds, CreationTimeNanos, mtimeSeconds, mtimeNanos uint32
+	if err := binary.Read(buf, binary.BigEndian, &CreationTimeSeconds); err != nil {
 		return err
 	}
-	if err := binary.Read(buf, binary.BigEndian, &ctimeNanos); err != nil {
+	if err := binary.Read(buf, binary.BigEndian, &CreationTimeNanos); err != nil {
 		return err
 	}
 	if err := binary.Read(buf, binary.BigEndian, &mtimeSeconds); err != nil {
@@ -275,8 +275,8 @@ func (e *Entry) readFixedFields(data []byte) error {
 		return err
 	}
 
-	e.CTime = common.Timestamp{Seconds: ctimeSeconds, Nanoseconds: ctimeNanos}
-	e.MTime = common.Timestamp{Seconds: mtimeSeconds, Nanoseconds: mtimeNanos}
+	e.CreationTime = common.Timestamp{Seconds: CreationTimeSeconds, Nanoseconds: CreationTimeNanos}
+	e.ModificationTime = common.Timestamp{Seconds: mtimeSeconds, Nanoseconds: mtimeNanos}
 
 	// Read file system metadata
 	if err := binary.Read(buf, binary.BigEndian, &e.DeviceID); err != nil {
@@ -292,13 +292,13 @@ func (e *Entry) readFixedFields(data []byte) error {
 	}
 	e.Mode = FileMode(mode)
 
-	if err := binary.Read(buf, binary.BigEndian, &e.UID); err != nil {
+	if err := binary.Read(buf, binary.BigEndian, &e.UserID); err != nil {
 		return err
 	}
-	if err := binary.Read(buf, binary.BigEndian, &e.GID); err != nil {
+	if err := binary.Read(buf, binary.BigEndian, &e.GroupID); err != nil {
 		return err
 	}
-	if err := binary.Read(buf, binary.BigEndian, &e.Size); err != nil {
+	if err := binary.Read(buf, binary.BigEndian, &e.SizeInBytes); err != nil {
 		return err
 	}
 
@@ -334,5 +334,5 @@ func (e *Entry) readFixedFields(data []byte) error {
 // String returns a human-readable representation of the entry.
 func (e *Entry) String() string {
 	return fmt.Sprintf("Entry{path: %s, mode: %s, hash: %s, size: %d}",
-		e.Path, e.Mode, e.Hash.Short(), e.Size)
+		e.Path, e.Mode, e.Hash.Short(), e.SizeInBytes)
 }

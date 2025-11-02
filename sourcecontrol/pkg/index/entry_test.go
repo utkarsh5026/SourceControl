@@ -17,18 +17,18 @@ func TestEntry_SerializeDeserialize(t *testing.T) {
 	}
 
 	original := &Entry{
-		CTime:       NewTimestamp(time.Now()),
-		MTime:       NewTimestamp(time.Now()),
-		DeviceID:    1,
-		Inode:       12345,
-		Mode:        FileModeRegular,
-		UID:         1000,
-		GID:         1000,
-		Size:        42,
-		Hash:        hash,
-		AssumeValid: false,
-		Stage:       0,
-		Path:        "test/file.txt",
+		CreationTime:     NewTimestamp(time.Now()),
+		ModificationTime: NewTimestamp(time.Now()),
+		DeviceID:         1,
+		Inode:            12345,
+		Mode:             FileModeRegular,
+		UserID:           1000,
+		GroupID:          1000,
+		SizeInBytes:      42,
+		Hash:             hash,
+		AssumeValid:      false,
+		Stage:            0,
+		Path:             "test/file.txt",
 	}
 
 	// Serialize
@@ -51,8 +51,8 @@ func TestEntry_SerializeDeserialize(t *testing.T) {
 	if original.Mode != deserialized.Mode {
 		t.Errorf("Mode = %v, want %v", deserialized.Mode, original.Mode)
 	}
-	if original.Size != deserialized.Size {
-		t.Errorf("Size = %v, want %v", deserialized.Size, original.Size)
+	if original.SizeInBytes != deserialized.SizeInBytes {
+		t.Errorf("Size = %v, want %v", deserialized.SizeInBytes, original.SizeInBytes)
 	}
 	if original.Hash.String() != deserialized.Hash.String() {
 		t.Errorf("Hash = %v, want %v", deserialized.Hash, original.Hash)
@@ -67,34 +67,34 @@ func TestEntry_SerializeDeserialize(t *testing.T) {
 
 func TestEntry_CompareTo(t *testing.T) {
 	tests := []struct {
-		name     string
-		entry1   *Entry
-		entry2   *Entry
-		wantCmp  int
+		name    string
+		entry1  *Entry
+		entry2  *Entry
+		wantCmp int
 	}{
 		{
-			name:     "equal paths",
-			entry1:   &Entry{Path: "file.txt"},
-			entry2:   &Entry{Path: "file.txt"},
-			wantCmp:  0,
+			name:    "equal paths",
+			entry1:  &Entry{Path: "file.txt"},
+			entry2:  &Entry{Path: "file.txt"},
+			wantCmp: 0,
 		},
 		{
-			name:     "first comes before second",
-			entry1:   &Entry{Path: "a.txt"},
-			entry2:   &Entry{Path: "b.txt"},
-			wantCmp:  -1,
+			name:    "first comes before second",
+			entry1:  &Entry{Path: "a.txt"},
+			entry2:  &Entry{Path: "b.txt"},
+			wantCmp: -1,
 		},
 		{
-			name:     "first comes after second",
-			entry1:   &Entry{Path: "z.txt"},
-			entry2:   &Entry{Path: "a.txt"},
-			wantCmp:  1,
+			name:    "first comes after second",
+			entry1:  &Entry{Path: "z.txt"},
+			entry2:  &Entry{Path: "a.txt"},
+			wantCmp: 1,
 		},
 		{
-			name:     "directory vs file",
-			entry1:   &Entry{Path: "dir", Mode: FileModeRegular},
-			entry2:   &Entry{Path: "dir.txt", Mode: FileModeRegular},
-			wantCmp:  -1, // "dir" < "dir.txt"
+			name:    "directory vs file",
+			entry1:  &Entry{Path: "dir", Mode: FileModeRegular},
+			entry2:  &Entry{Path: "dir.txt", Mode: FileModeRegular},
+			wantCmp: -1, // "dir" < "dir.txt"
 		},
 	}
 
@@ -141,10 +141,10 @@ func TestEntry_IsModified(t *testing.T) {
 
 	t.Run("not modified", func(t *testing.T) {
 		entry := &Entry{
-			Path:  "test.txt",
-			Size:  uint32(info.Size()),
-			MTime: NewTimestamp(info.ModTime()),
-			Hash:  hash,
+			Path:             "test.txt",
+			SizeInBytes:      uint32(info.Size()),
+			ModificationTime: NewTimestamp(info.ModTime()),
+			Hash:             hash,
 		}
 
 		if entry.IsModified(info) {
@@ -154,10 +154,10 @@ func TestEntry_IsModified(t *testing.T) {
 
 	t.Run("size changed", func(t *testing.T) {
 		entry := &Entry{
-			Path:  "test.txt",
-			Size:  999, // Different size
-			MTime: NewTimestamp(info.ModTime()),
-			Hash:  hash,
+			Path:             "test.txt",
+			SizeInBytes:      999, // Different size
+			ModificationTime: NewTimestamp(info.ModTime()),
+			Hash:             hash,
 		}
 
 		if !entry.IsModified(info) {
@@ -167,11 +167,11 @@ func TestEntry_IsModified(t *testing.T) {
 
 	t.Run("assume valid", func(t *testing.T) {
 		entry := &Entry{
-			Path:        "test.txt",
-			Size:        999, // Different size
-			MTime:       NewTimestamp(info.ModTime()),
-			Hash:        hash,
-			AssumeValid: true,
+			Path:             "test.txt",
+			SizeInBytes:      999, // Different size
+			ModificationTime: NewTimestamp(info.ModTime()),
+			Hash:             hash,
+			AssumeValid:      true,
 		}
 
 		// Even with different size, assume-valid means not modified
@@ -210,8 +210,8 @@ func TestNewEntryFromFileInfo(t *testing.T) {
 	if entry.Path != "test.txt" {
 		t.Errorf("Path = %v, want %v", entry.Path, "test.txt")
 	}
-	if entry.Size != uint32(len(content)) {
-		t.Errorf("Size = %v, want %v", entry.Size, len(content))
+	if entry.SizeInBytes != uint32(len(content)) {
+		t.Errorf("Size = %v, want %v", entry.SizeInBytes, len(content))
 	}
 	if entry.Hash.String() != hash.String() {
 		t.Errorf("Hash = %v, want %v", entry.Hash, hash)
