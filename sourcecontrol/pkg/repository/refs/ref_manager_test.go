@@ -131,7 +131,7 @@ func TestRefManager_UpdateRef(t *testing.T) {
 
 	tests := []struct {
 		name string
-		ref  scpath.RefPath
+		ref  RefPath
 		sha  string
 	}{
 		{
@@ -180,7 +180,7 @@ func TestRefManager_ReadRef(t *testing.T) {
 	}
 
 	sha := "1234567890abcdef1234567890abcdef12345678"
-	ref := scpath.RefPath("refs/heads/test")
+	ref := RefPath("refs/heads/test")
 
 	// Write ref first
 	hash, err := objects.NewObjectHashFromString(sha)
@@ -229,14 +229,14 @@ func TestRefManager_ResolveToSHA(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		setupRefs   map[scpath.RefPath]string
-		resolveRef  scpath.RefPath
+		setupRefs   map[RefPath]string
+		resolveRef  RefPath
 		expectedSHA string
 		expectError bool
 	}{
 		{
 			name: "direct SHA reference",
-			setupRefs: map[scpath.RefPath]string{
+			setupRefs: map[RefPath]string{
 				"refs/heads/main": sha,
 			},
 			resolveRef:  "refs/heads/main",
@@ -245,7 +245,7 @@ func TestRefManager_ResolveToSHA(t *testing.T) {
 		},
 		{
 			name: "symbolic reference",
-			setupRefs: map[scpath.RefPath]string{
+			setupRefs: map[RefPath]string{
 				"HEAD":            "ref: refs/heads/main",
 				"refs/heads/main": sha,
 			},
@@ -255,7 +255,7 @@ func TestRefManager_ResolveToSHA(t *testing.T) {
 		},
 		{
 			name: "chained symbolic references",
-			setupRefs: map[scpath.RefPath]string{
+			setupRefs: map[RefPath]string{
 				"refs/heads/alias":  "ref: refs/heads/main",
 				"refs/heads/main":   sha,
 			},
@@ -306,7 +306,7 @@ func TestRefManager_DeleteRef(t *testing.T) {
 		t.Fatalf("Init failed: %v", err)
 	}
 
-	ref := scpath.RefPath("refs/heads/test")
+	ref := RefPath("refs/heads/test")
 	sha := "1234567890abcdef1234567890abcdef12345678"
 
 	// Create ref
@@ -366,7 +366,7 @@ func TestRefManager_Exists(t *testing.T) {
 		t.Fatalf("Init failed: %v", err)
 	}
 
-	ref := scpath.RefPath("refs/heads/test")
+	ref := RefPath("refs/heads/test")
 	sha := "1234567890abcdef1234567890abcdef12345678"
 
 	// Check non-existent ref
@@ -422,7 +422,7 @@ func TestRefManager_ResolveReferencePath(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		ref      scpath.RefPath
+		ref      RefPath
 		expected string
 	}{
 		{

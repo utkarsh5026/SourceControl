@@ -49,7 +49,7 @@ func (rm *RefManager) Init() error {
 }
 
 // ReadRef reads a reference and returns its content
-func (rm *RefManager) ReadRef(ref scpath.RefPath) (string, error) {
+func (rm *RefManager) ReadRef(ref RefPath) (string, error) {
 	fullPath := rm.resolveReferencePath(ref)
 
 	data, err := os.ReadFile(fullPath.String())
@@ -64,7 +64,7 @@ func (rm *RefManager) ReadRef(ref scpath.RefPath) (string, error) {
 }
 
 // UpdateRef updates a reference with a new SHA-1 hash
-func (rm *RefManager) UpdateRef(ref scpath.RefPath, hash objects.ObjectHash) error {
+func (rm *RefManager) UpdateRef(ref RefPath, hash objects.ObjectHash) error {
 	// Validate the hash
 	if err := hash.Validate(); err != nil {
 		return fmt.Errorf("invalid hash: %w", err)
@@ -85,23 +85,21 @@ func (rm *RefManager) UpdateRef(ref scpath.RefPath, hash objects.ObjectHash) err
 }
 
 // ResolveToSHA resolves a reference to its final SHA-1 hash, following symbolic refs
-func (rm *RefManager) ResolveToSHA(ref scpath.RefPath) (objects.ObjectHash, error) {
+func (rm *RefManager) ResolveToSHA(ref RefPath) (objects.ObjectHash, error) {
 	currentRef := ref
 
-	for depth := 0; depth < MaxRefDepth; depth++ {
+	for range MaxRefDepth {
 		content, err := rm.ReadRef(currentRef)
 		if err != nil {
 			return "", fmt.Errorf("error reading ref %s: %w", currentRef, err)
 		}
 
-		// Check if it's a symbolic reference
-		if strings.HasPrefix(content, SymbolicRefPrefix) {
-			target := strings.TrimPrefix(content, SymbolicRefPrefix)
-			currentRef = scpath.RefPath(target)
+		if after, ok := strings.CutPrefix(content, SymbolicRefPrefix); ok {
+			target := after
+			currentRef = RefPath(target)
 			continue
 		}
 
-		// Try to parse as ObjectHash (validates it's a valid SHA-1)
 		hash, err := objects.NewObjectHashFromString(content)
 		if err != nil {
 			return "", fmt.Errorf("invalid ref content: %s", content)
@@ -114,7 +112,7 @@ func (rm *RefManager) ResolveToSHA(ref scpath.RefPath) (objects.ObjectHash, erro
 }
 
 // DeleteRef deletes a reference
-func (rm *RefManager) DeleteRef(ref scpath.RefPath) (bool, error) {
+func (rm *RefManager) DeleteRef(ref RefPath) (bool, error) {
 	fullPath := rm.resolveReferencePath(ref)
 
 	if err := os.Remove(fullPath.String()); err != nil {
@@ -128,7 +126,7 @@ func (rm *RefManager) DeleteRef(ref scpath.RefPath) (bool, error) {
 }
 
 // Exists checks if a reference exists
-func (rm *RefManager) Exists(ref scpath.RefPath) (bool, error) {
+func (rm *RefManager) Exists(ref RefPath) (bool, error) {
 	fullPath := rm.resolveReferencePath(ref)
 	_, err := os.Stat(fullPath.String())
 	if err != nil {
@@ -151,7 +149,7 @@ func (rm *RefManager) GetRefsPath() scpath.SourcePath {
 }
 
 // resolveReferencePath resolves a RefPath to its full filesystem path
-func (rm *RefManager) resolveReferencePath(ref scpath.RefPath) scpath.SourcePath {
+func (rm *RefManager) resolveReferencePath(ref RefPath) scpath.SourcePath {
 	refStr := strings.TrimSpace(ref.String())
 
 	if refStr == scpath.HeadFile {
