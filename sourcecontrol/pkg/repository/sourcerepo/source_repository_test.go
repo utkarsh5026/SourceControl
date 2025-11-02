@@ -70,12 +70,12 @@ func TestSourceRepository_Initialize(t *testing.T) {
 		t.Errorf(".source directory not created at %s", sourcePath)
 	}
 
-	objectsPath := repoPath.ObjectsPath()
+	objectsPath := sourcePath.ObjectsPath()
 	if _, err := os.Stat(objectsPath.String()); os.IsNotExist(err) {
 		t.Errorf("objects directory not created at %s", objectsPath)
 	}
 
-	refsPath := repoPath.RefsPath()
+	refsPath := sourcePath.RefsPath()
 	if _, err := os.Stat(refsPath.String()); os.IsNotExist(err) {
 		t.Errorf("refs directory not created at %s", refsPath)
 	}
@@ -102,7 +102,8 @@ func TestSourceRepository_InitialFiles(t *testing.T) {
 	}
 
 	// Check HEAD file
-	headPath := repoPath.HeadPath()
+	sourcePath := repoPath.SourcePath()
+	headPath := sourcePath.HeadPath()
 	headContent, err := os.ReadFile(headPath.String())
 	if err != nil {
 		t.Errorf("HEAD file not created: %v", err)
@@ -113,13 +114,13 @@ func TestSourceRepository_InitialFiles(t *testing.T) {
 	}
 
 	// Check description file
-	descPath := repoPath.SourcePath().Join("description")
+	descPath := sourcePath.Join("description")
 	if _, err := os.Stat(descPath.String()); os.IsNotExist(err) {
 		t.Error("description file not created")
 	}
 
 	// Check config file
-	configPath := repoPath.ConfigPath()
+	configPath := sourcePath.ConfigPath()
 	configContent, err := os.ReadFile(configPath.String())
 	if err != nil {
 		t.Errorf("config file not created: %v", err)

@@ -33,7 +33,7 @@ import (
 // directory (metadata and object storage).
 type SourceRepository struct {
 	workingDir  scpath.RepositoryPath
-	sourceDir   scpath.WorkingPath
+	sourceDir   scpath.SourcePath
 	objectStore store.ObjectStore
 	initialized bool
 }
@@ -98,7 +98,7 @@ func (sr *SourceRepository) WorkingDirectory() scpath.RepositoryPath {
 }
 
 // SourceDirectory returns the path to the .source directory
-func (sr *SourceRepository) SourceDirectory() scpath.WorkingPath {
+func (sr *SourceRepository) SourceDirectory() scpath.SourcePath {
 	if !sr.initialized {
 		panic("repository not initialized")
 	}
@@ -151,12 +151,12 @@ func (sr *SourceRepository) IsInitialized() bool {
 
 // createDirectories creates all necessary directories for the repository
 func (sr *SourceRepository) createDirectories() error {
-	directories := []scpath.WorkingPath{
+	directories := []scpath.SourcePath{
 		sr.sourceDir,
-		sr.workingDir.ObjectsPath(),
-		sr.workingDir.RefsPath(),
-		sr.workingDir.RefsPath().Join("heads"),
-		sr.workingDir.RefsPath().Join("tags"),
+		sr.sourceDir.ObjectsPath(),
+		sr.sourceDir.RefsPath(),
+		sr.sourceDir.RefsPath().Join("heads"),
+		sr.sourceDir.RefsPath().Join("tags"),
 	}
 
 	for _, dir := range directories {
@@ -171,22 +171,22 @@ func (sr *SourceRepository) createDirectories() error {
 // createInitialFiles creates the initial files for a new repository
 func (sr *SourceRepository) createInitialFiles() error {
 	files := []struct {
-		path    string
+		path    scpath.SourcePath
 		content string
 		name    string
 	}{
 		{
-			path:    sr.workingDir.HeadPath().String(),
+			path:    sr.sourceDir.HeadPath(),
 			content: "ref: refs/heads/master\n",
 			name:    "HEAD",
 		},
 		{
-			path:    sr.sourceDir.Join("description").String(),
+			path:    sr.sourceDir.Join("description"),
 			content: "Unnamed repository; edit this file 'description' to name the repository.\n",
 			name:    "description",
 		},
 		{
-			path: sr.workingDir.ConfigPath().String(),
+			path: sr.sourceDir.ConfigPath(),
 			content: `[core]
     repositoryformatversion = 0
     filemode = false
@@ -197,7 +197,7 @@ func (sr *SourceRepository) createInitialFiles() error {
 	}
 
 	for _, file := range files {
-		if err := os.WriteFile(file.path, []byte(file.content), 0644); err != nil {
+		if err := os.WriteFile(file.path.String(), []byte(file.content), 0644); err != nil {
 			return fmt.Errorf("failed to create %s file: %w", file.name, err)
 		}
 	}

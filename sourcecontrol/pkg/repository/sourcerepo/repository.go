@@ -17,7 +17,7 @@ type Repository interface {
 	WorkingDirectory() scpath.RepositoryPath
 
 	// SourceDirectory returns the path to the .source directory (equivalent to .git)
-	SourceDirectory() scpath.WorkingPath
+	SourceDirectory() scpath.SourcePath
 
 	// ObjectStore returns the object store for this repository
 	ObjectStore() store.ObjectStore
