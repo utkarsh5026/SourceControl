@@ -96,8 +96,8 @@ func (f *FileOps) readBlobContent(op Operation) ([]byte, error) {
 // atomicWrite writes data to a file atomically by using a temporary file and rename.
 // This ensures that the file is never in a partial state.
 func (f *FileOps) atomicWrite(targetPath scpath.AbsolutePath, data []byte, mode os.FileMode) error {
-	if err := os.MkdirAll(f.tempDir.String(), 0755); err != nil {
-		return fmt.Errorf("create temp directory: %w", err)
+	if err := f.ensureTempDir(); err != nil {
+		return err
 	}
 
 	dir := filepath.Dir(targetPath.String())
@@ -222,7 +222,7 @@ func (f *FileOps) CreateBackup(path scpath.RelativePath) (*Backup, error) {
 		return nil, fmt.Errorf("backup %s: stat file: %w", path, err)
 	}
 
-	tmpFile, err := f.createTempBackupFile()
+	tmpFile, err := f.createTempBackupFile("backup-*")
 	if err != nil {
 		return nil, err
 	}
@@ -248,17 +248,25 @@ func (f *FileOps) CreateBackup(path scpath.RelativePath) (*Backup, error) {
 	}, nil
 }
 
-func (f *FileOps) createTempBackupFile() (*os.File, error) {
-	if err := os.MkdirAll(f.tempDir.String(), 0755); err != nil {
-		return nil, fmt.Errorf("create temp directory: %w", err)
+func (f *FileOps) createTempBackupFile(pattern string) (*os.File, error) {
+	if err := f.ensureTempDir(); err != nil {
+		return nil, err
 	}
 
-	tmpFile, err := os.CreateTemp(f.tempDir.String(), "backup-*")
+	tmpFile, err := os.CreateTemp(f.tempDir.String(), pattern)
 	if err != nil {
 		return nil, fmt.Errorf("create temp file: %w", err)
 	}
 
 	return tmpFile, nil
+}
+
+func (f *FileOps) ensureTempDir() error {
+	if err := os.MkdirAll(f.tempDir.String(), 0755); err != nil {
+		return fmt.Errorf("create temp directory: %w", err)
+	}
+
+	return nil
 }
 
 func writeToTemp(tmpFile *os.File, path scpath.RelativePath, fullPath scpath.AbsolutePath) error {
