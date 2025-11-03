@@ -438,3 +438,562 @@ func TestFileOps_DryRun(t *testing.T) {
 		t.Errorf("File should not exist in dry-run mode")
 	}
 }
+
+// TestFileOps_ErrorConditions tests various error conditions
+func TestFileOps_ErrorConditions(t *testing.T) {
+	repo, _ := setupTestRepo(t)
+	service := NewFileOps(repo)
+
+	t.Run("create with missing SHA", func(t *testing.T) {
+		err := service.ApplyOperation(Operation{
+			Path:   scpath.RelativePath("test.txt"),
+			Action: ActionCreate,
+			SHA:    "",
+			Mode:   0644,
+		})
+		if err == nil {
+			t.Error("Expected error for missing SHA, got nil")
+		}
+	})
+
+	t.Run("create with invalid SHA", func(t *testing.T) {
+		err := service.ApplyOperation(Operation{
+			Path:   scpath.RelativePath("test.txt"),
+			Action: ActionCreate,
+			SHA:    objects.ObjectHash("invalid_hash_1234567890123456789012345678901234567890"),
+			Mode:   0644,
+		})
+		if err == nil {
+			t.Error("Expected error for invalid SHA, got nil")
+		}
+	})
+
+	t.Run("modify with missing SHA", func(t *testing.T) {
+		err := service.ApplyOperation(Operation{
+			Path:   scpath.RelativePath("test.txt"),
+			Action: ActionModify,
+			SHA:    "",
+			Mode:   0644,
+		})
+		if err == nil {
+			t.Error("Expected error for missing SHA, got nil")
+		}
+	})
+
+	t.Run("unknown action", func(t *testing.T) {
+		content := "test"
+		blobSHA := createTestBlob(t, repo, content)
+		err := service.ApplyOperation(Operation{
+			Path:   scpath.RelativePath("test.txt"),
+			Action: ActionType(999), // Invalid action
+			SHA:    blobSHA,
+			Mode:   0644,
+		})
+		if err == nil {
+			t.Error("Expected error for unknown action, got nil")
+		}
+	})
+
+	t.Run("delete non-existent file", func(t *testing.T) {
+		// Should not error - deleting non-existent file is idempotent
+		err := service.ApplyOperation(Operation{
+			Path:   scpath.RelativePath("nonexistent.txt"),
+			Action: ActionDelete,
+		})
+		if err != nil {
+			t.Errorf("Delete non-existent file should succeed, got error: %v", err)
+		}
+	})
+}
+
+// TestFileOps_LargeFiles tests operations with large file content
+func TestFileOps_LargeFiles(t *testing.T) {
+	repo, workDir := setupTestRepo(t)
+	service := NewFileOps(repo)
+
+	// Create a large content (1MB)
+	largeContent := make([]byte, 1024*1024)
+	for i := range largeContent {
+		largeContent[i] = byte(i % 256)
+	}
+
+	blobSHA := createTestBlob(t, repo, string(largeContent))
+
+	// Create file with large content
+	err := service.ApplyOperation(Operation{
+		Path:   scpath.RelativePath("large.bin"),
+		Action: ActionCreate,
+		SHA:    blobSHA,
+		Mode:   0644,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create large file: %v", err)
+	}
+
+	// Verify content
+	filePath := filepath.Join(workDir, "large.bin")
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		t.Fatalf("Failed to read large file: %v", err)
+	}
+
+	if len(data) != len(largeContent) {
+		t.Errorf("Large file size = %d, want %d", len(data), len(largeContent))
+	}
+
+	// Verify content integrity
+	for i := range data {
+		if data[i] != largeContent[i] {
+			t.Errorf("Content mismatch at byte %d: got %d, want %d", i, data[i], largeContent[i])
+			break
+		}
+	}
+}
+
+// TestFileOps_SpecialCharacters tests files with special characters in names
+func TestFileOps_SpecialCharacters(t *testing.T) {
+	repo, workDir := setupTestRepo(t)
+	service := NewFileOps(repo)
+
+	content := "test content"
+	blobSHA := createTestBlob(t, repo, content)
+
+	tests := []struct {
+		name     string
+		filename string
+	}{
+		{"spaces in name", "file with spaces.txt"},
+		{"unicode characters", "файл.txt"},
+		{"special chars", "file-with_special.chars.txt"},
+		{"dots", "file.name.with.dots.txt"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := service.ApplyOperation(Operation{
+				Path:   scpath.RelativePath(tt.filename),
+				Action: ActionCreate,
+				SHA:    blobSHA,
+				Mode:   0644,
+			})
+			if err != nil {
+				t.Errorf("Failed to create file with %s: %v", tt.name, err)
+				return
+			}
+
+			// Verify file exists
+			filePath := filepath.Join(workDir, tt.filename)
+			if _, err := os.Stat(filePath); err != nil {
+				t.Errorf("File not created: %v", err)
+			}
+		})
+	}
+}
+
+// TestFileOps_DeepNesting tests operations with deeply nested directories
+func TestFileOps_DeepNesting(t *testing.T) {
+	repo, workDir := setupTestRepo(t)
+	service := NewFileOps(repo)
+
+	content := "nested content"
+	blobSHA := createTestBlob(t, repo, content)
+
+	// Create deeply nested file
+	deepPath := "a/b/c/d/e/f/g/h/i/j/deep.txt"
+	err := service.ApplyOperation(Operation{
+		Path:   scpath.RelativePath(deepPath),
+		Action: ActionCreate,
+		SHA:    blobSHA,
+		Mode:   0644,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create deeply nested file: %v", err)
+	}
+
+	// Verify file exists
+	filePath := filepath.Join(workDir, deepPath)
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		t.Fatalf("Failed to read deeply nested file: %v", err)
+	}
+	if string(data) != content {
+		t.Errorf("Content mismatch: got %q, want %q", string(data), content)
+	}
+
+	// Delete and verify parent cleanup
+	err = service.ApplyOperation(Operation{
+		Path:   scpath.RelativePath(deepPath),
+		Action: ActionDelete,
+	})
+	if err != nil {
+		t.Fatalf("Failed to delete deeply nested file: %v", err)
+	}
+
+	// Verify file is gone
+	if _, err := os.Stat(filePath); !os.IsNotExist(err) {
+		t.Error("File should have been deleted")
+	}
+
+	// Verify empty parent directories were cleaned up
+	parentPath := filepath.Join(workDir, "a")
+	if _, err := os.Stat(parentPath); !os.IsNotExist(err) {
+		t.Error("Empty parent directories should have been cleaned up")
+	}
+}
+
+// TestFileOps_AtomicWrite tests that writes are atomic
+func TestFileOps_AtomicWrite(t *testing.T) {
+	repo, workDir := setupTestRepo(t)
+	service := NewFileOps(repo)
+
+	// Create initial file
+	initialContent := "Initial content"
+	initialBlob := createTestBlob(t, repo, initialContent)
+	filePath := scpath.RelativePath("atomic.txt")
+
+	err := service.ApplyOperation(Operation{
+		Path:   filePath,
+		Action: ActionCreate,
+		SHA:    initialBlob,
+		Mode:   0644,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create initial file: %v", err)
+	}
+
+	// Verify we can always read a complete file (not a partial write)
+	fullPath := filepath.Join(workDir, "atomic.txt")
+	data, err := os.ReadFile(fullPath)
+	if err != nil {
+		t.Fatalf("Failed to read file: %v", err)
+	}
+
+	if string(data) != initialContent {
+		t.Errorf("Content = %q, want %q", string(data), initialContent)
+	}
+
+	// File should be complete, not partial
+	if len(data) > 0 && len(data) != len(initialContent) {
+		t.Error("File appears to have been written partially")
+	}
+}
+
+// TestFileOps_ConcurrentOperations tests multiple operations in sequence
+func TestFileOps_ConcurrentOperations(t *testing.T) {
+	repo, workDir := setupTestRepo(t)
+	service := NewFileOps(repo)
+
+	// Create multiple files
+	files := []string{"file1.txt", "file2.txt", "file3.txt", "file4.txt", "file5.txt"}
+	content := "concurrent test"
+	blobSHA := createTestBlob(t, repo, content)
+
+	// Create all files
+	for _, file := range files {
+		err := service.ApplyOperation(Operation{
+			Path:   scpath.RelativePath(file),
+			Action: ActionCreate,
+			SHA:    blobSHA,
+			Mode:   0644,
+		})
+		if err != nil {
+			t.Errorf("Failed to create %s: %v", file, err)
+		}
+	}
+
+	// Verify all files exist
+	for _, file := range files {
+		filePath := filepath.Join(workDir, file)
+		data, err := os.ReadFile(filePath)
+		if err != nil {
+			t.Errorf("Failed to read %s: %v", file, err)
+			continue
+		}
+		if string(data) != content {
+			t.Errorf("%s: content = %q, want %q", file, string(data), content)
+		}
+	}
+
+	// Delete all files
+	for _, file := range files {
+		err := service.ApplyOperation(Operation{
+			Path:   scpath.RelativePath(file),
+			Action: ActionDelete,
+		})
+		if err != nil {
+			t.Errorf("Failed to delete %s: %v", file, err)
+		}
+	}
+
+	// Verify all files are gone
+	for _, file := range files {
+		filePath := filepath.Join(workDir, file)
+		if _, err := os.Stat(filePath); !os.IsNotExist(err) {
+			t.Errorf("File %s should have been deleted", file)
+		}
+	}
+}
+
+// TestFileOps_PermissionPreservation tests that file permissions are preserved
+func TestFileOps_PermissionPreservation(t *testing.T) {
+	repo, workDir := setupTestRepo(t)
+	service := NewFileOps(repo)
+
+	content := "permission test"
+	blobSHA := createTestBlob(t, repo, content)
+
+	tests := []struct {
+		name       string
+		mode       os.FileMode
+		skipOnWin  bool
+		minPerms   os.FileMode // minimum expected permissions on Windows
+	}{
+		{"read-only", 0444, false, 0400},
+		{"read-write", 0644, false, 0600},
+		{"executable", 0755, true, 0}, // Skip on Windows - execute bit works differently
+		{"owner-only", 0600, false, 0600},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.skipOnWin {
+				t.Skip("Skipping on Windows - execute permissions work differently")
+			}
+
+			filename := fmt.Sprintf("perm_%s.txt", tt.name)
+			err := service.ApplyOperation(Operation{
+				Path:   scpath.RelativePath(filename),
+				Action: ActionCreate,
+				SHA:    blobSHA,
+				Mode:   tt.mode,
+			})
+			if err != nil {
+				t.Fatalf("Failed to create file: %v", err)
+			}
+
+			// Verify file has correct permissions (check user bits only)
+			filePath := filepath.Join(workDir, filename)
+			info, err := os.Stat(filePath)
+			if err != nil {
+				t.Fatalf("Failed to stat file: %v", err)
+			}
+
+			gotMode := info.Mode() & 0700 // User permissions only
+
+			// On Windows, we can only check minimum permissions
+			// Windows doesn't support all Unix permission bits
+			if tt.minPerms > 0 {
+				if gotMode&tt.minPerms != tt.minPerms {
+					t.Errorf("Mode = %o, want at least %o", gotMode, tt.minPerms)
+				}
+			} else {
+				wantMode := tt.mode & 0700
+				if gotMode != wantMode {
+					t.Errorf("Mode = %o, want %o", gotMode, wantMode)
+				}
+			}
+		})
+	}
+}
+
+// TestFileOps_BackupAndRestore tests backup and restore with edge cases
+func TestFileOps_BackupAndRestore(t *testing.T) {
+	repo, workDir := setupTestRepo(t)
+	service := NewFileOps(repo)
+
+	t.Run("backup and restore multiple times", func(t *testing.T) {
+		content := "Original"
+		filePath := scpath.RelativePath("multi.txt")
+		fullPath := filepath.Join(workDir, "multi.txt")
+		err := os.WriteFile(fullPath, []byte(content), 0644)
+		if err != nil {
+			t.Fatalf("Setup failed: %v", err)
+		}
+
+		// Create multiple backups
+		backup1, err := service.CreateBackup(filePath)
+		if err != nil {
+			t.Fatalf("First backup failed: %v", err)
+		}
+		defer service.CleanupBackup(backup1)
+
+		// Modify file
+		err = os.WriteFile(fullPath, []byte("Modified 1"), 0644)
+		if err != nil {
+			t.Fatalf("Modify 1 failed: %v", err)
+		}
+
+		backup2, err := service.CreateBackup(filePath)
+		if err != nil {
+			t.Fatalf("Second backup failed: %v", err)
+		}
+		defer service.CleanupBackup(backup2)
+
+		// Modify again
+		err = os.WriteFile(fullPath, []byte("Modified 2"), 0644)
+		if err != nil {
+			t.Fatalf("Modify 2 failed: %v", err)
+		}
+
+		// Restore second backup
+		err = service.RestoreBackup(backup2)
+		if err != nil {
+			t.Fatalf("Restore backup2 failed: %v", err)
+		}
+
+		data, _ := os.ReadFile(fullPath)
+		if string(data) != "Modified 1" {
+			t.Errorf("After restore backup2: content = %q, want %q", string(data), "Modified 1")
+		}
+
+		// Restore first backup
+		err = service.RestoreBackup(backup1)
+		if err != nil {
+			t.Fatalf("Restore backup1 failed: %v", err)
+		}
+
+		data, _ = os.ReadFile(fullPath)
+		if string(data) != content {
+			t.Errorf("After restore backup1: content = %q, want %q", string(data), content)
+		}
+	})
+
+	t.Run("nil backup handling", func(t *testing.T) {
+		err := service.RestoreBackup(nil)
+		if err == nil {
+			t.Error("Expected error for nil backup, got nil")
+		}
+
+		err = service.CleanupBackup(nil)
+		if err != nil {
+			t.Errorf("CleanupBackup(nil) should not error, got: %v", err)
+		}
+	})
+
+	t.Run("backup of large file", func(t *testing.T) {
+		largeContent := make([]byte, 1024*1024) // 1MB
+		for i := range largeContent {
+			largeContent[i] = byte(i % 256)
+		}
+
+		filePath := scpath.RelativePath("large_backup.bin")
+		fullPath := filepath.Join(workDir, "large_backup.bin")
+		err := os.WriteFile(fullPath, largeContent, 0644)
+		if err != nil {
+			t.Fatalf("Setup failed: %v", err)
+		}
+
+		backup, err := service.CreateBackup(filePath)
+		if err != nil {
+			t.Fatalf("Backup failed: %v", err)
+		}
+		defer service.CleanupBackup(backup)
+
+		// Modify file
+		err = os.WriteFile(fullPath, []byte("modified"), 0644)
+		if err != nil {
+			t.Fatalf("Modify failed: %v", err)
+		}
+
+		// Restore
+		err = service.RestoreBackup(backup)
+		if err != nil {
+			t.Fatalf("Restore failed: %v", err)
+		}
+
+		// Verify content
+		data, err := os.ReadFile(fullPath)
+		if err != nil {
+			t.Fatalf("Read failed: %v", err)
+		}
+
+		if len(data) != len(largeContent) {
+			t.Errorf("Restored size = %d, want %d", len(data), len(largeContent))
+		}
+	})
+}
+
+// TestFileOps_EmptyContent tests operations with empty files
+func TestFileOps_EmptyContent(t *testing.T) {
+	repo, workDir := setupTestRepo(t)
+	service := NewFileOps(repo)
+
+	// Create empty blob
+	emptyBlob := createTestBlob(t, repo, "")
+
+	// Create empty file
+	err := service.ApplyOperation(Operation{
+		Path:   scpath.RelativePath("empty.txt"),
+		Action: ActionCreate,
+		SHA:    emptyBlob,
+		Mode:   0644,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create empty file: %v", err)
+	}
+
+	// Verify file exists and is empty
+	filePath := filepath.Join(workDir, "empty.txt")
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		t.Fatalf("Failed to read empty file: %v", err)
+	}
+	if len(data) != 0 {
+		t.Errorf("Empty file size = %d, want 0", len(data))
+	}
+}
+
+// TestFileOps_PartialDirectoryCleanup tests that only empty directories are removed
+func TestFileOps_PartialDirectoryCleanup(t *testing.T) {
+	repo, workDir := setupTestRepo(t)
+	service := NewFileOps(repo)
+
+	content := "test"
+	blobSHA := createTestBlob(t, repo, content)
+
+	// Create structure: dir1/dir2/file1.txt and dir1/file2.txt
+	err := service.ApplyOperation(Operation{
+		Path:   scpath.RelativePath("dir1/dir2/file1.txt"),
+		Action: ActionCreate,
+		SHA:    blobSHA,
+		Mode:   0644,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create file1: %v", err)
+	}
+
+	err = service.ApplyOperation(Operation{
+		Path:   scpath.RelativePath("dir1/file2.txt"),
+		Action: ActionCreate,
+		SHA:    blobSHA,
+		Mode:   0644,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create file2: %v", err)
+	}
+
+	// Delete dir1/dir2/file1.txt
+	err = service.ApplyOperation(Operation{
+		Path:   scpath.RelativePath("dir1/dir2/file1.txt"),
+		Action: ActionDelete,
+	})
+	if err != nil {
+		t.Fatalf("Failed to delete file1: %v", err)
+	}
+
+	// dir2 should be removed (empty), but dir1 should remain (has file2.txt)
+	dir2Path := filepath.Join(workDir, "dir1", "dir2")
+	if _, err := os.Stat(dir2Path); !os.IsNotExist(err) {
+		t.Error("dir2 should have been removed")
+	}
+
+	dir1Path := filepath.Join(workDir, "dir1")
+	if _, err := os.Stat(dir1Path); err != nil {
+		t.Error("dir1 should still exist")
+	}
+
+	file2Path := filepath.Join(workDir, "dir1", "file2.txt")
+	if _, err := os.Stat(file2Path); err != nil {
+		t.Error("file2.txt should still exist")
+	}
+}

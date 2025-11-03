@@ -57,18 +57,15 @@ func (f *FileOps) ApplyOperation(op Operation) error {
 // writeFile creates or modifies a file by reading content from a blob object.
 // Uses atomic write pattern: write to temp file, then rename.
 func (f *FileOps) writeFile(op Operation) error {
-	// Validate operation
 	if op.SHA == "" {
 		return fmt.Errorf("%s %s: %w: missing SHA", op.Action.String(), op.Path, ErrInvalidOperation)
 	}
 
-	// Read blob content
 	blobObj, err := f.repo.ReadObject(op.SHA)
 	if err != nil {
 		return fmt.Errorf("%s %s: read blob %s: %w", op.Action.String(), op.Path, op.SHA.Short(), err)
 	}
 
-	// Type assert to blob
 	blobData, ok := blobObj.(*blob.Blob)
 	if !ok {
 		return fmt.Errorf("%s %s: object %s is not a blob", op.Action.String(), op.Path, op.SHA.Short())
@@ -79,10 +76,8 @@ func (f *FileOps) writeFile(op Operation) error {
 		return fmt.Errorf("%s %s: get blob content: %w", op.Action.String(), op.Path, err)
 	}
 
-	// Get full path
 	fullPath := f.workDir.Join(op.Path.String())
 
-	// Ensure parent directory exists
 	if err := f.ensureParentDir(fullPath); err != nil {
 		return fmt.Errorf("%s %s: create parent directory: %w", op.Action.String(), op.Path, err)
 	}
@@ -98,7 +93,6 @@ func (f *FileOps) writeFile(op Operation) error {
 // atomicWrite writes data to a file atomically by using a temporary file and rename.
 // This ensures that the file is never in a partial state.
 func (f *FileOps) atomicWrite(targetPath scpath.AbsolutePath, data []byte, mode os.FileMode) error {
-	// Ensure temp directory exists
 	if err := os.MkdirAll(f.tempDir.String(), 0755); err != nil {
 		return fmt.Errorf("create temp directory: %w", err)
 	}
@@ -111,7 +105,6 @@ func (f *FileOps) atomicWrite(targetPath scpath.AbsolutePath, data []byte, mode 
 	}
 	tmpPath := tmpFile.Name()
 
-	// Ensure cleanup on error
 	defer func() {
 		tmpFile.Close()
 		// Only remove if still exists (successful rename will already remove it)
@@ -150,18 +143,14 @@ func (f *FileOps) atomicWrite(targetPath scpath.AbsolutePath, data []byte, mode 
 func (f *FileOps) deleteFile(path scpath.RelativePath) error {
 	fullPath := f.workDir.Join(path.String())
 
-	// Check if file exists
 	if _, err := os.Stat(fullPath.String()); os.IsNotExist(err) {
-		// File already doesn't exist, consider it a success
 		return nil
 	}
 
-	// Remove the file
 	if err := os.Remove(fullPath.String()); err != nil {
 		return fmt.Errorf("delete %s: remove file: %w", path, err)
 	}
 
-	// Clean up empty parent directories
 	parentDir := fullPath.Dir()
 	if err := f.cleanEmptyParents(parentDir); err != nil {
 		// Non-fatal: log but don't fail the operation
