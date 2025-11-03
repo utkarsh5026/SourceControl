@@ -3,7 +3,6 @@ package internal
 import (
 	"fmt"
 	"maps"
-	"os"
 
 	"github.com/utkarsh5026/SourceControl/pkg/index"
 	"github.com/utkarsh5026/SourceControl/pkg/objects"
@@ -16,7 +15,7 @@ import (
 // FileInfo represents metadata about a file in a tree or index
 type FileInfo struct {
 	SHA  objects.ObjectHash
-	Mode os.FileMode
+	Mode objects.FileMode
 }
 
 // ChangeAnalysis contains the result of comparing two file states
@@ -75,17 +74,16 @@ func (a *Analyzer) getTreeFiles(treeSHA objects.ObjectHash, basePath scpath.Rela
 		return nil, fmt.Errorf("object %s is not a tree", treeSHA.Short())
 	}
 
-	for _, entry := range treeObj.Entries() {
+	for _, e := range treeObj.Entries() {
 		var fullPath scpath.RelativePath
 		if basePath == "" {
-			fullPath = scpath.RelativePath(entry.Name())
+			fullPath = e.Name()
 		} else {
-			fullPath = basePath.Join(entry.Name())
+			fullPath = basePath.Join(e.Name().String())
 		}
 
-		if entry.IsDirectory() {
-			entrySHA := objects.ObjectHash(entry.SHA())
-			subFiles, err := a.getTreeFiles(entrySHA, fullPath)
+		if e.IsDirectory() {
+			subFiles, err := a.getTreeFiles(e.SHA(), fullPath)
 			if err != nil {
 				return nil, err
 			}
@@ -93,13 +91,10 @@ func (a *Analyzer) getTreeFiles(treeSHA objects.ObjectHash, basePath scpath.Rela
 			continue
 		}
 
-		if a.isSupportedFileType(entry) {
-			modeStr := entry.Mode()
-			mode := GetFileMode(modeStr)
-
+		if a.isSupportedFileType(e) {
 			files[fullPath] = FileInfo{
-				SHA:  objects.ObjectHash(entry.SHA()),
-				Mode: mode,
+				SHA:  e.SHA(),
+				Mode: e.Mode(),
 			}
 		}
 	}
@@ -108,14 +103,14 @@ func (a *Analyzer) getTreeFiles(treeSHA objects.ObjectHash, basePath scpath.Rela
 }
 
 // GetIndexFiles extracts file information from the Git index.
-// Converts index entries to the common.FileInfo format used by the analyzer.
+// Converts index entries to the FileInfo format used by the analyzer.
 func (a *Analyzer) GetIndexFiles(idx *index.Index) map[scpath.RelativePath]FileInfo {
 	files := make(map[scpath.RelativePath]FileInfo)
 
 	for _, entry := range idx.Entries {
 		files[entry.Path] = FileInfo{
 			SHA:  entry.BlobHash,
-			Mode: os.FileMode(entry.Mode),
+			Mode: entry.Mode,
 		}
 	}
 
@@ -150,7 +145,6 @@ func (a *Analyzer) AnalyzeChanges(current, target map[scpath.RelativePath]FileIn
 			})
 			summary.Created++
 		} else if a.hasChanged(currentInfo, targetInfo) {
-			// File exists but has changed - modify it
 			operations = append(operations, Operation{
 				Path:   path,
 				Action: ActionModify,
@@ -159,7 +153,6 @@ func (a *Analyzer) AnalyzeChanges(current, target map[scpath.RelativePath]FileIn
 			})
 			summary.Modified++
 		}
-		// If file exists and hasn't changed, no operation needed
 	}
 
 	return ChangeAnalysis{
@@ -172,12 +165,10 @@ func (a *Analyzer) AnalyzeChanges(current, target map[scpath.RelativePath]FileIn
 // AreTreesIdentical checks if two trees contain exactly the same files.
 // This is an optimization to avoid unnecessary operations.
 func (a *Analyzer) AreTreesIdentical(treeSHA1, treeSHA2 objects.ObjectHash) (bool, error) {
-	// Quick check: if SHAs are identical, trees are identical
 	if treeSHA1 == treeSHA2 {
 		return true, nil
 	}
 
-	// Get files from both trees
 	tree1Files, err := a.getTreeFiles(treeSHA1, scpath.RelativePath(""))
 	if err != nil {
 		return false, fmt.Errorf("read tree1: %w", err)
@@ -188,12 +179,10 @@ func (a *Analyzer) AreTreesIdentical(treeSHA1, treeSHA2 objects.ObjectHash) (boo
 		return false, fmt.Errorf("read tree2: %w", err)
 	}
 
-	// Different number of files means trees are different
 	if len(tree1Files) != len(tree2Files) {
 		return false, nil
 	}
 
-	// Check if all files match
 	for path, info1 := range tree1Files {
 		info2, exists := tree2Files[path]
 		if !exists || a.hasChanged(info1, info2) {
@@ -214,18 +203,4 @@ func (a *Analyzer) isSupportedFileType(entry *tree.TreeEntry) bool {
 // A file is considered changed if either its content (SHA) or mode has changed.
 func (a *Analyzer) hasChanged(current, target FileInfo) bool {
 	return current.SHA != target.SHA || current.Mode != target.Mode
-}
-
-// GetFileMode converts a mode string to os.FileMode.
-// Git stores modes as octal strings like "100644" or "100755".
-func GetFileMode(modeStr string) os.FileMode {
-	// Parse octal mode string
-	var mode uint32
-	fmt.Sscanf(modeStr, "%o", &mode)
-	return os.FileMode(mode)
-}
-
-// FormatFileMode converts os.FileMode to Git's octal string format.
-func FormatFileMode(mode os.FileMode) string {
-	return fmt.Sprintf("%o", mode)
 }
