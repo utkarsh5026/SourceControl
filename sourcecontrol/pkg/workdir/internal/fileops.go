@@ -58,31 +58,39 @@ func (f *FileOps) ApplyOperation(op Operation) error {
 // writeFile creates or modifies a file by reading content from a blob object.
 // Uses atomic write pattern: write to temp file, then rename.
 func (f *FileOps) writeFile(op Operation) error {
-	if op.SHA == "" {
-		return fmt.Errorf("%s %s: %w: missing SHA", op.Action.String(), op.Path, ErrInvalidOperation)
-	}
-
-	blob, err := f.repo.ReadBlobObject(op.SHA)
-	if err != nil {
-		return fmt.Errorf("%s %s: object %s is not a blob", op.Action.String(), op.Path, op.SHA.Short())
-	}
-
-	content, err := blob.Content()
+	content, err := f.readBlobContent(op)
 	if err != nil {
 		return fmt.Errorf("%s %s: get blob content: %w", op.Action.String(), op.Path, err)
 	}
 
 	fullPath := f.workDir.Join(op.Path.String())
-
 	if err := ensureParentDir(fullPath); err != nil {
 		return fmt.Errorf("%s %s: create parent directory: %w", op.Action.String(), op.Path, err)
 	}
 
-	if err := f.atomicWrite(fullPath, content.Bytes(), op.Mode.ToOSFileMode()); err != nil {
+	if err := f.atomicWrite(fullPath, content, op.Mode.ToOSFileMode()); err != nil {
 		return fmt.Errorf("%s %s: write file: %w", op.Action.String(), op.Path, err)
 	}
 
 	return nil
+}
+
+func (f *FileOps) readBlobContent(op Operation) ([]byte, error) {
+	if op.SHA == "" {
+		return nil, fmt.Errorf("%s %s: %w: missing SHA", op.Action.String(), op.Path, ErrInvalidOperation)
+	}
+
+	blob, err := f.repo.ReadBlobObject(op.SHA)
+	if err != nil {
+		return nil, fmt.Errorf("%s %s: object %s is not a blob", op.Action.String(), op.Path, op.SHA.Short())
+	}
+
+	content, err := blob.Content()
+	if err != nil {
+		return nil, fmt.Errorf("%s %s: get blob content: %w", op.Action.String(), op.Path, err)
+	}
+
+	return content.Bytes(), nil
 }
 
 // atomicWrite writes data to a file atomically by using a temporary file and rename.
