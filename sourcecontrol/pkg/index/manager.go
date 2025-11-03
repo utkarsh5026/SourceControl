@@ -1,14 +1,15 @@
 package index
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
 
-	"github.com/utkarsh5026/SourceControl/pkg/objects"
 	"github.com/utkarsh5026/SourceControl/pkg/objects/blob"
 	"github.com/utkarsh5026/SourceControl/pkg/repository/scpath"
+	"github.com/utkarsh5026/SourceControl/pkg/store"
 )
 
 // Manager orchestrates all operations between the working directory,
@@ -35,7 +36,7 @@ func (m *Manager) Initialize() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	index, err := Read(m.indexPath)
+	index, err := Read(m.indexPath.ToAbsolutePath())
 	if err != nil {
 		return fmt.Errorf("failed to load index: %w", err)
 	}
@@ -64,7 +65,7 @@ type AddFailureResult struct {
 // 1. Reads the file content from the working directory
 // 2. Creates a blob object and stores it in the repository
 // 3. Updates the index entry with the file's metadata and blob SHA
-func (m *Manager) Add(paths []string, objectStore ObjectStore) (*AddResult, error) {
+func (m *Manager) Add(paths []string, objectStore store.ObjectStore) (*AddResult, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -84,7 +85,6 @@ func (m *Manager) Add(paths []string, objectStore ObjectStore) (*AddResult, erro
 		}
 	}
 
-	// Save index after all additions
 	if err := m.saveIndex(); err != nil {
 		return result, fmt.Errorf("failed to save index: %w", err)
 	}
@@ -93,15 +93,13 @@ func (m *Manager) Add(paths []string, objectStore ObjectStore) (*AddResult, erro
 }
 
 // addFile adds a single file to the index.
-func (m *Manager) addFile(path string, objectStore ObjectStore, result *AddResult) error {
-	// Resolve absolute path
+func (m *Manager) addFile(path string, objectStore store.ObjectStore, result *AddResult) error {
 	absPath, relPath, err := m.resolvePaths(path)
 	if err != nil {
 		return err
 	}
 
-	// Get file info
-	info, err := os.Stat(absPath)
+	info, err := os.Stat(absPath.String())
 	if err != nil {
 		return fmt.Errorf("failed to stat file: %w", err)
 	}
@@ -111,19 +109,15 @@ func (m *Manager) addFile(path string, objectStore ObjectStore, result *AddResul
 	}
 
 	// Read file content
-	content, err := os.ReadFile(absPath)
+	content, err := os.ReadFile(absPath.String())
 	if err != nil {
 		return fmt.Errorf("failed to read file: %w", err)
 	}
 
 	// Create blob and store it
 	b := blob.NewBlob(content)
-	hash, err := b.Hash()
+	hash, err := objectStore.WriteObject(b)
 	if err != nil {
-		return fmt.Errorf("failed to compute hash: %w", err)
-	}
-
-	if err := objectStore.Store(b); err != nil {
 		return fmt.Errorf("failed to store blob: %w", err)
 	}
 
@@ -138,9 +132,9 @@ func (m *Manager) addFile(path string, objectStore ObjectStore, result *AddResul
 	m.index.Add(entry)
 
 	if isNew {
-		result.Added = append(result.Added, relPath)
+		result.Added = append(result.Added, relPath.String())
 	} else {
-		result.Modified = append(result.Modified, relPath)
+		result.Modified = append(result.Modified, relPath.String())
 	}
 
 	return nil
@@ -180,18 +174,18 @@ func (m *Manager) Remove(paths []string, deleteFromDisk bool) (*RemoveResult, er
 
 		if !m.index.Has(relPath) {
 			result.Failed = append(result.Failed, RemoveFailureResult{
-				Path:   relPath,
+				Path:   relPath.String(),
 				Reason: "file not in index",
 			})
 			continue
 		}
 
 		m.index.Remove(relPath)
-		result.Removed = append(result.Removed, relPath)
+		result.Removed = append(result.Removed, relPath.String())
 
 		// Optionally delete from disk
 		if deleteFromDisk {
-			if err := os.Remove(absPath); err != nil && !os.IsNotExist(err) {
+			if err := os.Remove(absPath.String()); err != nil && !os.IsNotExist(err) {
 				// File was removed from index but failed to delete from disk
 				// We don't add this to Failed since index operation succeeded
 			}
@@ -252,12 +246,12 @@ func (m *Manager) Status() (*StatusResult, error) {
 
 	// Check indexed files for modifications
 	for _, entry := range m.index.Entries {
-		absPath := filepath.Join(m.repoRoot.String(), entry.Path)
+		absPath := filepath.Join(m.repoRoot.String(), entry.Path.String())
 		info, err := os.Stat(absPath)
 
 		if os.IsNotExist(err) {
 			// File exists in index but not in working directory
-			result.Unstaged.Deleted = append(result.Unstaged.Deleted, entry.Path)
+			result.Unstaged.Deleted = append(result.Unstaged.Deleted, entry.Path.String())
 			continue
 		}
 
@@ -268,7 +262,7 @@ func (m *Manager) Status() (*StatusResult, error) {
 
 		// Check if file is modified
 		if entry.IsModified(info) {
-			result.Unstaged.Modified = append(result.Unstaged.Modified, entry.Path)
+			result.Unstaged.Modified = append(result.Unstaged.Modified, entry.Path.String())
 		}
 	}
 
@@ -299,30 +293,42 @@ func (m *Manager) GetIndex() *Index {
 
 // saveIndex writes the index to disk (caller must hold lock).
 func (m *Manager) saveIndex() error {
-	return m.index.Write(m.indexPath)
+	return m.index.Write(m.indexPath.ToAbsolutePath())
 }
 
 // resolvePaths converts a path to absolute and relative forms.
-func (m *Manager) resolvePaths(path string) (absPath, relPath string, err error) {
+func (m *Manager) resolvePaths(path string) (scpath.AbsolutePath, scpath.RelativePath, error) {
+	var absPath scpath.AbsolutePath
+
 	if filepath.IsAbs(path) {
-		absPath = filepath.Clean(path)
+		absPath = scpath.AbsolutePath(filepath.Clean(path))
 	} else {
-		absPath = filepath.Join(m.repoRoot, path)
+		absPath = m.repoRoot.Join(path)
 	}
 
-	relPath, err = filepath.Rel(m.repoRoot, absPath)
+	relPath, err := absPath.RelativeTo(m.repoRoot)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to compute relative path: %w", err)
 	}
 
-	// Convert to forward slashes for Git compatibility
-	relPath = filepath.ToSlash(relPath)
-
 	return absPath, relPath, nil
 }
 
-// ObjectStore is an interface for storing Git objects.
-// This allows the Manager to be decoupled from the specific storage implementation.
-type ObjectStore interface {
-	Store(obj objects.BaseObject) error
+// Read reads an index file from disk.
+func Read(path scpath.AbsolutePath) (*Index, error) {
+	if _, err := os.Stat(path.String()); os.IsNotExist(err) {
+		return NewIndex(), nil
+	}
+
+	data, err := os.ReadFile(path.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to read index file: %w", err)
+	}
+
+	index := NewIndex()
+	if err := index.Deserialize(bytes.NewReader(data)); err != nil {
+		return nil, fmt.Errorf("failed to deserialize index: %w", err)
+	}
+
+	return index, nil
 }

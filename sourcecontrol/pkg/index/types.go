@@ -1,87 +1,33 @@
 package index
 
 import (
-	"fmt"
-
 	"github.com/utkarsh5026/SourceControl/pkg/common"
+	"github.com/utkarsh5026/SourceControl/pkg/objects"
 )
 
 // NewTimestampFromMillis creates a Timestamp from milliseconds.
 var NewTimestampFromMillis = common.NewTimestampFromMillis
 
-// FileMode represents Git file mode (type + permissions).
-// Git stores file type in the upper 4 bits and permissions in the lower bits.
-type FileMode uint32
+// FileMode is an alias for objects.FileMode for backward compatibility.
+// Use objects.FileMode directly in new code.
+type FileMode = objects.FileMode
 
-// File mode constants that Git uses
+// Re-export FileMode constants for backward compatibility.
 const (
-	FileModeTypeMask FileMode = 0xF000 // Upper 4 bits (bits 12-15)
-	FileModePermMask FileMode = 0x01FF // Lower 9 bits (permissions)
-	FileModeExecMask FileMode = 0x0049 // Execute bits (owner/group/other)
+	FileModeTypeMask = objects.FileModeTypeMask
+	FileModePermMask = objects.FileModePermMask
+	FileModeExecMask = objects.FileModeExecMask
 
-	// File type values (after shifting right by 12 bits)
-	FileModeTypeRegular FileMode = 0x8000 // 0b1000 << 12 - Regular file
-	FileModeTypeSymlink FileMode = 0xA000 // 0b1010 << 12 - Symbolic link
-	FileModeTypeGitlink FileMode = 0xE000 // 0b1110 << 12 - Gitlink (submodule)
-	FileModeTypeDir     FileMode = 0x0000 // 0b0000 << 12 - Directory (rare in index)
+	FileModeTypeRegular = objects.FileModeTypeRegular
+	FileModeTypeSymlink = objects.FileModeTypeSymlink
+	FileModeTypeGitlink = objects.FileModeTypeGitlink
+	FileModeTypeDir     = objects.FileModeTypeDir
 
-	// Common mode values
-	FileModeRegular    FileMode = 0o100644 // Regular file, rw-r--r--
-	FileModeExecutable FileMode = 0o100755 // Executable file, rwxr-xr-x
-	FileModeSymlink    FileMode = 0o120000 // Symbolic link
-	FileModeGitlink    FileMode = 0o160000 // Gitlink (submodule)
+	FileModeRegular    = objects.FileModeRegular
+	FileModeExecutable = objects.FileModeExecutable
+	FileModeSymlink    = objects.FileModeSymlink
+	FileModeGitlink    = objects.FileModeGitlink
 )
-
-// Type returns the file type portion of the mode.
-func (m FileMode) Type() FileMode {
-	return m & FileModeTypeMask
-}
-
-// Permissions returns the permission bits.
-func (m FileMode) Permissions() FileMode {
-	return m & FileModePermMask
-}
-
-// IsRegular returns true if this is a regular file.
-func (m FileMode) IsRegular() bool {
-	return m.Type() == FileModeTypeRegular
-}
-
-// IsSymlink returns true if this is a symbolic link.
-func (m FileMode) IsSymlink() bool {
-	return m.Type() == FileModeTypeSymlink
-}
-
-// IsGitlink returns true if this is a gitlink (submodule).
-func (m FileMode) IsGitlink() bool {
-	return m.Type() == FileModeTypeGitlink
-}
-
-// IsDirectory returns true if this is a directory.
-func (m FileMode) IsDirectory() bool {
-	return m.Type() == FileModeTypeDir
-}
-
-// IsExecutable returns true if the file has execute permissions.
-func (m FileMode) IsExecutable() bool {
-	return (m & FileModeExecMask) != 0
-}
-
-// String returns a human-readable representation of the file mode.
-func (m FileMode) String() string {
-	switch m.Type() {
-	case FileModeTypeRegular:
-		return fmt.Sprintf("regular(%o)", m.Permissions())
-	case FileModeTypeSymlink:
-		return "symlink"
-	case FileModeTypeGitlink:
-		return "gitlink"
-	case FileModeTypeDir:
-		return "directory"
-	default:
-		return fmt.Sprintf("unknown(%o)", m)
-	}
-}
 
 // EntryFlags represents the flags field in an index entry.
 // The flags field contains several pieces of information packed into 16 bits:

@@ -120,6 +120,7 @@ func NewEntry(path scpath.RelativePath) *Entry {
 //   - File size from info.Size()
 //   - File mode (type + permissions) from info.Mode()
 //   - Modification time from info.ModTime()
+//   - Platform-specific metadata (device ID, inode, user ID, group ID)
 func NewEntryFromFileInfo(path scpath.RelativePath, info os.FileInfo, hash objects.ObjectHash) (*Entry, error) {
 	if !path.IsValid() {
 		return nil, fmt.Errorf("invalid path: %s", path)
@@ -133,11 +134,10 @@ func NewEntryFromFileInfo(path scpath.RelativePath, info os.FileInfo, hash objec
 	// Set timestamps
 	modTime := info.ModTime()
 	entry.ModificationTime = common.NewTimestampFromTime(modTime)
-
-	// Note: Go's FileInfo doesn't provide creation time or detailed stat info
-	// For a complete implementation, you'd use platform-specific syscalls
-	// For now, we'll use modification time for both
 	entry.CreationTime = common.NewTimestampFromTime(modTime)
+
+	// Extract platform-specific metadata (device, inode, uid, gid)
+	entry.DeviceID, entry.Inode, entry.UserID, entry.GroupID = extractSystemMetadata(info)
 
 	return entry, nil
 }
