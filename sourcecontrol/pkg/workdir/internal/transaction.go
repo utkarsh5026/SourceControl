@@ -2,9 +2,17 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/utkarsh5026/SourceControl/pkg/repository/scpath"
+)
+
+var (
+	// ErrInvalidOperation is returned when an operation is malformed
+	ErrInvalidOperation = errors.New("invalid operation")
+	// ErrLockAcquisitionFailed is returned when unable to acquire repository lock
+	ErrLockAcquisitionFailed = errors.New("failed to acquire lock")
 )
 
 // DryRunAnalysis categorizes operations for dry run reporting
