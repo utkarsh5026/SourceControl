@@ -392,7 +392,8 @@ func TestCommit_IsInitialCommit(t *testing.T) {
 		t.Error("IsInitialCommit() should return true")
 	}
 
-	commit.ParentSHAs = []string{"a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0"}
+	hash, _ := objects.NewObjectHashFromString("a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0")
+	commit.ParentSHAs = []objects.ObjectHash{hash}
 	if commit.IsInitialCommit() {
 		t.Error("IsInitialCommit() should return false")
 	}
@@ -412,12 +413,14 @@ func TestCommit_IsMergeCommit(t *testing.T) {
 		t.Error("IsMergeCommit() should return false for zero parents")
 	}
 
-	commit.ParentSHAs = []string{"a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0"}
+	hash1, _ := objects.NewObjectHashFromString("a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0")
+	commit.ParentSHAs = []objects.ObjectHash{hash1}
 	if commit.IsMergeCommit() {
 		t.Error("IsMergeCommit() should return false for one parent")
 	}
 
-	commit.ParentSHAs = append(commit.ParentSHAs, "b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1")
+	hash2, _ := objects.NewObjectHashFromString("b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1")
+	commit.ParentSHAs = append(commit.ParentSHAs, hash2)
 	if !commit.IsMergeCommit() {
 		t.Error("IsMergeCommit() should return true for two parents")
 	}
@@ -623,9 +626,9 @@ func TestValidateSHA(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateSHA(tt.sha)
+			_, err := objects.NewObjectHashFromString(tt.sha)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("validateSHA() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("NewObjectHashFromString() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

@@ -2,7 +2,8 @@ package commit
 
 import (
 	"fmt"
-	"strings"
+
+	"github.com/utkarsh5026/SourceControl/pkg/objects"
 )
 
 type CommitBuilder struct {
@@ -14,7 +15,7 @@ type CommitBuilder struct {
 func NewCommitBuilder() *CommitBuilder {
 	return &CommitBuilder{
 		commit: &Commit{
-			ParentSHAs: make([]string, 0),
+			ParentSHAs: make([]objects.ObjectHash, 0),
 		},
 		errs: make([]error, 0),
 	}
@@ -22,21 +23,35 @@ func NewCommitBuilder() *CommitBuilder {
 
 // Tree sets the tree SHA for the commit
 func (b *CommitBuilder) Tree(treeSHA string) *CommitBuilder {
-	if err := validateSHA(treeSHA); err != nil {
+	hash, err := objects.NewObjectHashFromString(treeSHA)
+	if err != nil {
 		b.errs = append(b.errs, fmt.Errorf("invalid tree SHA: %w", err))
 	} else {
-		b.commit.TreeSHA = strings.ToLower(treeSHA)
+		b.commit.TreeSHA = hash
 	}
+	return b
+}
+
+// TreeHash sets the tree SHA using an ObjectHash
+func (b *CommitBuilder) TreeHash(treeSHA objects.ObjectHash) *CommitBuilder {
+	b.commit.TreeSHA = treeSHA
 	return b
 }
 
 // Parent adds a parent SHA to the commit
 func (b *CommitBuilder) Parent(parentSHA string) *CommitBuilder {
-	if err := validateSHA(parentSHA); err != nil {
+	hash, err := objects.NewObjectHashFromString(parentSHA)
+	if err != nil {
 		b.errs = append(b.errs, fmt.Errorf("invalid parent SHA: %w", err))
 	} else {
-		b.commit.ParentSHAs = append(b.commit.ParentSHAs, strings.ToLower(parentSHA))
+		b.commit.ParentSHAs = append(b.commit.ParentSHAs, hash)
 	}
+	return b
+}
+
+// ParentHash adds a parent SHA using an ObjectHash
+func (b *CommitBuilder) ParentHash(parentSHA objects.ObjectHash) *CommitBuilder {
+	b.commit.ParentSHAs = append(b.commit.ParentSHAs, parentSHA)
 	return b
 }
 
@@ -45,6 +60,12 @@ func (b *CommitBuilder) Parents(parentSHAs ...string) *CommitBuilder {
 	for _, sha := range parentSHAs {
 		b.Parent(sha)
 	}
+	return b
+}
+
+// ParentHashes sets multiple parent SHAs using ObjectHashes
+func (b *CommitBuilder) ParentHashes(parentSHAs ...objects.ObjectHash) *CommitBuilder {
+	b.commit.ParentSHAs = append(b.commit.ParentSHAs, parentSHAs...)
 	return b
 }
 

@@ -43,8 +43,8 @@ import (
 // - The initial commit has no parents
 // - The graph represents the complete history of the repository
 type Commit struct {
-	TreeSHA    string
-	ParentSHAs []string
+	TreeSHA    objects.ObjectHash
+	ParentSHAs []objects.ObjectHash
 	Author     *CommitPerson
 	Committer  *CommitPerson
 	Message    string
@@ -56,6 +56,14 @@ type Commit struct {
 func (c *Commit) Validate() error {
 	if c.TreeSHA == "" {
 		return fmt.Errorf("tree SHA is required")
+	}
+	if err := c.TreeSHA.Validate(); err != nil {
+		return fmt.Errorf("invalid tree SHA: %w", err)
+	}
+	for i, parent := range c.ParentSHAs {
+		if err := parent.Validate(); err != nil {
+			return fmt.Errorf("invalid parent SHA at index %d: %w", i, err)
+		}
 	}
 	if c.Author == nil {
 		return fmt.Errorf("author is required")
@@ -77,13 +85,13 @@ func (c *Commit) Content() (objects.ObjectContent, error) {
 
 	// Tree line
 	buf.WriteString("tree ")
-	buf.WriteString(c.TreeSHA)
+	buf.WriteString(c.TreeSHA.String())
 	buf.WriteString("\n")
 
 	// Parent lines
 	for _, parent := range c.ParentSHAs {
 		buf.WriteString("parent ")
-		buf.WriteString(parent)
+		buf.WriteString(parent.String())
 		buf.WriteString("\n")
 	}
 
@@ -166,10 +174,10 @@ func (c *Commit) String() string {
 	hash, err := c.Hash()
 	if err != nil {
 		return fmt.Sprintf("Commit{tree: %s, parents: %d, error: %v}",
-			c.TreeSHA, len(c.ParentSHAs), err)
+			c.TreeSHA.Short(), len(c.ParentSHAs), err)
 	}
 	return fmt.Sprintf("Commit{hash: %s, tree: %s, parents: %d, message: %.50s...}",
-		hash.Short(), c.TreeSHA, len(c.ParentSHAs), c.Message)
+		hash.Short(), c.TreeSHA.Short(), len(c.ParentSHAs), c.Message)
 }
 
 // ParseCommit parses a commit object from serialized data (with header)
@@ -193,7 +201,7 @@ func ParseCommit(data []byte) (*Commit, error) {
 func parseCommitContent(content string) (*Commit, error) {
 	lines := strings.Split(content, "\n")
 	commit := &Commit{
-		ParentSHAs: make([]string, 0),
+		ParentSHAs: make([]objects.ObjectHash, 0),
 	}
 
 	messageStartIndex := -1
@@ -229,18 +237,20 @@ func parseCommitLine(commit *Commit, line string) error {
 		if commit.TreeSHA != "" {
 			return fmt.Errorf("multiple tree entries found")
 		}
-		treeSHA := strings.TrimPrefix(line, "tree ")
-		if err := validateSHA(treeSHA); err != nil {
+		treeSHAStr := strings.TrimPrefix(line, "tree ")
+		treeSHA, err := objects.NewObjectHashFromString(treeSHAStr)
+		if err != nil {
 			return fmt.Errorf("invalid tree SHA: %w", err)
 		}
-		commit.TreeSHA = strings.ToLower(treeSHA)
+		commit.TreeSHA = treeSHA
 
 	case strings.HasPrefix(line, "parent "):
-		parentSHA := strings.TrimPrefix(line, "parent ")
-		if err := validateSHA(parentSHA); err != nil {
+		parentSHAStr := strings.TrimPrefix(line, "parent ")
+		parentSHA, err := objects.NewObjectHashFromString(parentSHAStr)
+		if err != nil {
 			return fmt.Errorf("invalid parent SHA: %w", err)
 		}
-		commit.ParentSHAs = append(commit.ParentSHAs, strings.ToLower(parentSHA))
+		commit.ParentSHAs = append(commit.ParentSHAs, parentSHA)
 
 	case strings.HasPrefix(line, "author "):
 		if commit.Author != nil {
@@ -281,20 +291,6 @@ func (c *Commit) IsMergeCommit() bool {
 	return len(c.ParentSHAs) > 1
 }
 
-// validateSHA validates a SHA-1 hash string
-func validateSHA(sha string) error {
-	if len(sha) != 40 {
-		return fmt.Errorf("SHA must be 40 characters long, got %d", len(sha))
-	}
-
-	for _, c := range sha {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
-			return fmt.Errorf("SHA must contain only hex characters")
-		}
-	}
-
-	return nil
-}
 
 // ShortSHA returns the first 7 characters of the commit SHA
 func (c *Commit) ShortSHA() (objects.ShortHash, error) {
@@ -340,7 +336,7 @@ func (c *Commit) Equal(other *Commit) bool {
 func (c *Commit) Clone() *Commit {
 	clone := &Commit{
 		TreeSHA:    c.TreeSHA,
-		ParentSHAs: make([]string, len(c.ParentSHAs)),
+		ParentSHAs: make([]objects.ObjectHash, len(c.ParentSHAs)),
 		Author:     &CommitPerson{Name: c.Author.Name, Email: c.Author.Email, When: c.Author.When},
 		Committer:  &CommitPerson{Name: c.Committer.Name, Email: c.Committer.Email, When: c.Committer.When},
 		Message:    c.Message,
@@ -350,10 +346,9 @@ func (c *Commit) Clone() *Commit {
 }
 
 // HasParent checks if the commit has a specific parent SHA
-func (c *Commit) HasParent(parentSHA string) bool {
-	normalized := strings.ToLower(parentSHA)
+func (c *Commit) HasParent(parentSHA objects.ObjectHash) bool {
 	for _, parent := range c.ParentSHAs {
-		if parent == normalized {
+		if parent.Equal(parentSHA) {
 			return true
 		}
 	}
@@ -363,9 +358,9 @@ func (c *Commit) HasParent(parentSHA string) bool {
 // HeaderSize returns the size of just the header fields (without message)
 func (c *Commit) HeaderSize() int {
 	var buf bytes.Buffer
-	fmt.Fprintf(&buf, "tree %s\n", c.TreeSHA)
+	fmt.Fprintf(&buf, "tree %s\n", c.TreeSHA.String())
 	for _, parent := range c.ParentSHAs {
-		fmt.Fprintf(&buf, "parent %s\n", parent)
+		fmt.Fprintf(&buf, "parent %s\n", parent.String())
 	}
 	fmt.Fprintf(&buf, "author %s\n", c.Author.FormatForGit())
 	fmt.Fprintf(&buf, "committer %s\n", c.Committer.FormatForGit())
