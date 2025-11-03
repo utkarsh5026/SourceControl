@@ -79,7 +79,7 @@ func TestNewTreeEntry(t *testing.T) {
 				if entry.Mode() != expectedMode {
 					t.Errorf("Mode() = %v, want %v", entry.Mode(), expectedMode)
 				}
-				if entry.Name() != tt.ename {
+				if entry.Name().String() != tt.ename {
 					t.Errorf("Name() = %v, want %v", entry.Name(), tt.ename)
 				}
 				expectedSha, _ := objects.ParseObjectHash(tt.sha)

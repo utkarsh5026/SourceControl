@@ -89,8 +89,8 @@ func (e *TreeEntry) Mode() objects.FileMode {
 }
 
 // Name returns the entry name
-func (e *TreeEntry) Name() string {
-	return e.name.String()
+func (e *TreeEntry) Name() scpath.RelativePath {
+	return e.name
 }
 
 // Path returns the entry path

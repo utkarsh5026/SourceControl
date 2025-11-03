@@ -274,7 +274,7 @@ func TestTreeEntrySorting(t *testing.T) {
 	// Verify sorted order: a, a.sh, b.txt, c, z.txt
 	expectedOrder := []string{"a", "a.sh", "b.txt", "c", "z.txt"}
 	for i, expectedName := range expectedOrder {
-		if tree.Entries()[i].Name() != expectedName {
+		if tree.Entries()[i].Name().String() != expectedName {
 			t.Errorf("Entry %d name = %v, want %v", i, tree.Entries()[i].Name(), expectedName)
 		}
 	}
