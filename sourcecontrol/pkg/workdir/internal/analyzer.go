@@ -6,7 +6,6 @@ import (
 
 	"github.com/utkarsh5026/SourceControl/pkg/index"
 	"github.com/utkarsh5026/SourceControl/pkg/objects"
-	"github.com/utkarsh5026/SourceControl/pkg/objects/commit"
 	"github.com/utkarsh5026/SourceControl/pkg/objects/tree"
 	"github.com/utkarsh5026/SourceControl/pkg/repository/scpath"
 	"github.com/utkarsh5026/SourceControl/pkg/repository/sourcerepo"
@@ -41,21 +40,16 @@ func NewAnalyzer(repo *sourcerepo.SourceRepository) *Analyzer {
 // GetCommitFiles retrieves all files from a commit's tree.
 // It reads the commit object, gets the root tree SHA, and recursively walks the tree.
 func (a *Analyzer) GetCommitFiles(commitSHA objects.ObjectHash) (map[scpath.RelativePath]FileInfo, error) {
-	obj, err := a.repo.ReadObject(commitSHA)
+	commit, err := a.repo.ReadCommitObject(commitSHA)
 	if err != nil {
-		return nil, fmt.Errorf("read commit %s: %w", commitSHA.Short(), err)
+		return nil, err
 	}
 
-	commitObj, ok := obj.(*commit.Commit)
-	if !ok {
-		return nil, fmt.Errorf("object %s is not a commit", commitSHA.Short())
-	}
-
-	if commitObj.TreeSHA == "" {
+	if commit.TreeSHA == "" {
 		return nil, fmt.Errorf("commit %s has no tree", commitSHA.Short())
 	}
 
-	treeSHA := objects.ObjectHash(commitObj.TreeSHA)
+	treeSHA := objects.ObjectHash(commit.TreeSHA)
 	return a.getTreeFiles(treeSHA, scpath.RelativePath(""))
 }
 
@@ -63,15 +57,9 @@ func (a *Analyzer) GetCommitFiles(commitSHA objects.ObjectHash) (map[scpath.Rela
 // It handles nested trees (subdirectories) and builds the complete file map.
 func (a *Analyzer) getTreeFiles(treeSHA objects.ObjectHash, basePath scpath.RelativePath) (map[scpath.RelativePath]FileInfo, error) {
 	files := make(map[scpath.RelativePath]FileInfo)
-
-	obj, err := a.repo.ReadObject(treeSHA)
+	treeObj, err := a.repo.ReadTreeObject(treeSHA)
 	if err != nil {
 		return nil, fmt.Errorf("read tree %s: %w", treeSHA.Short(), err)
-	}
-
-	treeObj, ok := obj.(*tree.Tree)
-	if !ok {
-		return nil, fmt.Errorf("object %s is not a tree", treeSHA.Short())
 	}
 
 	for _, e := range treeObj.Entries() {
@@ -123,6 +111,20 @@ func (a *Analyzer) AnalyzeChanges(current, target map[scpath.RelativePath]FileIn
 	var operations []Operation
 	summary := ChangeSummary{}
 
+	operations = append(operations, findDeletedFiles(current, target, &summary)...)
+
+	operations = append(operations, a.findCreatedAndModifiedFiles(current, target, &summary)...)
+
+	return ChangeAnalysis{
+		Operations:  operations,
+		Summary:     summary,
+		TargetFiles: target,
+	}
+}
+
+func findDeletedFiles(current, target map[scpath.RelativePath]FileInfo, summary *ChangeSummary) []Operation {
+	var operations []Operation
+
 	for path := range current {
 		if _, exists := target[path]; !exists {
 			operations = append(operations, Operation{
@@ -132,6 +134,13 @@ func (a *Analyzer) AnalyzeChanges(current, target map[scpath.RelativePath]FileIn
 			summary.Deleted++
 		}
 	}
+
+	return operations
+}
+
+// findCreatedAndModifiedFiles identifies new and changed files in target
+func (a *Analyzer) findCreatedAndModifiedFiles(current, target map[scpath.RelativePath]FileInfo, summary *ChangeSummary) []Operation {
+	var operations []Operation
 
 	for path, targetInfo := range target {
 		currentInfo, exists := current[path]
@@ -155,11 +164,7 @@ func (a *Analyzer) AnalyzeChanges(current, target map[scpath.RelativePath]FileIn
 		}
 	}
 
-	return ChangeAnalysis{
-		Operations:  operations,
-		Summary:     summary,
-		TargetFiles: target,
-	}
+	return operations
 }
 
 // AreTreesIdentical checks if two trees contain exactly the same files.
