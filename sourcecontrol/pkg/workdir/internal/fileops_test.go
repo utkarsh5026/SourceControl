@@ -743,10 +743,10 @@ func TestFileOps_PermissionPreservation(t *testing.T) {
 	blobSHA := createTestBlob(t, repo, content)
 
 	tests := []struct {
-		name       string
-		mode       os.FileMode
-		skipOnWin  bool
-		minPerms   os.FileMode // minimum expected permissions on Windows
+		name      string
+		mode      os.FileMode
+		skipOnWin bool
+		minPerms  os.FileMode // minimum expected permissions on Windows
 	}{
 		{"read-only", 0444, false, 0400},
 		{"read-write", 0644, false, 0600},
@@ -765,7 +765,7 @@ func TestFileOps_PermissionPreservation(t *testing.T) {
 				Path:   scpath.RelativePath(filename),
 				Action: ActionCreate,
 				SHA:    blobSHA,
-				Mode:   tt.mode,
+				Mode:   objects.FromOSFileMode(tt.mode),
 			})
 			if err != nil {
 				t.Fatalf("Failed to create file: %v", err)

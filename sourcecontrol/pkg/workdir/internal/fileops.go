@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/utkarsh5026/SourceControl/pkg/objects"
 	"github.com/utkarsh5026/SourceControl/pkg/objects/blob"
 	"github.com/utkarsh5026/SourceControl/pkg/repository/scpath"
 	"github.com/utkarsh5026/SourceControl/pkg/repository/sourcerepo"
@@ -82,8 +83,7 @@ func (f *FileOps) writeFile(op Operation) error {
 		return fmt.Errorf("%s %s: create parent directory: %w", op.Action.String(), op.Path, err)
 	}
 
-	// Write atomically using temp file
-	if err := f.atomicWrite(fullPath, content.Bytes(), op.Mode); err != nil {
+	if err := f.atomicWrite(fullPath, content.Bytes(), op.Mode.ToOSFileMode()); err != nil {
 		return fmt.Errorf("%s %s: write file: %w", op.Action.String(), op.Path, err)
 	}
 
@@ -260,7 +260,7 @@ func (f *FileOps) CreateBackup(path scpath.RelativePath) (*Backup, error) {
 		Path:     path,
 		TempFile: tmpPath,
 		Existed:  true,
-		Mode:     info.Mode(),
+		Mode:     objects.FromOSFileMode(info.Mode()),
 	}, nil
 }
 
@@ -304,7 +304,7 @@ func (f *FileOps) RestoreBackup(backup *Backup) error {
 		return fmt.Errorf("restore %s: read backup: %w", backup.Path, err)
 	}
 
-	if err := f.atomicWrite(fullPath, data, backup.Mode); err != nil {
+	if err := f.atomicWrite(fullPath, data, backup.Mode.ToOSFileMode()); err != nil {
 		return fmt.Errorf("restore %s: write file: %w", backup.Path, err)
 	}
 
