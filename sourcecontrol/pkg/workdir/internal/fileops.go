@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 
 	"github.com/utkarsh5026/SourceControl/pkg/objects"
-	"github.com/utkarsh5026/SourceControl/pkg/objects/blob"
 	"github.com/utkarsh5026/SourceControl/pkg/repository/scpath"
 	"github.com/utkarsh5026/SourceControl/pkg/repository/sourcerepo"
 )
@@ -62,13 +61,8 @@ func (f *FileOps) writeFile(op Operation) error {
 		return fmt.Errorf("%s %s: %w: missing SHA", op.Action.String(), op.Path, ErrInvalidOperation)
 	}
 
-	blobObj, err := f.repo.ReadObject(op.SHA)
+	blobData, err := f.repo.ReadBlobObject(op.SHA)
 	if err != nil {
-		return fmt.Errorf("%s %s: read blob %s: %w", op.Action.String(), op.Path, op.SHA.Short(), err)
-	}
-
-	blobData, ok := blobObj.(*blob.Blob)
-	if !ok {
 		return fmt.Errorf("%s %s: object %s is not a blob", op.Action.String(), op.Path, op.SHA.Short())
 	}
 
@@ -97,42 +91,46 @@ func (f *FileOps) atomicWrite(targetPath scpath.AbsolutePath, data []byte, mode 
 		return fmt.Errorf("create temp directory: %w", err)
 	}
 
-	// Create temp file in the same directory as target (ensures same filesystem)
 	dir := filepath.Dir(targetPath.String())
 	tmpFile, err := os.CreateTemp(dir, ".tmp-*")
 	if err != nil {
 		return fmt.Errorf("create temp file: %w", err)
 	}
-	tmpPath := tmpFile.Name()
 
 	defer func() {
 		tmpFile.Close()
-		// Only remove if still exists (successful rename will already remove it)
-		os.Remove(tmpPath)
+		os.Remove(tmpFile.Name())
 	}()
 
-	// Write data
+	if err := writeTempFile(data, tmpFile); err != nil {
+		return fmt.Errorf("write temp file: %w", err)
+	}
+
+	return renameTempFile(tmpFile.Name(), targetPath.String(), mode)
+}
+
+func writeTempFile(data []byte, tmpFile *os.File) error {
 	if _, err := tmpFile.Write(data); err != nil {
 		return fmt.Errorf("write data: %w", err)
 	}
 
-	// Sync to ensure data is on disk
 	if err := tmpFile.Sync(); err != nil {
 		return fmt.Errorf("sync: %w", err)
 	}
 
-	// Close before rename (required on Windows)
 	if err := tmpFile.Close(); err != nil {
 		return fmt.Errorf("close: %w", err)
 	}
 
-	// Set permissions on temp file
+	return nil
+}
+
+func renameTempFile(tmpPath string, targetPath string, mode os.FileMode) error {
 	if err := os.Chmod(tmpPath, mode); err != nil {
 		return fmt.Errorf("chmod: %w", err)
 	}
 
-	// Atomic rename (on POSIX systems, this is truly atomic)
-	if err := os.Rename(tmpPath, targetPath.String()); err != nil {
+	if err := os.Rename(tmpPath, targetPath); err != nil {
 		return fmt.Errorf("rename: %w", err)
 	}
 
@@ -153,8 +151,6 @@ func (f *FileOps) deleteFile(path scpath.RelativePath) error {
 
 	parentDir := fullPath.Dir()
 	if err := f.cleanEmptyParents(parentDir); err != nil {
-		// Non-fatal: log but don't fail the operation
-		// In production, you might want to use a proper logger here
 		_ = err
 	}
 
@@ -203,10 +199,8 @@ func (f *FileOps) cleanEmptyParents(dir scpath.AbsolutePath) error {
 func (f *FileOps) CreateBackup(path scpath.RelativePath) (*Backup, error) {
 	fullPath := f.workDir.Join(path.String())
 
-	// Check if file exists
 	info, err := os.Stat(fullPath.String())
 	if os.IsNotExist(err) {
-		// File doesn't exist, create a backup that records this
 		return &Backup{
 			Path:     path,
 			TempFile: "",
@@ -218,50 +212,61 @@ func (f *FileOps) CreateBackup(path scpath.RelativePath) (*Backup, error) {
 		return nil, fmt.Errorf("backup %s: stat file: %w", path, err)
 	}
 
-	// Ensure temp directory exists
-	if err := os.MkdirAll(f.tempDir.String(), 0755); err != nil {
-		return nil, fmt.Errorf("backup %s: create temp directory: %w", path, err)
-	}
-
-	// Create temp file for backup
-	tmpFile, err := os.CreateTemp(f.tempDir.String(), "backup-*")
+	tmpFile, err := f.createTempBackupFile()
 	if err != nil {
-		return nil, fmt.Errorf("backup %s: create temp file: %w", path, err)
+		return nil, err
 	}
-	tmpPath := tmpFile.Name()
 
-	// Ensure cleanup on error
 	success := false
 	defer func() {
 		tmpFile.Close()
 		if !success {
-			os.Remove(tmpPath)
+			os.Remove(tmpFile.Name())
 		}
 	}()
 
-	// Copy file content to temp file
-	srcFile, err := os.Open(fullPath.String())
-	if err != nil {
-		return nil, fmt.Errorf("backup %s: open source: %w", path, err)
-	}
-	defer srcFile.Close()
-
-	if _, err := io.Copy(tmpFile, srcFile); err != nil {
-		return nil, fmt.Errorf("backup %s: copy content: %w", path, err)
-	}
-
-	// Sync to ensure backup is on disk
-	if err := tmpFile.Sync(); err != nil {
-		return nil, fmt.Errorf("backup %s: sync backup: %w", path, err)
+	if err := f.writeToTemp(tmpFile, path, fullPath); err != nil {
+		return nil, err
 	}
 
 	success = true
 	return &Backup{
 		Path:     path,
-		TempFile: tmpPath,
+		TempFile: tmpFile.Name(),
 		Existed:  true,
 		Mode:     objects.FromOSFileMode(info.Mode()),
 	}, nil
+}
+
+func (f *FileOps) createTempBackupFile() (*os.File, error) {
+	if err := os.MkdirAll(f.tempDir.String(), 0755); err != nil {
+		return nil, fmt.Errorf("create temp directory: %w", err)
+	}
+
+	tmpFile, err := os.CreateTemp(f.tempDir.String(), "backup-*")
+	if err != nil {
+		return nil, fmt.Errorf("create temp file: %w", err)
+	}
+
+	return tmpFile, nil
+}
+
+func (f *FileOps) writeToTemp(tmpFile *os.File, path scpath.RelativePath, fullPath scpath.AbsolutePath) error {
+	srcFile, err := os.Open(fullPath.String())
+	if err != nil {
+		return fmt.Errorf("backup %s: open source: %w", path, err)
+	}
+	defer srcFile.Close()
+
+	if _, err := io.Copy(tmpFile, srcFile); err != nil {
+		return fmt.Errorf("backup %s: copy content: %w", path, err)
+	}
+
+	if err := tmpFile.Sync(); err != nil {
+		return fmt.Errorf("backup %s: sync backup: %w", path, err)
+	}
+
+	return nil
 }
 
 // RestoreBackup restores a file from a backup
@@ -273,7 +278,6 @@ func (f *FileOps) RestoreBackup(backup *Backup) error {
 	fullPath := f.workDir.Join(backup.Path.String())
 
 	if !backup.Existed {
-		// File didn't exist before, so delete it
 		err := os.Remove(fullPath.String())
 		if err != nil && !os.IsNotExist(err) {
 			return fmt.Errorf("restore %s: remove file: %w", backup.Path, err)
@@ -281,30 +285,31 @@ func (f *FileOps) RestoreBackup(backup *Backup) error {
 		return nil
 	}
 
-	// File existed, restore from backup
 	if backup.TempFile == "" {
 		return fmt.Errorf("restore %s: backup has no temp file", backup.Path)
 	}
 
-	// Ensure parent directory exists
 	if err := f.ensureParentDir(fullPath); err != nil {
 		return fmt.Errorf("restore %s: create parent directory: %w", backup.Path, err)
 	}
 
-	// Copy backup file back
+	return f.writeFromBackup(backup)
+}
+
+func (f *FileOps) writeFromBackup(backup *Backup) error {
+	backupPath := f.workDir.Join(backup.Path.String())
 	srcFile, err := os.Open(backup.TempFile)
 	if err != nil {
 		return fmt.Errorf("restore %s: open backup: %w", backup.Path, err)
 	}
 	defer srcFile.Close()
 
-	// Use atomic write to restore
 	data, err := io.ReadAll(srcFile)
 	if err != nil {
 		return fmt.Errorf("restore %s: read backup: %w", backup.Path, err)
 	}
 
-	if err := f.atomicWrite(fullPath, data, backup.Mode.ToOSFileMode()); err != nil {
+	if err := f.atomicWrite(backupPath, data, backup.Mode.ToOSFileMode()); err != nil {
 		return fmt.Errorf("restore %s: write file: %w", backup.Path, err)
 	}
 
