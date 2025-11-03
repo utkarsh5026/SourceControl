@@ -19,7 +19,7 @@ type Manager struct {
 	treeAnalyzer *internal.Analyzer
 	validator    *internal.Validator
 	transaction  *internal.Manager
-	indexer      *internal.Updater
+	indexer      *internal.IndexUpdater
 	indexPath    scpath.AbsolutePath
 	workDir      string
 }
