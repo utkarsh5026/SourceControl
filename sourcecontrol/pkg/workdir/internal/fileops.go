@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/utkarsh5026/SourceControl/pkg/objects"
 	"github.com/utkarsh5026/SourceControl/pkg/repository/scpath"
@@ -61,19 +62,19 @@ func (f *FileOps) writeFile(op Operation) error {
 		return fmt.Errorf("%s %s: %w: missing SHA", op.Action.String(), op.Path, ErrInvalidOperation)
 	}
 
-	blobData, err := f.repo.ReadBlobObject(op.SHA)
+	blob, err := f.repo.ReadBlobObject(op.SHA)
 	if err != nil {
 		return fmt.Errorf("%s %s: object %s is not a blob", op.Action.String(), op.Path, op.SHA.Short())
 	}
 
-	content, err := blobData.Content()
+	content, err := blob.Content()
 	if err != nil {
 		return fmt.Errorf("%s %s: get blob content: %w", op.Action.String(), op.Path, err)
 	}
 
 	fullPath := f.workDir.Join(op.Path.String())
 
-	if err := f.ensureParentDir(fullPath); err != nil {
+	if err := ensureParentDir(fullPath); err != nil {
 		return fmt.Errorf("%s %s: create parent directory: %w", op.Action.String(), op.Path, err)
 	}
 
@@ -158,7 +159,7 @@ func (f *FileOps) deleteFile(path scpath.RelativePath) error {
 }
 
 // ensureParentDir creates all parent directories for a file path if they don't exist
-func (f *FileOps) ensureParentDir(filePath scpath.AbsolutePath) error {
+func ensureParentDir(filePath scpath.AbsolutePath) error {
 	dir := filepath.Dir(filePath.String())
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
@@ -168,28 +169,29 @@ func (f *FileOps) ensureParentDir(filePath scpath.AbsolutePath) error {
 
 // cleanEmptyParents recursively removes empty directories up to the working directory root
 func (f *FileOps) cleanEmptyParents(dir scpath.AbsolutePath) error {
-	// Don't go above the working directory
-	if !filepath.HasPrefix(dir.String(), f.workDir.String()) || dir.String() == f.workDir.String() {
+	rel, err := filepath.Rel(f.workDir.String(), dir.String())
+	if err != nil {
+		return nil
+	}
+	// If relative path starts with "..", dir is outside workDir
+	// Also stop if dir equals workDir
+	if strings.HasPrefix(rel, "..") || rel == "." || rel == "" {
 		return nil
 	}
 
-	// Check if directory is empty
 	entries, err := os.ReadDir(dir.String())
 	if err != nil {
 		return err
 	}
 
-	// If not empty, stop
 	if len(entries) > 0 {
 		return nil
 	}
 
-	// Remove empty directory
 	if err := os.Remove(dir.String()); err != nil {
 		return err
 	}
 
-	// Recursively check parent
 	parentDir := dir.Dir()
 	return f.cleanEmptyParents(parentDir)
 }
@@ -225,7 +227,7 @@ func (f *FileOps) CreateBackup(path scpath.RelativePath) (*Backup, error) {
 		}
 	}()
 
-	if err := f.writeToTemp(tmpFile, path, fullPath); err != nil {
+	if err := writeToTemp(tmpFile, path, fullPath); err != nil {
 		return nil, err
 	}
 
@@ -251,7 +253,7 @@ func (f *FileOps) createTempBackupFile() (*os.File, error) {
 	return tmpFile, nil
 }
 
-func (f *FileOps) writeToTemp(tmpFile *os.File, path scpath.RelativePath, fullPath scpath.AbsolutePath) error {
+func writeToTemp(tmpFile *os.File, path scpath.RelativePath, fullPath scpath.AbsolutePath) error {
 	srcFile, err := os.Open(fullPath.String())
 	if err != nil {
 		return fmt.Errorf("backup %s: open source: %w", path, err)
@@ -289,7 +291,7 @@ func (f *FileOps) RestoreBackup(backup *Backup) error {
 		return fmt.Errorf("restore %s: backup has no temp file", backup.Path)
 	}
 
-	if err := f.ensureParentDir(fullPath); err != nil {
+	if err := ensureParentDir(fullPath); err != nil {
 		return fmt.Errorf("restore %s: create parent directory: %w", backup.Path, err)
 	}
 
