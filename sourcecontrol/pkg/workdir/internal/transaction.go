@@ -15,6 +15,14 @@ type DryRunAnalysis struct {
 	Conflicts  []string
 }
 
+// DryRunResult contains the analysis of operations without executing them
+type DryRunResult struct {
+	Valid     bool
+	Analysis  DryRunAnalysis
+	Conflicts []string
+	Errors    []string
+}
+
 // TransactionResult contains the outcome of an atomic transaction
 type TransactionResult struct {
 	Success           bool
@@ -68,50 +76,29 @@ func (m *Manager) ExecuteAtomically(ctx context.Context, ops []Operation) Transa
 	}
 	defer lock.Release()
 
-	// Validate operations first
 	if err := m.validateOperations(ops); err != nil {
-		return TransactionResult{
-			Success:         false,
-			TotalOperations: len(ops),
-			Err:             err,
-		}
+		return failure(0, len(ops), err)
 	}
 
-	// Create backups for modify/delete operations
 	backups, err := m.createBackups(ops)
 	if err != nil {
-		return TransactionResult{
-			Success:         false,
-			TotalOperations: len(ops),
-			Err:             fmt.Errorf("create backups: %w", err),
-		}
+		return failure(0, len(ops), fmt.Errorf("create backups: %w", err))
 	}
 
-	// Execute operations
 	applied := 0
-	var failedOp *Operation
 
 	for i, op := range ops {
-		// Check context cancellation
 		select {
 		case <-ctx.Done():
 			m.rollback(backups)
-			return TransactionResult{
-				Success:           false,
-				OperationsApplied: applied,
-				TotalOperations:   len(ops),
-				Err:               ctx.Err(),
-			}
+			return failure(applied, len(ops), ctx.Err())
 		default:
 		}
 
-		// Apply operation
 		if err := m.fileOps.ApplyOperation(op); err != nil {
-			failedOp = &ops[i]
-			// Rollback on failure
+			failedOp := &ops[i]
 			rollbackOK := m.rollback(backups)
 
-			// Build error message
 			errMsg := fmt.Sprintf("operation failed (failed at: %s %s)", failedOp.Action, failedOp.Path)
 			if applied > 0 {
 				errMsg += fmt.Sprintf(" (%d operations completed before failure)", applied)
@@ -121,26 +108,16 @@ func (m *Manager) ExecuteAtomically(ctx context.Context, ops []Operation) Transa
 			}
 			errMsg += fmt.Sprintf(": %v", err)
 
-			return TransactionResult{
-				Success:           false,
-				OperationsApplied: applied,
-				TotalOperations:   len(ops),
-				Err:               fmt.Errorf("%s", errMsg),
-			}
+			return failure(applied, len(ops), fmt.Errorf("%s", errMsg))
 		}
 		applied++
 	}
 
-	// Success - cleanup backups
 	for _, backup := range backups {
 		m.fileOps.CleanupBackup(backup)
 	}
 
-	return TransactionResult{
-		Success:           true,
-		OperationsApplied: applied,
-		TotalOperations:   len(ops),
-	}
+	return success(applied, len(ops))
 }
 
 // DryRun analyzes operations without executing them.
