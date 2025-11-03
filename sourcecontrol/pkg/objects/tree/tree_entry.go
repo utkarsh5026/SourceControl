@@ -4,20 +4,10 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"strings"
+	"io"
 
 	"github.com/utkarsh5026/SourceControl/pkg/objects"
-)
-
-// EntryType represents the type of entry in a tree object
-type EntryType string
-
-const (
-	EntryTypeDirectory      EntryType = "040000"
-	EntryTypeRegularFile    EntryType = "100644"
-	EntryTypeExecutableFile EntryType = "100755"
-	EntryTypeSymbolicLink   EntryType = "120000"
-	EntryTypeSubmodule      EntryType = "160000"
+	"github.com/utkarsh5026/SourceControl/pkg/repository/scpath"
 )
 
 const (
@@ -27,9 +17,9 @@ const (
 // TreeEntry represents a single entry in a Git tree object.
 //
 // Each entry contains:
-// - mode: File permissions and type (6 bytes, octal)
-// - name: Filename or directory name (variable length string)
-// - sha: SHA-1 hash of the referenced object (40 character hex string)
+// - mode: File permissions and type (FileMode)
+// - name: Filename or directory name (RelativePath)
+// - sha: SHA-1 hash of the referenced object (ObjectHash)
 //
 // Entry types by mode:
 // - 040000: Directory (tree object)
@@ -44,108 +34,114 @@ const (
 // Example serialized entry for "hello.txt" file:
 // "100644 hello.txt\0[20 bytes of SHA-1]"
 type TreeEntry struct {
-	mode string
-	name string
-	sha  string
+	mode objects.FileMode
+	name scpath.RelativePath
+	sha  objects.ObjectHash
 }
 
 // NewTreeEntry creates a new TreeEntry with validation
-func NewTreeEntry(mode, name, sha string) (*TreeEntry, error) {
+func NewTreeEntry(mode objects.FileMode, name scpath.RelativePath, sha objects.ObjectHash) (*TreeEntry, error) {
+	if !name.IsValid() {
+		return nil, fmt.Errorf("invalid path: %s", name)
+	}
+
+	if err := sha.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid SHA: %w", err)
+	}
+
 	entry := &TreeEntry{
 		mode: mode,
+		name: name.Normalize(),
+		sha:  sha,
 	}
-
-	if err := entry.validateName(name); err != nil {
-		return nil, err
-	}
-	entry.name = name
-
-	if err := entry.validateSha(sha); err != nil {
-		return nil, err
-	}
-	entry.sha = strings.ToLower(sha)
 
 	return entry, nil
 }
 
+// NewTreeEntryFromStrings creates a new TreeEntry from string values (for backward compatibility)
+func NewTreeEntryFromStrings(modeStr, name, shaStr string) (*TreeEntry, error) {
+	mode, err := objects.FromOctalString(modeStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid mode: %w", err)
+	}
+
+	path, err := scpath.NewRelativePath(name)
+	if err != nil {
+		return nil, fmt.Errorf("invalid path: %w", err)
+	}
+
+	sha, err := objects.ParseObjectHash(shaStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid SHA: %w", err)
+	}
+
+	return NewTreeEntry(mode, path, sha)
+}
+
 // Mode returns the entry mode
-func (e *TreeEntry) Mode() string {
+func (e *TreeEntry) Mode() objects.FileMode {
 	return e.mode
 }
 
 // Name returns the entry name
 func (e *TreeEntry) Name() string {
+	return e.name.String()
+}
+
+// Path returns the entry path
+func (e *TreeEntry) Path() scpath.RelativePath {
 	return e.name
 }
 
 // SHA returns the entry SHA-1 hash
-func (e *TreeEntry) SHA() string {
+func (e *TreeEntry) SHA() objects.ObjectHash {
 	return e.sha
-}
-
-// EntryType returns the type of the entry based on its mode
-func (e *TreeEntry) EntryType() (EntryType, error) {
-	return FromMode(e.mode)
-}
-
-// FromMode converts a mode string to EntryType
-func FromMode(mode string) (EntryType, error) {
-	switch EntryType(mode) {
-	case EntryTypeDirectory, EntryTypeRegularFile, EntryTypeExecutableFile,
-		EntryTypeSymbolicLink, EntryTypeSubmodule:
-		return EntryType(mode), nil
-	default:
-		return "", fmt.Errorf("unknown mode: %s", mode)
-	}
 }
 
 // IsDirectory returns true if this entry is a directory
 func (e *TreeEntry) IsDirectory() bool {
-	entryType, _ := e.EntryType()
-	return entryType == EntryTypeDirectory
+	return e.mode == objects.FileModeDirectory
 }
 
 // IsFile returns true if this entry is a regular or executable file
 func (e *TreeEntry) IsFile() bool {
-	entryType, _ := e.EntryType()
-	return entryType == EntryTypeRegularFile || entryType == EntryTypeExecutableFile
+	return e.mode == objects.FileModeRegular || e.mode == objects.FileModeExecutable
 }
 
 // IsExecutable returns true if this entry is an executable file
 func (e *TreeEntry) IsExecutable() bool {
-	entryType, _ := e.EntryType()
-	return entryType == EntryTypeExecutableFile
+	return e.mode == objects.FileModeExecutable
 }
 
 // IsSymbolicLink returns true if this entry is a symbolic link
 func (e *TreeEntry) IsSymbolicLink() bool {
-	entryType, _ := e.EntryType()
-	return entryType == EntryTypeSymbolicLink
+	return e.mode == objects.FileModeSymlink
 }
 
 // IsSubmodule returns true if this entry is a submodule
 func (e *TreeEntry) IsSubmodule() bool {
-	entryType, _ := e.EntryType()
-	return entryType == EntryTypeSubmodule
+	return e.mode == objects.FileModeGitlink
 }
 
-// Serialize serializes this entry for inclusion in a tree object
+// Serialize writes the serialized entry to the provided writer
 // Format: [mode] [space] [filename] [null byte] [20-byte SHA-1 binary]
-func (e *TreeEntry) Serialize() ([]byte, error) {
-	modeAndName := fmt.Sprintf("%s %s%c", e.mode, e.name, objects.NullByte)
-	modeNameBytes := []byte(modeAndName)
-
-	// Convert SHA-1 hex string to binary (20 bytes)
-	shaBytes, err := hex.DecodeString(e.sha)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode SHA: %w", err)
+func (e *TreeEntry) Serialize(w io.Writer) error {
+	// Write mode, space, and filename
+	if _, err := fmt.Fprintf(w, "%s %s%c", e.mode.ToOctalString(), e.name.String(), objects.NullByte); err != nil {
+		return fmt.Errorf("failed to write entry header: %w", err)
 	}
 
-	result := make([]byte, len(modeNameBytes)+len(shaBytes))
-	copy(result, modeNameBytes)
-	copy(result[len(modeNameBytes):], shaBytes)
+	// Write SHA bytes
+	shaBytes, err := e.sha.Bytes()
+	if err != nil {
+		return fmt.Errorf("failed to get SHA bytes: %w", err)
+	}
 
-	return result, nil
+	if _, err := w.Write(shaBytes); err != nil {
+		return fmt.Errorf("failed to write SHA bytes: %w", err)
+	}
+
+	return nil
 }
 
 // CompareTo compares this entry with another entry.
@@ -176,7 +172,7 @@ func DeserializeTreeEntry(data []byte, offset int) (*TreeEntry, int, error) {
 	}
 	spaceIndex += offset
 
-	mode := string(data[offset:spaceIndex])
+	modeStr := string(data[offset:spaceIndex])
 
 	nullIndex := bytes.IndexByte(data[spaceIndex+1:], objects.NullByte)
 	if nullIndex == -1 {
@@ -184,7 +180,7 @@ func DeserializeTreeEntry(data []byte, offset int) (*TreeEntry, int, error) {
 	}
 	nullIndex += spaceIndex + 1
 
-	name := string(data[spaceIndex+1 : nullIndex])
+	nameStr := string(data[spaceIndex+1 : nullIndex])
 
 	// Extract SHA bytes
 	start := nullIndex + 1
@@ -194,45 +190,12 @@ func DeserializeTreeEntry(data []byte, offset int) (*TreeEntry, int, error) {
 	}
 
 	shaBytes := data[start:end]
-	sha := hex.EncodeToString(shaBytes)
+	shaStr := hex.EncodeToString(shaBytes)
 
-	entry, err := NewTreeEntry(mode, name, sha)
+	entry, err := NewTreeEntryFromStrings(modeStr, nameStr, shaStr)
 	if err != nil {
 		return nil, 0, err
 	}
 
 	return entry, end, nil
-}
-
-// validateName validates the name of the entry.
-// Git doesn't allow certain characters in filenames
-func (e *TreeEntry) validateName(name string) error {
-	if name == "" {
-		return fmt.Errorf("name cannot be empty")
-	}
-
-	invalidChars := []string{"/", "\x00"}
-	for _, char := range invalidChars {
-		if strings.Contains(name, char) {
-			return fmt.Errorf("invalid characters in name: %s", name)
-		}
-	}
-
-	return nil
-}
-
-// validateSha validates the SHA of the entry.
-// The SHA should only be hex characters and should be exactly 40 chars
-func (e *TreeEntry) validateSha(sha string) error {
-	expectedLength := SHALengthBytes * 2
-	if len(sha) != expectedLength {
-		return fmt.Errorf("SHA must be %d characters long, got %d", expectedLength, len(sha))
-	}
-
-	_, err := hex.DecodeString(sha)
-	if err != nil {
-		return fmt.Errorf("SHA must contain only hex characters: %w", err)
-	}
-
-	return nil
 }
