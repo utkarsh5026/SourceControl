@@ -4,15 +4,16 @@ import (
 	"bytes"
 	"encoding/hex"
 	"testing"
+
 	"github.com/utkarsh5026/SourceControl/pkg/objects"
 )
 
 func TestNewTree(t *testing.T) {
 	sha := "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0"
 
-	entry1, _ := NewTreeEntry("100644", "README.md", sha)
-	entry2, _ := NewTreeEntry("040000", "src", sha)
-	entry3, _ := NewTreeEntry("100755", "build.sh", sha)
+	entry1, _ := NewTreeEntryFromStrings("100644", "README.md", sha)
+	entry2, _ := NewTreeEntryFromStrings("040000", "src", sha)
+	entry3, _ := NewTreeEntryFromStrings("100755", "build.sh", sha)
 
 	entries := []*TreeEntry{entry3, entry1, entry2} // Unsorted order
 
@@ -77,7 +78,7 @@ func TestTreeIsEmpty(t *testing.T) {
 
 func TestTreeContent(t *testing.T) {
 	sha := "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0"
-	entry, _ := NewTreeEntry("100644", "test.txt", sha)
+	entry, _ := NewTreeEntryFromStrings("100644", "test.txt", sha)
 
 	tree := NewTree([]*TreeEntry{entry})
 	content, err := tree.Content()
@@ -86,7 +87,9 @@ func TestTreeContent(t *testing.T) {
 	}
 
 	// Verify content is the serialized entry
-	expectedContent, _ := entry.Serialize()
+	var expectedBuf bytes.Buffer
+	_ = entry.Serialize(&expectedBuf)
+	expectedContent := expectedBuf.Bytes()
 	if !bytes.Equal(content.Bytes(), expectedContent) {
 		t.Errorf("Content() = %x, want %x", content.Bytes(), expectedContent)
 	}
@@ -94,8 +97,8 @@ func TestTreeContent(t *testing.T) {
 
 func TestTreeSize(t *testing.T) {
 	sha := "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0"
-	entry1, _ := NewTreeEntry("100644", "a.txt", sha)
-	entry2, _ := NewTreeEntry("100644", "b.txt", sha)
+	entry1, _ := NewTreeEntryFromStrings("100644", "a.txt", sha)
+	entry2, _ := NewTreeEntryFromStrings("100644", "b.txt", sha)
 
 	tree := NewTree([]*TreeEntry{entry1, entry2})
 
@@ -115,7 +118,7 @@ func TestTreeSize(t *testing.T) {
 
 func TestTreeHash(t *testing.T) {
 	sha := "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0"
-	entry, _ := NewTreeEntry("100644", "test.txt", sha)
+	entry, _ := NewTreeEntryFromStrings("100644", "test.txt", sha)
 
 	tree := NewTree([]*TreeEntry{entry})
 	hash1, err := tree.Hash()
@@ -140,7 +143,7 @@ func TestTreeHash(t *testing.T) {
 
 func TestTreeSerialize(t *testing.T) {
 	sha := "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0"
-	entry, _ := NewTreeEntry("100644", "test.txt", sha)
+	entry, _ := NewTreeEntryFromStrings("100644", "test.txt", sha)
 
 	tree := NewTree([]*TreeEntry{entry})
 
@@ -165,7 +168,9 @@ func TestTreeSerialize(t *testing.T) {
 
 	// Verify content after header
 	contentBytes := data[nullIndex+1:]
-	expectedContent, _ := entry.Serialize()
+	var expectedBuf bytes.Buffer
+	_ = entry.Serialize(&expectedBuf)
+	expectedContent := expectedBuf.Bytes()
 	if !bytes.Equal(contentBytes, expectedContent) {
 		t.Errorf("Serialize() content = %x, want %x", contentBytes, expectedContent)
 	}
@@ -174,8 +179,8 @@ func TestTreeSerialize(t *testing.T) {
 func TestParseTree(t *testing.T) {
 	// Create a tree and serialize it
 	sha := "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0"
-	entry1, _ := NewTreeEntry("100644", "README.md", sha)
-	entry2, _ := NewTreeEntry("040000", "src", sha)
+	entry1, _ := NewTreeEntryFromStrings("100644", "README.md", sha)
+	entry2, _ := NewTreeEntryFromStrings("040000", "src", sha)
 
 	originalTree := NewTree([]*TreeEntry{entry1, entry2})
 
@@ -280,7 +285,7 @@ func TestTreeBaseObjectInterface(t *testing.T) {
 	var _ objects.BaseObject = (*Tree)(nil)
 
 	sha := "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0"
-	entry, _ := NewTreeEntry("100644", "test.txt", sha)
+	entry, _ := NewTreeEntryFromStrings("100644", "test.txt", sha)
 	tree := NewTree([]*TreeEntry{entry})
 
 	// Test interface methods
@@ -416,7 +421,7 @@ func TestTreeEmptySerialization(t *testing.T) {
 
 // Helper function to create entries without error handling in tests
 func mustCreateEntry(mode, name, sha string) *TreeEntry {
-	entry, err := NewTreeEntry(mode, name, sha)
+	entry, err := NewTreeEntryFromStrings(mode, name, sha)
 	if err != nil {
 		panic(err)
 	}
@@ -427,8 +432,8 @@ func TestTreeContentWithMultipleEntries(t *testing.T) {
 	sha1 := "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0"
 	sha2 := "b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1"
 
-	entry1, _ := NewTreeEntry("100644", "a.txt", sha1)
-	entry2, _ := NewTreeEntry("100644", "b.txt", sha2)
+	entry1, _ := NewTreeEntryFromStrings("100644", "a.txt", sha1)
+	entry2, _ := NewTreeEntryFromStrings("100644", "b.txt", sha2)
 
 	tree := NewTree([]*TreeEntry{entry1, entry2})
 	content, err := tree.Content()
@@ -437,8 +442,11 @@ func TestTreeContentWithMultipleEntries(t *testing.T) {
 	}
 
 	// Content should be concatenation of serialized entries
-	serialized1, _ := entry1.Serialize()
-	serialized2, _ := entry2.Serialize()
+	var buf1, buf2 bytes.Buffer
+	_ = entry1.Serialize(&buf1)
+	_ = entry2.Serialize(&buf2)
+	serialized1 := buf1.Bytes()
+	serialized2 := buf2.Bytes()
 
 	expectedContent := append(serialized1, serialized2...)
 	if !bytes.Equal(content.Bytes(), expectedContent) {
@@ -472,23 +480,13 @@ func TestParseEntriesWithInvalidData(t *testing.T) {
 }
 
 func TestTreeEntryInvalidMode(t *testing.T) {
-	// Invalid modes are allowed during parsing but will error when accessing EntryType()
+	// Invalid modes should be rejected during parsing
 	sha, _ := hex.DecodeString("a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0")
 	data := append([]byte("999999 test.txt\x00"), sha...)
 
-	entry, _, err := DeserializeTreeEntry(data, 0)
-	if err != nil {
-		t.Fatalf("DeserializeTreeEntry() unexpected error = %v", err)
-	}
-
-	// Should succeed in parsing
-	if entry.Name() != "test.txt" {
-		t.Errorf("Name() = %v, want test.txt", entry.Name())
-	}
-
-	// But should fail when trying to get entry type
-	_, err = entry.EntryType()
+	entry := &TreeEntry{}
+	err := entry.Deserialize(bytes.NewReader(data))
 	if err == nil {
-		t.Error("EntryType() expected error for invalid mode, got nil")
+		t.Error("Deserialize() expected error for invalid mode, got nil")
 	}
 }

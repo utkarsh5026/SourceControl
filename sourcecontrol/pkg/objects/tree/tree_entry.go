@@ -10,10 +10,6 @@ import (
 	"github.com/utkarsh5026/SourceControl/pkg/repository/scpath"
 )
 
-const (
-	SHALengthBytes = 20
-)
-
 // TreeEntry represents a single entry in a Git tree object.
 //
 // Each entry contains:
@@ -45,6 +41,15 @@ func NewTreeEntry(mode objects.FileMode, name scpath.RelativePath, sha objects.O
 		return nil, fmt.Errorf("invalid path: %s", name)
 	}
 
+	// Tree entries must be single path components (no slashes)
+	nameStr := name.String()
+	if len(nameStr) == 0 || nameStr == "." {
+		return nil, fmt.Errorf("empty name not allowed")
+	}
+	if bytes.Contains([]byte(nameStr), []byte{'/'}) || bytes.Contains([]byte(nameStr), []byte{'\\'}) {
+		return nil, fmt.Errorf("tree entry name cannot contain path separators: %s", nameStr)
+	}
+
 	if err := sha.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid SHA: %w", err)
 	}
@@ -59,7 +64,7 @@ func NewTreeEntry(mode objects.FileMode, name scpath.RelativePath, sha objects.O
 }
 
 // NewTreeEntryFromStrings creates a new TreeEntry from string values (for backward compatibility)
-func newTreeEntryFromStrings(modeStr, name, shaStr string) (*TreeEntry, error) {
+func NewTreeEntryFromStrings(modeStr, name, shaStr string) (*TreeEntry, error) {
 	mode, err := objects.FromOctalString(modeStr)
 	if err != nil {
 		return nil, fmt.Errorf("invalid mode: %w", err)
@@ -175,12 +180,12 @@ func (e *TreeEntry) Deserialize(r io.Reader) error {
 		return fmt.Errorf("invalid tree entry: failed to read name: %w", err)
 	}
 
-	shaBytes := make([]byte, SHALengthBytes)
+	shaBytes := make([]byte, objects.RawHashLength)
 	if _, err := io.ReadFull(r, shaBytes); err != nil {
 		return fmt.Errorf("invalid tree entry: incomplete SHA: %w", err)
 	}
 
-	entry, err := newTreeEntryFromStrings(string(mode), string(name), hex.EncodeToString(shaBytes))
+	entry, err := NewTreeEntryFromStrings(string(mode), string(name), hex.EncodeToString(shaBytes))
 	if err != nil {
 		return err
 	}

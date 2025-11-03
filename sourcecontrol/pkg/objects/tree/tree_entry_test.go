@@ -1,8 +1,11 @@
 package tree
 
 import (
+	"bytes"
 	"encoding/hex"
 	"testing"
+
+	"github.com/utkarsh5026/SourceControl/pkg/objects"
 )
 
 func TestNewTreeEntry(t *testing.T) {
@@ -66,20 +69,20 @@ func TestNewTreeEntry(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			entry, err := NewTreeEntry(tt.mode, tt.ename, tt.sha)
+			entry, err := NewTreeEntryFromStrings(tt.mode, tt.ename, tt.sha)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("NewTreeEntry() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("NewTreeEntryFromStrings() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !tt.wantErr {
-				if entry.Mode() != tt.mode {
-					t.Errorf("Mode() = %v, want %v", entry.Mode(), tt.mode)
+				expectedMode, _ := objects.FromOctalString(tt.mode)
+				if entry.Mode() != expectedMode {
+					t.Errorf("Mode() = %v, want %v", entry.Mode(), expectedMode)
 				}
 				if entry.Name() != tt.ename {
 					t.Errorf("Name() = %v, want %v", entry.Name(), tt.ename)
 				}
-				// SHA should be lowercase
-				expectedSha := tt.sha
+				expectedSha, _ := objects.ParseObjectHash(tt.sha)
 				if entry.SHA() != expectedSha {
 					t.Errorf("SHA() = %v, want %v", entry.SHA(), expectedSha)
 				}
@@ -90,14 +93,13 @@ func TestNewTreeEntry(t *testing.T) {
 
 func TestTreeEntryTypes(t *testing.T) {
 	tests := []struct {
-		name           string
-		mode           string
-		isDir          bool
-		isFile         bool
-		isExecutable   bool
-		isSymlink      bool
-		isSubmodule    bool
-		expectedType   EntryType
+		name         string
+		mode         string
+		isDir        bool
+		isFile       bool
+		isExecutable bool
+		isSymlink    bool
+		isSubmodule  bool
 	}{
 		{
 			name:         "directory",
@@ -107,7 +109,6 @@ func TestTreeEntryTypes(t *testing.T) {
 			isExecutable: false,
 			isSymlink:    false,
 			isSubmodule:  false,
-			expectedType: EntryTypeDirectory,
 		},
 		{
 			name:         "regular file",
@@ -117,7 +118,6 @@ func TestTreeEntryTypes(t *testing.T) {
 			isExecutable: false,
 			isSymlink:    false,
 			isSubmodule:  false,
-			expectedType: EntryTypeRegularFile,
 		},
 		{
 			name:         "executable file",
@@ -127,7 +127,6 @@ func TestTreeEntryTypes(t *testing.T) {
 			isExecutable: true,
 			isSymlink:    false,
 			isSubmodule:  false,
-			expectedType: EntryTypeExecutableFile,
 		},
 		{
 			name:         "symbolic link",
@@ -137,7 +136,6 @@ func TestTreeEntryTypes(t *testing.T) {
 			isExecutable: false,
 			isSymlink:    true,
 			isSubmodule:  false,
-			expectedType: EntryTypeSymbolicLink,
 		},
 		{
 			name:         "submodule",
@@ -147,7 +145,6 @@ func TestTreeEntryTypes(t *testing.T) {
 			isExecutable: false,
 			isSymlink:    false,
 			isSubmodule:  true,
-			expectedType: EntryTypeSubmodule,
 		},
 	}
 
@@ -155,9 +152,9 @@ func TestTreeEntryTypes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			entry, err := NewTreeEntry(tt.mode, "test", sha)
+			entry, err := NewTreeEntryFromStrings(tt.mode, "test", sha)
 			if err != nil {
-				t.Fatalf("NewTreeEntry() error = %v", err)
+				t.Fatalf("NewTreeEntryFromStrings() error = %v", err)
 			}
 
 			if entry.IsDirectory() != tt.isDir {
@@ -174,14 +171,6 @@ func TestTreeEntryTypes(t *testing.T) {
 			}
 			if entry.IsSubmodule() != tt.isSubmodule {
 				t.Errorf("IsSubmodule() = %v, want %v", entry.IsSubmodule(), tt.isSubmodule)
-			}
-
-			entryType, err := entry.EntryType()
-			if err != nil {
-				t.Errorf("EntryType() error = %v", err)
-			}
-			if entryType != tt.expectedType {
-				t.Errorf("EntryType() = %v, want %v", entryType, tt.expectedType)
 			}
 		})
 	}
@@ -217,21 +206,24 @@ func TestTreeEntrySerializeDeserialize(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create entry
-			entry, err := NewTreeEntry(tt.mode, tt.ename, tt.sha)
+			entry, err := NewTreeEntryFromStrings(tt.mode, tt.ename, tt.sha)
 			if err != nil {
-				t.Fatalf("NewTreeEntry() error = %v", err)
+				t.Fatalf("NewTreeEntryFromStrings() error = %v", err)
 			}
 
 			// Serialize
-			serialized, err := entry.Serialize()
+			var buf bytes.Buffer
+			err = entry.Serialize(&buf)
 			if err != nil {
 				t.Fatalf("Serialize() error = %v", err)
 			}
+			serialized := buf.Bytes()
 
 			// Deserialize
-			deserialized, nextOffset, err := DeserializeTreeEntry(serialized, 0)
+			deserialized := &TreeEntry{}
+			err = deserialized.Deserialize(bytes.NewReader(serialized))
 			if err != nil {
-				t.Fatalf("DeserializeTreeEntry() error = %v", err)
+				t.Fatalf("Deserialize() error = %v", err)
 			}
 
 			// Verify
@@ -244,9 +236,6 @@ func TestTreeEntrySerializeDeserialize(t *testing.T) {
 			if deserialized.SHA() != entry.SHA() {
 				t.Errorf("SHA() = %v, want %v", deserialized.SHA(), entry.SHA())
 			}
-			if nextOffset != len(serialized) {
-				t.Errorf("nextOffset = %v, want %v", nextOffset, len(serialized))
-			}
 		})
 	}
 }
@@ -254,10 +243,10 @@ func TestTreeEntrySerializeDeserialize(t *testing.T) {
 func TestTreeEntryCompareTo(t *testing.T) {
 	sha := "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0"
 
-	fileA, _ := NewTreeEntry("100644", "a.txt", sha)
-	fileB, _ := NewTreeEntry("100644", "b.txt", sha)
-	dirA, _ := NewTreeEntry("040000", "a", sha)
-	dirB, _ := NewTreeEntry("040000", "b", sha)
+	fileA, _ := NewTreeEntryFromStrings("100644", "a.txt", sha)
+	fileB, _ := NewTreeEntryFromStrings("100644", "b.txt", sha)
+	dirA, _ := NewTreeEntryFromStrings("040000", "a", sha)
+	dirB, _ := NewTreeEntryFromStrings("040000", "b", sha)
 
 	tests := []struct {
 		name     string
@@ -310,15 +299,17 @@ func TestTreeEntryCompareTo(t *testing.T) {
 }
 
 func TestTreeEntrySerializeFormat(t *testing.T) {
-	entry, err := NewTreeEntry("100644", "test.txt", "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0")
+	entry, err := NewTreeEntryFromStrings("100644", "test.txt", "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0")
 	if err != nil {
-		t.Fatalf("NewTreeEntry() error = %v", err)
+		t.Fatalf("NewTreeEntryFromStrings() error = %v", err)
 	}
 
-	serialized, err := entry.Serialize()
+	var buf bytes.Buffer
+	err = entry.Serialize(&buf)
 	if err != nil {
 		t.Fatalf("Serialize() error = %v", err)
 	}
+	serialized := buf.Bytes()
 
 	// Expected format: "100644 test.txt\0[20 bytes]"
 	expectedPrefix := "100644 test.txt\x00"
@@ -328,8 +319,8 @@ func TestTreeEntrySerializeFormat(t *testing.T) {
 
 	// Verify SHA bytes
 	shaBytes := serialized[len(expectedPrefix):]
-	if len(shaBytes) != SHALengthBytes {
-		t.Errorf("SHA bytes length = %v, want %v", len(shaBytes), SHALengthBytes)
+	if len(shaBytes) != objects.RawHashLength {
+		t.Errorf("SHA bytes length = %v, want %v", len(shaBytes), objects.RawHashLength)
 	}
 
 	expectedShaBytes, _ := hex.DecodeString("a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0")
