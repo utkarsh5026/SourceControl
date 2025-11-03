@@ -3,6 +3,7 @@ package scpath
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 )
 
 // String returns the path as a string
@@ -19,6 +20,34 @@ func (rp RepositoryPath) IsValid() bool {
 func (rp RepositoryPath) Join(elem ...string) AbsolutePath {
 	parts := append([]string{string(rp)}, elem...)
 	return AbsolutePath(filepath.Join(parts...))
+}
+
+// JoinRelative safely joins a relative path to the repository path with validation
+// This method ensures the resulting path stays within the repository directory
+// The RelativePath type guarantees the input is already normalized and validated
+func (rp RepositoryPath) JoinRelative(relPath RelativePath) (AbsolutePath, error) {
+	if !relPath.IsValid() {
+		return "", fmt.Errorf("invalid relative path: %s", relPath)
+	}
+
+	normalized := relPath.Normalize()
+	if normalized == "" || normalized == "." {
+		return AbsolutePath(rp), nil
+	}
+
+	result := filepath.Join(string(rp), string(normalized))
+	absResult := AbsolutePath(result)
+
+	relCheck, err := filepath.Rel(string(rp), string(absResult))
+	if err != nil {
+		return "", fmt.Errorf("failed to validate path: %w", err)
+	}
+
+	if filepath.IsAbs(relCheck) || relCheck == ".." || strings.HasPrefix(relCheck, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("path escapes repository: %s", relPath)
+	}
+
+	return absResult, nil
 }
 
 // SourcePath returns the path to the .source directory

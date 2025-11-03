@@ -14,15 +14,14 @@ func (rp RelativePath) String() string {
 // IsValid checks if this is a valid relative path
 func (rp RelativePath) IsValid() bool {
 	s := string(rp)
-	// Cannot be empty
 	if len(s) == 0 {
 		return false
 	}
-	// Cannot be absolute (check for both Unix and Windows style)
+
 	if filepath.IsAbs(s) || strings.HasPrefix(s, "/") {
 		return false
 	}
-	// Cannot contain .. (directory traversal)
+
 	if strings.Contains(s, "..") {
 		return false
 	}

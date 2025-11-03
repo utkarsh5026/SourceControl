@@ -27,9 +27,9 @@ func (ap AbsolutePath) String() string {
 	return string(ap)
 }
 
-// IsValid checks if this is a valid path
+// IsValid checks if this is a valid absolute path
 func (ap AbsolutePath) IsValid() bool {
-	return len(ap) > 0
+	return len(ap) > 0 && filepath.IsAbs(string(ap))
 }
 
 // Join joins path elements to the absolute path
@@ -55,6 +55,21 @@ func (ap AbsolutePath) Base() string {
 // Dir returns all but the last element of the path
 func (ap AbsolutePath) Dir() AbsolutePath {
 	return AbsolutePath(filepath.Dir(string(ap)))
+}
+
+// NewAbsolutePath creates a new AbsolutePath from a string
+// If the path is relative, it converts it to absolute using the current working directory
+func NewAbsolutePath(path string) (AbsolutePath, error) {
+	if path == "" {
+		return "", fmt.Errorf("path cannot be empty")
+	}
+
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	return AbsolutePath(absPath), nil
 }
 
 // SanitizePath sanitizes a path for use in Git

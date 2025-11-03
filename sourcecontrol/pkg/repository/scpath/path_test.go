@@ -484,3 +484,205 @@ func TestRelativePath_Dir(t *testing.T) {
 		})
 	}
 }
+
+func TestRepositoryPath_JoinRelative(t *testing.T) {
+	// Use a platform-appropriate repository path
+	repo := RepositoryPath(filepath.Join("C:", "repos", "myproject"))
+
+	tests := []struct {
+		name        string
+		repo        RepositoryPath
+		relPath     RelativePath
+		expectError bool
+		checkResult func(AbsolutePath) bool
+	}{
+		{
+			name:        "simple file",
+			repo:        repo,
+			relPath:     RelativePath("README.md"),
+			expectError: false,
+			checkResult: func(ap AbsolutePath) bool {
+				return ap.String() == filepath.Join(string(repo), "README.md")
+			},
+		},
+		{
+			name:        "nested path",
+			repo:        repo,
+			relPath:     RelativePath("src/main.go"),
+			expectError: false,
+			checkResult: func(ap AbsolutePath) bool {
+				return ap.String() == filepath.Join(string(repo), "src", "main.go")
+			},
+		},
+		{
+			name:        "deep nested path",
+			repo:        repo,
+			relPath:     RelativePath("a/b/c/d/file.txt"),
+			expectError: false,
+			checkResult: func(ap AbsolutePath) bool {
+				return ap.String() == filepath.Join(string(repo), "a", "b", "c", "d", "file.txt")
+			},
+		},
+		{
+			name:        "dot path returns repo root",
+			repo:        repo,
+			relPath:     RelativePath("."),
+			expectError: false,
+			checkResult: func(ap AbsolutePath) bool {
+				return ap.String() == string(repo)
+			},
+		},
+		{
+			name:        "invalid relative path - contains parent dir",
+			repo:        repo,
+			relPath:     RelativePath("../etc/passwd"),
+			expectError: true,
+		},
+		{
+			name:        "invalid relative path - absolute path",
+			repo:        repo,
+			relPath:     RelativePath("/etc/passwd"),
+			expectError: true,
+		},
+		{
+			name:        "normalized path with ./ prefix",
+			repo:        repo,
+			relPath:     RelativePath("./src/main.go").Normalize(),
+			expectError: false,
+			checkResult: func(ap AbsolutePath) bool {
+				return ap.String() == filepath.Join(string(repo), "src", "main.go")
+			},
+		},
+		{
+			name:        "path stays within repository",
+			repo:        repo,
+			relPath:     RelativePath("src/../docs/README.md").Normalize(),
+			expectError: false,
+			checkResult: func(ap AbsolutePath) bool {
+				// After normalization, this becomes "docs/README.md"
+				return ap.String() == filepath.Join(string(repo), "docs", "README.md")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := tt.repo.JoinRelative(tt.relPath)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("JoinRelative() expected error but got none, result = %v", result)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("JoinRelative() unexpected error: %v", err)
+				return
+			}
+
+			if tt.checkResult != nil && !tt.checkResult(result) {
+				t.Errorf("JoinRelative() = %v, failed validation check", result)
+			}
+		})
+	}
+}
+
+func TestAbsolutePath_IsValid(t *testing.T) {
+	tests := []struct {
+		name  string
+		path  AbsolutePath
+		valid bool
+	}{
+		{
+			name:  "valid absolute path",
+			path:  AbsolutePath("C:\\Users\\user\\repo"),
+			valid: true,
+		},
+		{
+			name:  "invalid relative path",
+			path:  AbsolutePath("relative/path"),
+			valid: false,
+		},
+		{
+			name:  "empty path",
+			path:  AbsolutePath(""),
+			valid: false,
+		},
+		{
+			name:  "volume root path",
+			path:  AbsolutePath("C:\\"),
+			valid: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.path.IsValid(); got != tt.valid {
+				t.Errorf("IsValid() = %v, want %v for path %q", got, tt.valid, tt.path)
+			}
+		})
+	}
+}
+
+func TestNewAbsolutePath(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		expectError bool
+		validate    func(AbsolutePath) bool
+	}{
+		{
+			name:        "empty path",
+			input:       "",
+			expectError: true,
+		},
+		{
+			name:        "absolute path stays absolute",
+			input:       filepath.Join("C:", "Users", "user", "repo"),
+			expectError: false,
+			validate: func(ap AbsolutePath) bool {
+				return ap.IsValid() && filepath.IsAbs(string(ap))
+			},
+		},
+		{
+			name:        "relative path becomes absolute",
+			input:       "relative/path",
+			expectError: false,
+			validate: func(ap AbsolutePath) bool {
+				// Should be converted to absolute
+				return ap.IsValid() && filepath.IsAbs(string(ap))
+			},
+		},
+		{
+			name:        "dot path becomes absolute",
+			input:       ".",
+			expectError: false,
+			validate: func(ap AbsolutePath) bool {
+				return ap.IsValid() && filepath.IsAbs(string(ap))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := NewAbsolutePath(tt.input)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("NewAbsolutePath() expected error but got none, result = %v", result)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("NewAbsolutePath() unexpected error: %v", err)
+				return
+			}
+
+			if tt.validate != nil && !tt.validate(result) {
+				t.Errorf("NewAbsolutePath() = %v, failed validation", result)
+			}
+		})
+	}
+}
