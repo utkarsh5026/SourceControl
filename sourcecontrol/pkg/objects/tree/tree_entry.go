@@ -59,7 +59,7 @@ func NewTreeEntry(mode objects.FileMode, name scpath.RelativePath, sha objects.O
 }
 
 // NewTreeEntryFromStrings creates a new TreeEntry from string values (for backward compatibility)
-func NewTreeEntryFromStrings(modeStr, name, shaStr string) (*TreeEntry, error) {
+func newTreeEntryFromStrings(modeStr, name, shaStr string) (*TreeEntry, error) {
 	mode, err := objects.FromOctalString(modeStr)
 	if err != nil {
 		return nil, fmt.Errorf("invalid mode: %w", err)
@@ -126,12 +126,10 @@ func (e *TreeEntry) IsSubmodule() bool {
 // Serialize writes the serialized entry to the provided writer
 // Format: [mode] [space] [filename] [null byte] [20-byte SHA-1 binary]
 func (e *TreeEntry) Serialize(w io.Writer) error {
-	// Write mode, space, and filename
 	if _, err := fmt.Fprintf(w, "%s %s%c", e.mode.ToOctalString(), e.name.String(), objects.NullByte); err != nil {
 		return fmt.Errorf("failed to write entry header: %w", err)
 	}
 
-	// Write SHA bytes
 	shaBytes, err := e.sha.Bytes()
 	if err != nil {
 		return fmt.Errorf("failed to get SHA bytes: %w", err)
@@ -164,38 +162,47 @@ func (e *TreeEntry) CompareTo(other *TreeEntry) int {
 	return 1
 }
 
-// DeserializeTreeEntry creates a TreeEntry from serialized data
-func DeserializeTreeEntry(data []byte, offset int) (*TreeEntry, int, error) {
-	spaceIndex := bytes.IndexByte(data[offset:], objects.SpaceByte)
-	if spaceIndex == -1 {
-		return nil, 0, fmt.Errorf("invalid tree entry: missing space")
-	}
-	spaceIndex += offset
-
-	modeStr := string(data[offset:spaceIndex])
-
-	nullIndex := bytes.IndexByte(data[spaceIndex+1:], objects.NullByte)
-	if nullIndex == -1 {
-		return nil, 0, fmt.Errorf("invalid tree entry: missing null byte")
-	}
-	nullIndex += spaceIndex + 1
-
-	nameStr := string(data[spaceIndex+1 : nullIndex])
-
-	// Extract SHA bytes
-	start := nullIndex + 1
-	end := start + SHALengthBytes
-	if end > len(data) {
-		return nil, 0, fmt.Errorf("invalid tree entry: incomplete SHA")
-	}
-
-	shaBytes := data[start:end]
-	shaStr := hex.EncodeToString(shaBytes)
-
-	entry, err := NewTreeEntryFromStrings(modeStr, nameStr, shaStr)
+// Deserialize reads and creates a TreeEntry from an io.Reader
+// Returns the created entry or an error if parsing fails
+func (e *TreeEntry) Deserialize(r io.Reader) error {
+	mode, err := readUntil(r, objects.SpaceByte)
 	if err != nil {
-		return nil, 0, err
+		return fmt.Errorf("invalid tree entry: failed to read mode: %w", err)
 	}
 
-	return entry, end, nil
+	name, err := readUntil(r, objects.NullByte)
+	if err != nil {
+		return fmt.Errorf("invalid tree entry: failed to read name: %w", err)
+	}
+
+	shaBytes := make([]byte, SHALengthBytes)
+	if _, err := io.ReadFull(r, shaBytes); err != nil {
+		return fmt.Errorf("invalid tree entry: incomplete SHA: %w", err)
+	}
+
+	entry, err := newTreeEntryFromStrings(string(mode), string(name), hex.EncodeToString(shaBytes))
+	if err != nil {
+		return err
+	}
+
+	*e = *entry
+	return nil
+}
+
+// readUntil reads from reader until delimiter is found
+func readUntil(r io.Reader, delim byte) ([]byte, error) {
+	var buf bytes.Buffer
+	b := make([]byte, 1)
+
+	for {
+		if _, err := r.Read(b); err != nil {
+			return nil, err
+		}
+		if b[0] == delim {
+			break
+		}
+		buf.WriteByte(b[0])
+	}
+
+	return buf.Bytes(), nil
 }

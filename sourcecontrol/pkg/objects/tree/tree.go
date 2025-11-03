@@ -177,30 +177,28 @@ func (t *Tree) serializeContent() ([]byte, error) {
 
 	var buf bytes.Buffer
 	for _, entry := range t.entries {
-		serialized, err := entry.Serialize()
-		if err != nil {
+		if err := entry.Serialize(&buf); err != nil {
 			return nil, fmt.Errorf("failed to serialize tree entry: %w", err)
 		}
-		if _, err := buf.Write(serialized); err != nil {
-			return nil, fmt.Errorf("failed to write serialized entry: %w", err)
-		}
 	}
-
 	return buf.Bytes(), nil
 }
 
 // parseEntries parses tree entries from content
 func parseEntries(content []byte) ([]*TreeEntry, error) {
 	var entries []*TreeEntry
-	offset := 0
+	reader := bytes.NewReader(content)
 
-	for offset < len(content) {
-		entry, nextOffset, err := DeserializeTreeEntry(content, offset)
+	for reader.Len() > 0 {
+		e := &TreeEntry{}
+		err := e.Deserialize(reader)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse tree entry at offset %d: %w", offset, err)
+			if err == io.EOF {
+				break
+			}
+			return nil, fmt.Errorf("failed to parse tree entry: %w", err)
 		}
-		entries = append(entries, entry)
-		offset = nextOffset
+		entries = append(entries, e)
 	}
 
 	return entries, nil
