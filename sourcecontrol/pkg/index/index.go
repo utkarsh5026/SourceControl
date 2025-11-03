@@ -65,11 +65,6 @@ func NewIndex() *Index {
 // Returns an error if:
 //   - Serialization fails
 //   - File cannot be written (permissions, disk full, etc.)
-//
-// Example:
-//
-//	idx := NewIndex()
-//	err := idx.Write(scpath.NewAbsolute("/repo/.git/index"))
 func (idx *Index) Write(path scpath.AbsolutePath) error {
 	buf := new(bytes.Buffer)
 
@@ -90,11 +85,6 @@ func (idx *Index) Write(path scpath.AbsolutePath) error {
 //
 // Parameters:
 //   - entry: The entry to add or update
-//
-// Example:
-//
-//	entry := NewEntry("main.go", objectID, fileMode, fileSize)
-//	idx.Add(entry)
 func (idx *Index) Add(entry *Entry) {
 	for i, e := range idx.Entries {
 		if e.Path == entry.Path {
@@ -116,13 +106,6 @@ func (idx *Index) Add(entry *Entry) {
 // Returns:
 //   - true if the entry was found and removed
 //   - false if no entry with that path exists
-//
-// Example:
-//
-//	removed := idx.Remove(scpath.NewRelative("main.go"))
-//	if removed {
-//	    fmt.Println("File unstaged successfully")
-//	}
 func (idx *Index) Remove(path scpath.RelativePath) bool {
 	normalizedPath := path.Normalize()
 	for i, e := range idx.Entries {
@@ -142,12 +125,6 @@ func (idx *Index) Remove(path scpath.RelativePath) bool {
 // Returns:
 //   - The entry if found, along with true
 //   - nil and false if not found
-//
-// Example:
-//
-//	if entry, ok := idx.Get(scpath.NewRelative("main.go")); ok {
-//	    fmt.Printf("File hash: %s\n", entry.ObjectID)
-//	}
 func (idx *Index) Get(path scpath.RelativePath) (*Entry, bool) {
 	normalizedPath := path.Normalize()
 	for _, e := range idx.Entries {
@@ -164,23 +141,12 @@ func (idx *Index) Get(path scpath.RelativePath) (*Entry, bool) {
 //   - path: Relative path of the file to check
 //
 // Returns true if the file is staged, false otherwise.
-//
-// Example:
-//
-//	if idx.Has(scpath.NewRelative("main.go")) {
-//	    fmt.Println("File is staged")
-//	}
 func (idx *Index) Has(path scpath.RelativePath) bool {
 	_, ok := idx.Get(path)
 	return ok
 }
 
 // Clear removes all entries from the index, effectively unstaging all files.
-//
-// Example:
-//
-//	idx.Clear()
-//	fmt.Println(idx.Count()) // Output: 0
 func (idx *Index) Clear() {
 	idx.Entries = make([]*Entry, 0)
 }
@@ -190,12 +156,6 @@ func (idx *Index) Clear() {
 //
 // Returns:
 //   - Slice of relative paths for all staged files
-//
-// Example:
-//
-//	for _, path := range idx.Paths() {
-//	    fmt.Println(path)
-//	}
 func (idx *Index) Paths() []scpath.RelativePath {
 	paths := make([]scpath.RelativePath, len(idx.Entries))
 	for i, e := range idx.Entries {
@@ -207,10 +167,6 @@ func (idx *Index) Paths() []scpath.RelativePath {
 // Count returns the total number of staged files in the index.
 //
 // Returns the number of entries.
-//
-// Example:
-//
-//	fmt.Printf("Staged files: %d\n", idx.Count())
 func (idx *Index) Count() int {
 	return len(idx.Entries)
 }
@@ -292,13 +248,6 @@ func (idx *Index) writeHeader(w io.Writer) error {
 //   - Checksum doesn't match (data integrity failure)
 //   - Header is invalid (wrong signature or unsupported version)
 //   - Any entry cannot be deserialized
-//
-// Example:
-//
-//	file, _ := os.Open(".git/index")
-//	defer file.Close()
-//	idx := NewIndex()
-//	err := idx.Deserialize(file)
 func (idx *Index) Deserialize(r io.Reader) error {
 	data, err := io.ReadAll(r)
 	if err != nil {

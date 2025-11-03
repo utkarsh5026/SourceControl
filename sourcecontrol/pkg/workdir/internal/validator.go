@@ -135,11 +135,7 @@ func (v *Validator) checkFileStatus(entry *index.Entry) (*FileStatusDetail, erro
 
 	stats, err := os.Stat(fullPath.String())
 	if os.IsNotExist(err) {
-		return &FileStatusDetail{
-			Path:     entry.Path,
-			Status:   FileDeleted,
-			IndexSHA: entry.BlobHash,
-		}, nil
+		return NewFSD(entry.Path, FileDeleted, entry.BlobHash, ""), nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("stat file: %w", err)
@@ -151,11 +147,7 @@ func (v *Validator) checkFileStatus(entry *index.Entry) (*FileStatusDetail, erro
 // compareWithIndex performs detailed comparison between file stats and index entry
 func (v *Validator) compareWithIndex(entry *index.Entry, stats os.FileInfo) (*FileStatusDetail, error) {
 	if uint32(stats.Size()) != entry.SizeInBytes {
-		return &FileStatusDetail{
-			Path:     entry.Path,
-			Status:   FileSizeChanged,
-			IndexSHA: entry.BlobHash,
-		}, nil
+		return NewFSD(entry.Path, FileSizeChanged, entry.BlobHash, ""), nil
 	}
 
 	mtimeSeconds := stats.ModTime().Unix()
@@ -166,39 +158,21 @@ func (v *Validator) compareWithIndex(entry *index.Entry, stats os.FileInfo) (*Fi
 		}
 
 		if contentChanged {
-			return &FileStatusDetail{
-				Path:       entry.Path,
-				Status:     FileContentChanged,
-				IndexSHA:   entry.BlobHash,
-				WorkingSHA: currentSHA,
-			}, nil
+			return NewFSD(entry.Path, FileContentChanged, entry.BlobHash, currentSHA), nil
 		}
 
-		// Time changed but content is same
-		return &FileStatusDetail{
-			Path:       entry.Path,
-			Status:     FileTimeChanged,
-			IndexSHA:   entry.BlobHash,
-			WorkingSHA: currentSHA,
-		}, nil
+		return NewFSD(entry.Path, FileTimeChanged, entry.BlobHash, currentSHA), nil
 	}
 
-	// Even if mtime matches, check content (for fast edits within same second)
 	contentChanged, currentSHA, err := v.isContentModified(entry)
 	if err != nil {
 		return nil, fmt.Errorf("check content: %w", err)
 	}
 
 	if contentChanged {
-		return &FileStatusDetail{
-			Path:       entry.Path,
-			Status:     FileContentChanged,
-			IndexSHA:   entry.BlobHash,
-			WorkingSHA: currentSHA,
-		}, nil
+		return NewFSD(entry.Path, FileContentChanged, entry.BlobHash, currentSHA), nil
 	}
 
-	// File is unchanged
 	return nil, nil
 }
 
@@ -211,7 +185,6 @@ func (v *Validator) isContentModified(entry *index.Entry) (bool, objects.ObjectH
 		return true, "", fmt.Errorf("read file: %w", err)
 	}
 
-	// Create blob and compute hash
 	b := blob.NewBlob(data)
 	currentHash, err := b.Hash()
 	if err != nil {
