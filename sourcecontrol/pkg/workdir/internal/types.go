@@ -71,11 +71,3 @@ type IndexUpdateResult struct {
 	EntriesRemoved int
 	Errors         []error
 }
-
-// FileOperator defines the interface for low-level file system operations
-type FileOperator interface {
-	ApplyOperation(op Operation) error
-	CreateBackup(path scpath.RelativePath) (*Backup, error)
-	RestoreBackup(backup *Backup) error
-	CleanupBackup(backup *Backup) error
-}

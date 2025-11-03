@@ -59,12 +59,12 @@ func failure(opsApplied, totalOps int, err error) TransactionResult {
 // Manager implements atomic transaction execution with rollback support.
 // It ensures all-or-nothing semantics for file operations.
 type Manager struct {
-	fileOps   FileOperator
+	fileOps   *FileOps
 	sourceDir scpath.SourcePath
 }
 
 // NewManager creates a new transaction manager
-func NewManager(fileOps FileOperator, sourceDir scpath.SourcePath) *Manager {
+func NewManager(fileOps *FileOps, sourceDir scpath.SourcePath) *Manager {
 	return &Manager{
 		fileOps:   fileOps,
 		sourceDir: sourceDir,

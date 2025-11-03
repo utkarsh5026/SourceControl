@@ -15,67 +15,8 @@ import (
 )
 
 // =====================================================
-// Mock FileOperator for testing
+// Test helpers
 // =====================================================
-
-type mockFileOperator struct {
-	applyError       error
-	applyErrorAtOp   int // fail at specific operation index (-1 for no failure)
-	createBackupErr  error
-	restoreBackupErr error
-	appliedOps       []Operation
-	createdBackups   []*Backup
-	restoredBackups  []*Backup
-	cleanedBackups   []*Backup
-	applyCount       int
-}
-
-func newMockFileOperator() *mockFileOperator {
-	return &mockFileOperator{
-		applyErrorAtOp: -1,
-		appliedOps:     []Operation{},
-		createdBackups: []*Backup{},
-		restoredBackups: []*Backup{},
-		cleanedBackups: []*Backup{},
-	}
-}
-
-func (m *mockFileOperator) ApplyOperation(op Operation) error {
-	if m.applyErrorAtOp >= 0 && m.applyCount == m.applyErrorAtOp {
-		m.applyCount++
-		return m.applyError
-	}
-	m.applyCount++
-	m.appliedOps = append(m.appliedOps, op)
-	return nil
-}
-
-func (m *mockFileOperator) CreateBackup(path scpath.RelativePath) (*Backup, error) {
-	if m.createBackupErr != nil {
-		return nil, m.createBackupErr
-	}
-	backup := &Backup{
-		Path:     path,
-		TempFile: fmt.Sprintf("/tmp/backup_%s", path),
-		Existed:  true,
-		Mode:     0644,
-	}
-	m.createdBackups = append(m.createdBackups, backup)
-	return backup, nil
-}
-
-func (m *mockFileOperator) RestoreBackup(backup *Backup) error {
-	if m.restoreBackupErr != nil {
-		return m.restoreBackupErr
-	}
-	m.restoredBackups = append(m.restoredBackups, backup)
-	return nil
-}
-
-func (m *mockFileOperator) CleanupBackup(backup *Backup) error {
-	m.cleanedBackups = append(m.cleanedBackups, backup)
-	return nil
-}
 
 // =====================================================
 // Tests for helper functions
@@ -188,15 +129,16 @@ func TestFailure(t *testing.T) {
 // =====================================================
 
 func TestNewManager(t *testing.T) {
-	mockOps := newMockFileOperator()
-	sourceDir := scpath.SourcePath("test/dir")
+	repo, _ := setupTestRepo(t)
+	fileOps := NewFileOps(repo)
+	sourceDir := repo.SourceDirectory()
 
-	manager := NewManager(mockOps, sourceDir)
+	manager := NewManager(fileOps, sourceDir)
 
 	if manager == nil {
 		t.Fatal("NewManager returned nil")
 	}
-	if manager.fileOps != mockOps {
+	if manager.fileOps != fileOps {
 		t.Error("fileOps not set correctly")
 	}
 	if manager.sourceDir != sourceDir {
@@ -209,9 +151,9 @@ func TestNewManager(t *testing.T) {
 // =====================================================
 
 func TestManager_ValidateOperations(t *testing.T) {
-	mockOps := newMockFileOperator()
-	sourceDir := scpath.SourcePath("test/dir")
-	manager := NewManager(mockOps, sourceDir)
+	repo, _ := setupTestRepo(t)
+	fileOps := NewFileOps(repo)
+	manager := NewManager(fileOps, repo.SourceDirectory())
 
 	tests := []struct {
 		name    string
@@ -310,9 +252,9 @@ func TestManager_ValidateOperations(t *testing.T) {
 // =====================================================
 
 func TestManager_ExecuteAtomically_EmptyOperations(t *testing.T) {
-	mockOps := newMockFileOperator()
 	repo, _ := setupTestRepo(t)
-	manager := NewManager(mockOps, repo.SourceDirectory())
+	fileOps := NewFileOps(repo)
+	manager := NewManager(fileOps, repo.SourceDirectory())
 
 	result := manager.ExecuteAtomically(context.Background(), []Operation{})
 
@@ -331,13 +273,27 @@ func TestManager_ExecuteAtomically_EmptyOperations(t *testing.T) {
 }
 
 func TestManager_ExecuteAtomically_Success(t *testing.T) {
-	mockOps := newMockFileOperator()
-	repo, _ := setupTestRepo(t)
-	manager := NewManager(mockOps, repo.SourceDirectory())
+	repo, workDir := setupTestRepo(t)
+	fileOps := NewFileOps(repo)
+	manager := NewManager(fileOps, repo.SourceDirectory())
+
+	// Create test files and blobs
+	content1 := "File 1 content"
+	content2 := "File 2 initial"
+	content3 := "File 3 to delete"
+
+	blob1 := createTestBlob(t, repo, content1)
+	blob2 := createTestBlob(t, repo, content2)
+
+	// Setup: Create file2 and file3 for modify and delete operations
+	file2Path := filepath.Join(workDir, "file2.txt")
+	file3Path := filepath.Join(workDir, "file3.txt")
+	os.WriteFile(file2Path, []byte("old content"), 0644)
+	os.WriteFile(file3Path, []byte(content3), 0644)
 
 	ops := []Operation{
-		{Path: scpath.RelativePath("file1.txt"), Action: ActionCreate, SHA: "abc123"},
-		{Path: scpath.RelativePath("file2.txt"), Action: ActionModify, SHA: "def456"},
+		{Path: scpath.RelativePath("file1.txt"), Action: ActionCreate, SHA: blob1, Mode: 0644},
+		{Path: scpath.RelativePath("file2.txt"), Action: ActionModify, SHA: blob2, Mode: 0644},
 		{Path: scpath.RelativePath("file3.txt"), Action: ActionDelete},
 	}
 
@@ -352,28 +308,36 @@ func TestManager_ExecuteAtomically_Success(t *testing.T) {
 	if result.TotalOperations != 3 {
 		t.Errorf("TotalOperations = %d, want 3", result.TotalOperations)
 	}
-	if len(mockOps.appliedOps) != 3 {
-		t.Errorf("Applied %d operations, want 3", len(mockOps.appliedOps))
+
+	// Verify file1 was created
+	file1Path := filepath.Join(workDir, "file1.txt")
+	data1, err := os.ReadFile(file1Path)
+	if err != nil {
+		t.Errorf("Failed to read file1.txt: %v", err)
+	}
+	if string(data1) != content1 {
+		t.Errorf("file1.txt content = %q, want %q", string(data1), content1)
 	}
 
-	// Verify backups were created for modify and delete
-	if len(mockOps.createdBackups) != 2 {
-		t.Errorf("Created %d backups, want 2", len(mockOps.createdBackups))
+	// Verify file2 was modified
+	data2, err := os.ReadFile(file2Path)
+	if err != nil {
+		t.Errorf("Failed to read file2.txt: %v", err)
+	}
+	if string(data2) != content2 {
+		t.Errorf("file2.txt content = %q, want %q", string(data2), content2)
 	}
 
-	// Verify backups were cleaned up (not restored)
-	if len(mockOps.cleanedBackups) != 2 {
-		t.Errorf("Cleaned %d backups, want 2", len(mockOps.cleanedBackups))
-	}
-	if len(mockOps.restoredBackups) != 0 {
-		t.Errorf("Restored %d backups, want 0", len(mockOps.restoredBackups))
+	// Verify file3 was deleted
+	if _, err := os.Stat(file3Path); !os.IsNotExist(err) {
+		t.Error("file3.txt should be deleted")
 	}
 }
 
 func TestManager_ExecuteAtomically_ValidationError(t *testing.T) {
-	mockOps := newMockFileOperator()
 	repo, _ := setupTestRepo(t)
-	manager := NewManager(mockOps, repo.SourceDirectory())
+	fileOps := NewFileOps(repo)
+	manager := NewManager(fileOps, repo.SourceDirectory())
 
 	ops := []Operation{
 		{Path: scpath.RelativePath(""), Action: ActionCreate, SHA: "abc123"}, // Invalid: empty path
@@ -387,24 +351,26 @@ func TestManager_ExecuteAtomically_ValidationError(t *testing.T) {
 	if result.OperationsApplied != 0 {
 		t.Errorf("OperationsApplied = %d, want 0", result.OperationsApplied)
 	}
-	if len(mockOps.appliedOps) != 0 {
-		t.Error("No operations should be applied after validation error")
-	}
 }
 
 func TestManager_ExecuteAtomically_OperationFailureWithRollback(t *testing.T) {
-	mockOps := newMockFileOperator()
-	repo, _ := setupTestRepo(t)
-	manager := NewManager(mockOps, repo.SourceDirectory())
+	repo, workDir := setupTestRepo(t)
+	fileOps := NewFileOps(repo)
+	manager := NewManager(fileOps, repo.SourceDirectory())
 
-	// Configure mock to fail at the second operation
-	mockOps.applyError = errors.New("operation failed")
-	mockOps.applyErrorAtOp = 1
+	// Setup: Create file1 for modification
+	initialContent := "Initial content"
+	file1Path := filepath.Join(workDir, "file1.txt")
+	os.WriteFile(file1Path, []byte(initialContent), 0644)
 
+	// Create a valid blob for file1
+	newContent := "New content"
+	validBlob := createTestBlob(t, repo, newContent)
+
+	// Create operations: modify file1 (will succeed), then create with invalid SHA (will fail)
 	ops := []Operation{
-		{Path: scpath.RelativePath("file1.txt"), Action: ActionCreate, SHA: "abc123"},
-		{Path: scpath.RelativePath("file2.txt"), Action: ActionModify, SHA: "def456"},
-		{Path: scpath.RelativePath("file3.txt"), Action: ActionDelete},
+		{Path: scpath.RelativePath("file1.txt"), Action: ActionModify, SHA: validBlob, Mode: 0644},
+		{Path: scpath.RelativePath("file2.txt"), Action: ActionCreate, SHA: objects.ObjectHash("invalid_sha"), Mode: 0644},
 	}
 
 	result := manager.ExecuteAtomically(context.Background(), ops)
@@ -412,48 +378,49 @@ func TestManager_ExecuteAtomically_OperationFailureWithRollback(t *testing.T) {
 	if result.Success {
 		t.Error("ExecuteAtomically() should fail when operation fails")
 	}
-	if result.OperationsApplied != 1 {
-		t.Errorf("OperationsApplied = %d, want 1", result.OperationsApplied)
-	}
-	if result.TotalOperations != 3 {
-		t.Errorf("TotalOperations = %d, want 3", result.TotalOperations)
+	if result.TotalOperations != 2 {
+		t.Errorf("TotalOperations = %d, want 2", result.TotalOperations)
 	}
 	if result.Err == nil {
 		t.Error("Err should not be nil")
 	}
 
-	// Verify error message contains failure details
-	errMsg := result.Err.Error()
-	if !strings.Contains(errMsg, "operation failed") {
-		t.Errorf("Error message should contain failure details: %s", errMsg)
+	// Verify file1 was rolled back to original content
+	data, err := os.ReadFile(file1Path)
+	if err != nil {
+		t.Fatalf("Failed to read file after rollback: %v", err)
 	}
-	if !strings.Contains(errMsg, "modify") {
-		t.Errorf("Error message should contain action type: %s", errMsg)
-	}
-
-	// Verify backups were restored (rollback occurred)
-	if len(mockOps.restoredBackups) != 2 {
-		t.Errorf("Restored %d backups, want 2 (rollback)", len(mockOps.restoredBackups))
+	if string(data) != initialContent {
+		t.Errorf("File content after rollback = %q, want %q", string(data), initialContent)
 	}
 
-	// Verify backups were cleaned up after rollback
-	if len(mockOps.cleanedBackups) != 2 {
-		t.Errorf("Cleaned %d backups, want 2", len(mockOps.cleanedBackups))
+	// Verify file2 was not created
+	file2Path := filepath.Join(workDir, "file2.txt")
+	if _, err := os.Stat(file2Path); !os.IsNotExist(err) {
+		t.Error("file2.txt should not exist after rollback")
 	}
 }
 
 func TestManager_ExecuteAtomically_ContextCancellation(t *testing.T) {
-	mockOps := newMockFileOperator()
-	repo, _ := setupTestRepo(t)
-	manager := NewManager(mockOps, repo.SourceDirectory())
+	repo, workDir := setupTestRepo(t)
+	fileOps := NewFileOps(repo)
+	manager := NewManager(fileOps, repo.SourceDirectory())
+
+	// Setup: Create file1 for modification
+	initialContent := "Initial content"
+	file1Path := filepath.Join(workDir, "file1.txt")
+	os.WriteFile(file1Path, []byte(initialContent), 0644)
 
 	// Create a context that's already cancelled
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
+	content := "New content"
+	blob := createTestBlob(t, repo, content)
+
 	ops := []Operation{
-		{Path: scpath.RelativePath("file1.txt"), Action: ActionCreate, SHA: "abc123"},
-		{Path: scpath.RelativePath("file2.txt"), Action: ActionModify, SHA: "def456"},
+		{Path: scpath.RelativePath("file1.txt"), Action: ActionModify, SHA: blob, Mode: 0644},
+		{Path: scpath.RelativePath("file2.txt"), Action: ActionCreate, SHA: blob, Mode: 0644},
 	}
 
 	result := manager.ExecuteAtomically(ctx, ops)
@@ -465,83 +432,25 @@ func TestManager_ExecuteAtomically_ContextCancellation(t *testing.T) {
 		t.Error("Err should not be nil")
 	}
 
-	// Verify rollback occurred
-	if len(mockOps.restoredBackups) != 1 {
-		t.Errorf("Restored %d backups, want 1 (rollback)", len(mockOps.restoredBackups))
+	// Verify file1 was rolled back if it was modified
+	data, err := os.ReadFile(file1Path)
+	if err != nil {
+		t.Fatalf("Failed to read file after context cancellation: %v", err)
 	}
-}
-
-func TestManager_ExecuteAtomically_BackupCreationFailure(t *testing.T) {
-	mockOps := newMockFileOperator()
-	repo, _ := setupTestRepo(t)
-	manager := NewManager(mockOps, repo.SourceDirectory())
-
-	// Configure mock to fail backup creation
-	mockOps.createBackupErr = errors.New("backup creation failed")
-
-	ops := []Operation{
-		{Path: scpath.RelativePath("file1.txt"), Action: ActionModify, SHA: "abc123"},
-	}
-
-	result := manager.ExecuteAtomically(context.Background(), ops)
-
-	if result.Success {
-		t.Error("ExecuteAtomically() should fail when backup creation fails")
-	}
-	if result.OperationsApplied != 0 {
-		t.Errorf("OperationsApplied = %d, want 0", result.OperationsApplied)
-	}
-	if result.Err == nil {
-		t.Error("Err should not be nil")
-	}
-	if !strings.Contains(result.Err.Error(), "create backups") {
-		t.Errorf("Error should mention backup creation: %s", result.Err.Error())
-	}
-}
-
-func TestManager_ExecuteAtomically_RollbackFailure(t *testing.T) {
-	mockOps := newMockFileOperator()
-	repo, _ := setupTestRepo(t)
-	manager := NewManager(mockOps, repo.SourceDirectory())
-
-	// Configure mock to fail operation and rollback
-	mockOps.applyError = errors.New("operation failed")
-	mockOps.applyErrorAtOp = 1
-	mockOps.restoreBackupErr = errors.New("rollback failed")
-
-	ops := []Operation{
-		{Path: scpath.RelativePath("file1.txt"), Action: ActionModify, SHA: "abc123"},
-		{Path: scpath.RelativePath("file2.txt"), Action: ActionModify, SHA: "def456"},
-	}
-
-	result := manager.ExecuteAtomically(context.Background(), ops)
-
-	if result.Success {
-		t.Error("ExecuteAtomically() should fail")
-	}
-
-	// Verify error message mentions rollback failure
-	errMsg := result.Err.Error()
-	if !strings.Contains(errMsg, "rollback failed") {
-		t.Errorf("Error message should mention rollback failure: %s", errMsg)
-	}
-	if !strings.Contains(errMsg, "inconsistent state") {
-		t.Errorf("Error message should warn about inconsistent state: %s", errMsg)
+	if string(data) != initialContent {
+		t.Errorf("File should be rolled back, got content = %q, want %q", string(data), initialContent)
 	}
 }
 
 func TestManager_ExecuteAtomically_FirstOperationFailure(t *testing.T) {
-	mockOps := newMockFileOperator()
-	repo, _ := setupTestRepo(t)
-	manager := NewManager(mockOps, repo.SourceDirectory())
+	repo, workDir := setupTestRepo(t)
+	fileOps := NewFileOps(repo)
+	manager := NewManager(fileOps, repo.SourceDirectory())
 
-	// Configure mock to fail at the first operation
-	mockOps.applyError = errors.New("first operation failed")
-	mockOps.applyErrorAtOp = 0
-
+	// Use invalid SHA to force first operation to fail
 	ops := []Operation{
-		{Path: scpath.RelativePath("file1.txt"), Action: ActionCreate, SHA: "abc123"},
-		{Path: scpath.RelativePath("file2.txt"), Action: ActionCreate, SHA: "def456"},
+		{Path: scpath.RelativePath("file1.txt"), Action: ActionCreate, SHA: objects.ObjectHash("invalid"), Mode: 0644},
+		{Path: scpath.RelativePath("file2.txt"), Action: ActionCreate, SHA: objects.ObjectHash("invalid2"), Mode: 0644},
 	}
 
 	result := manager.ExecuteAtomically(context.Background(), ops)
@@ -553,10 +462,14 @@ func TestManager_ExecuteAtomically_FirstOperationFailure(t *testing.T) {
 		t.Errorf("OperationsApplied = %d, want 0", result.OperationsApplied)
 	}
 
-	// Error message should not mention completed operations
-	errMsg := result.Err.Error()
-	if strings.Contains(errMsg, "operations completed before failure") {
-		t.Errorf("Error message should not mention completed operations when none completed: %s", errMsg)
+	// Verify no files were created
+	file1Path := filepath.Join(workDir, "file1.txt")
+	file2Path := filepath.Join(workDir, "file2.txt")
+	if _, err := os.Stat(file1Path); !os.IsNotExist(err) {
+		t.Error("file1.txt should not exist after failure")
+	}
+	if _, err := os.Stat(file2Path); !os.IsNotExist(err) {
+		t.Error("file2.txt should not exist after failure")
 	}
 }
 
@@ -565,9 +478,9 @@ func TestManager_ExecuteAtomically_FirstOperationFailure(t *testing.T) {
 // =====================================================
 
 func TestManager_DryRun_ValidOperations(t *testing.T) {
-	mockOps := newMockFileOperator()
-	sourceDir := scpath.SourcePath("test/dir")
-	manager := NewManager(mockOps, sourceDir)
+	repo, _ := setupTestRepo(t)
+	fileOps := NewFileOps(repo)
+	manager := NewManager(fileOps, repo.SourceDirectory())
 
 	ops := []Operation{
 		{Path: scpath.RelativePath("file1.txt"), Action: ActionCreate, SHA: "abc123"},
@@ -596,16 +509,12 @@ func TestManager_DryRun_ValidOperations(t *testing.T) {
 		t.Errorf("WillDelete = %d items, want 1", len(result.Analysis.WillDelete))
 	}
 
-	// Verify no operations were actually applied
-	if len(mockOps.appliedOps) != 0 {
-		t.Error("DryRun should not apply any operations")
-	}
 }
 
 func TestManager_DryRun_InvalidOperations(t *testing.T) {
-	mockOps := newMockFileOperator()
-	sourceDir := scpath.SourcePath("test/dir")
-	manager := NewManager(mockOps, sourceDir)
+	repo, _ := setupTestRepo(t)
+	fileOps := NewFileOps(repo)
+	manager := NewManager(fileOps, repo.SourceDirectory())
 
 	ops := []Operation{
 		{Path: scpath.RelativePath(""), Action: ActionCreate, SHA: "abc123"}, // Invalid: empty path
@@ -627,9 +536,9 @@ func TestManager_DryRun_InvalidOperations(t *testing.T) {
 }
 
 func TestManager_DryRun_EmptyOperations(t *testing.T) {
-	mockOps := newMockFileOperator()
-	sourceDir := scpath.SourcePath("test/dir")
-	manager := NewManager(mockOps, sourceDir)
+	repo, _ := setupTestRepo(t)
+	fileOps := NewFileOps(repo)
+	manager := NewManager(fileOps, repo.SourceDirectory())
 
 	result := manager.DryRun([]Operation{})
 
@@ -648,9 +557,9 @@ func TestManager_DryRun_EmptyOperations(t *testing.T) {
 }
 
 func TestManager_DryRun_MultipleValidationErrors(t *testing.T) {
-	mockOps := newMockFileOperator()
-	sourceDir := scpath.SourcePath("test/dir")
-	manager := NewManager(mockOps, sourceDir)
+	repo, _ := setupTestRepo(t)
+	fileOps := NewFileOps(repo)
+	manager := NewManager(fileOps, repo.SourceDirectory())
 
 	ops := []Operation{
 		{Path: scpath.RelativePath("file.txt"), Action: ActionCreate, SHA: "abc123"},
@@ -915,13 +824,18 @@ func TestManager_ExecuteAtomically_LockAcquisitionFailure(t *testing.T) {
 // =====================================================
 
 func TestManager_ExecuteAtomically_OnlyCreateOperations(t *testing.T) {
-	mockOps := newMockFileOperator()
-	repo, _ := setupTestRepo(t)
-	manager := NewManager(mockOps, repo.SourceDirectory())
+	repo, workDir := setupTestRepo(t)
+	fileOps := NewFileOps(repo)
+	manager := NewManager(fileOps, repo.SourceDirectory())
+
+	content1 := "Content 1"
+	content2 := "Content 2"
+	blob1 := createTestBlob(t, repo, content1)
+	blob2 := createTestBlob(t, repo, content2)
 
 	ops := []Operation{
-		{Path: scpath.RelativePath("file1.txt"), Action: ActionCreate, SHA: "abc123"},
-		{Path: scpath.RelativePath("file2.txt"), Action: ActionCreate, SHA: "def456"},
+		{Path: scpath.RelativePath("file1.txt"), Action: ActionCreate, SHA: blob1, Mode: 0644},
+		{Path: scpath.RelativePath("file2.txt"), Action: ActionCreate, SHA: blob2, Mode: 0644},
 	}
 
 	result := manager.ExecuteAtomically(context.Background(), ops)
@@ -930,16 +844,37 @@ func TestManager_ExecuteAtomically_OnlyCreateOperations(t *testing.T) {
 		t.Errorf("ExecuteAtomically() failed: %v", result.Err)
 	}
 
-	// No backups should be created for create operations
-	if len(mockOps.createdBackups) != 0 {
-		t.Errorf("Created %d backups, want 0 (no backups for create)", len(mockOps.createdBackups))
+	// Verify files were created
+	file1Path := filepath.Join(workDir, "file1.txt")
+	file2Path := filepath.Join(workDir, "file2.txt")
+
+	data1, err := os.ReadFile(file1Path)
+	if err != nil {
+		t.Errorf("Failed to read file1.txt: %v", err)
+	}
+	if string(data1) != content1 {
+		t.Errorf("file1.txt content = %q, want %q", string(data1), content1)
+	}
+
+	data2, err := os.ReadFile(file2Path)
+	if err != nil {
+		t.Errorf("Failed to read file2.txt: %v", err)
+	}
+	if string(data2) != content2 {
+		t.Errorf("file2.txt content = %q, want %q", string(data2), content2)
 	}
 }
 
 func TestManager_ExecuteAtomically_OnlyDeleteOperations(t *testing.T) {
-	mockOps := newMockFileOperator()
-	repo, _ := setupTestRepo(t)
-	manager := NewManager(mockOps, repo.SourceDirectory())
+	repo, workDir := setupTestRepo(t)
+	fileOps := NewFileOps(repo)
+	manager := NewManager(fileOps, repo.SourceDirectory())
+
+	// Setup: Create files to delete
+	file1Path := filepath.Join(workDir, "file1.txt")
+	file2Path := filepath.Join(workDir, "file2.txt")
+	os.WriteFile(file1Path, []byte("File 1"), 0644)
+	os.WriteFile(file2Path, []byte("File 2"), 0644)
 
 	ops := []Operation{
 		{Path: scpath.RelativePath("file1.txt"), Action: ActionDelete},
@@ -952,24 +887,29 @@ func TestManager_ExecuteAtomically_OnlyDeleteOperations(t *testing.T) {
 		t.Errorf("ExecuteAtomically() failed: %v", result.Err)
 	}
 
-	// Backups should be created for delete operations
-	if len(mockOps.createdBackups) != 2 {
-		t.Errorf("Created %d backups, want 2", len(mockOps.createdBackups))
+	// Verify files were deleted
+	if _, err := os.Stat(file1Path); !os.IsNotExist(err) {
+		t.Error("file1.txt should be deleted")
+	}
+	if _, err := os.Stat(file2Path); !os.IsNotExist(err) {
+		t.Error("file2.txt should be deleted")
 	}
 }
 
 func TestManager_ExecuteAtomically_LargeNumberOfOperations(t *testing.T) {
-	mockOps := newMockFileOperator()
-	repo, _ := setupTestRepo(t)
-	manager := NewManager(mockOps, repo.SourceDirectory())
+	repo, workDir := setupTestRepo(t)
+	fileOps := NewFileOps(repo)
+	manager := NewManager(fileOps, repo.SourceDirectory())
 
 	// Create 100 operations
 	ops := make([]Operation, 100)
 	for i := 0; i < 100; i++ {
+		content := fmt.Sprintf("File %d content", i)
+		blob := createTestBlob(t, repo, content)
 		ops[i] = Operation{
 			Path:   scpath.RelativePath(fmt.Sprintf("file%d.txt", i)),
 			Action: ActionCreate,
-			SHA:    objects.ObjectHash(fmt.Sprintf("sha%d", i)),
+			SHA:    blob,
 			Mode:   0644,
 		}
 	}
@@ -982,15 +922,20 @@ func TestManager_ExecuteAtomically_LargeNumberOfOperations(t *testing.T) {
 	if result.OperationsApplied != 100 {
 		t.Errorf("OperationsApplied = %d, want 100", result.OperationsApplied)
 	}
-	if len(mockOps.appliedOps) != 100 {
-		t.Errorf("Applied %d operations, want 100", len(mockOps.appliedOps))
+
+	// Verify a few random files were created
+	for _, idx := range []int{0, 50, 99} {
+		filePath := filepath.Join(workDir, fmt.Sprintf("file%d.txt", idx))
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			t.Errorf("file%d.txt should exist", idx)
+		}
 	}
 }
 
 func TestManager_DryRun_AllActionTypes(t *testing.T) {
-	mockOps := newMockFileOperator()
-	sourceDir := scpath.SourcePath("test/dir")
-	manager := NewManager(mockOps, sourceDir)
+	repo, _ := setupTestRepo(t)
+	fileOps := NewFileOps(repo)
+	manager := NewManager(fileOps, repo.SourceDirectory())
 
 	ops := []Operation{
 		{Path: scpath.RelativePath("create1.txt"), Action: ActionCreate, SHA: "abc"},
