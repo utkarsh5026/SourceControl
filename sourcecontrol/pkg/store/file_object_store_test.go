@@ -235,7 +235,7 @@ func TestFileObjectStore_WriteAndReadCommit(t *testing.T) {
 	}
 
 	// Verify commit fields
-	if readCommit.TreeSHA != treeSHA {
+	if readCommit.TreeSHA.String() != treeSHA {
 		t.Errorf("tree SHA mismatch: got %s, want %s", readCommit.TreeSHA, treeSHA)
 	}
 
