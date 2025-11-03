@@ -5,6 +5,9 @@ import (
 	"os"
 
 	"github.com/utkarsh5026/SourceControl/pkg/objects"
+	"github.com/utkarsh5026/SourceControl/pkg/objects/blob"
+	"github.com/utkarsh5026/SourceControl/pkg/objects/commit"
+	"github.com/utkarsh5026/SourceControl/pkg/objects/tree"
 	"github.com/utkarsh5026/SourceControl/pkg/repository/scpath"
 	"github.com/utkarsh5026/SourceControl/pkg/store"
 )
@@ -379,4 +382,91 @@ func (sr *SourceRepository) createInitialFiles() error {
 	}
 
 	return nil
+}
+
+// ReadBlobObject reads and validates a blob object from the repository.
+//
+// This method retrieves a Git blob object by its SHA-1 hash and ensures that
+// the retrieved object is actually a blob (not a tree, commit, or tag).
+// Blobs represent file contents in Git's object database.
+//
+// Parameters:
+//   - blobSHA: The SHA-1 hash of the blob object to read
+//
+// Returns:
+//   - *objects.Blob: The validated blob object containing file content
+//   - error: nil on success, or an error if:
+//   - The object cannot be read from the object store
+//   - The object exists but is not a blob type
+//   - The repository is not initialized
+func (sr *SourceRepository) ReadBlobObject(blobSHA objects.ObjectHash) (*blob.Blob, error) {
+	obj, err := sr.ReadObject(blobSHA)
+	if err != nil {
+		return nil, fmt.Errorf("read blob %s: %w", blobSHA.Short(), err)
+	}
+
+	blobObj, ok := obj.(*blob.Blob)
+	if !ok {
+		return nil, fmt.Errorf("object %s is not a blob", blobSHA.Short())
+	}
+
+	return blobObj, nil
+}
+
+// ReadTreeObject reads and validates a tree object from the repository.
+//
+// This method retrieves a Git tree object by its SHA-1 hash and ensures that
+// the retrieved object is actually a tree (not a blob, commit, or tag).
+// Trees represent directory structures in Git's object database.
+//
+// Parameters:
+//   - treeSHA: The SHA-1 hash of the tree object to read
+//
+// Returns:
+//   - *tree.Tree: The validated tree object containing directory entries
+//   - error: nil on success, or an error if:
+//   - The object cannot be read from the object store
+//   - The object exists but is not a tree type
+//   - The repository is not initialized
+func (sr *SourceRepository) ReadTreeObject(treeSHA objects.ObjectHash) (*tree.Tree, error) {
+	obj, err := sr.ReadObject(treeSHA)
+	if err != nil {
+		return nil, fmt.Errorf("read tree %s: %w", treeSHA.Short(), err)
+	}
+
+	treeObj, ok := obj.(*tree.Tree)
+	if !ok {
+		return nil, fmt.Errorf("object %s is not a tree", treeSHA.Short())
+	}
+
+	return treeObj, nil
+}
+
+// ReadCommitObject reads and validates a commit object from the repository.
+//
+// This method retrieves a Git commit object by its SHA-1 hash and ensures that
+// the retrieved object is actually a commit (not a blob, tree, or tag).
+// Commits represent snapshots in the repository's history.
+//
+// Parameters:
+//   - commitSHA: The SHA-1 hash of the commit object to read
+//
+// Returns:
+//   - *commit.Commit: The validated commit object containing metadata and tree reference
+//   - error: nil on success, or an error if:
+//   - The object cannot be read from the object store
+//   - The object exists but is not a commit type
+//   - The repository is not initialized
+func (sr *SourceRepository) ReadCommitObject(commitSHA objects.ObjectHash) (*commit.Commit, error) {
+	obj, err := sr.ReadObject(commitSHA)
+	if err != nil {
+		return nil, fmt.Errorf("read commit %s: %w", commitSHA.Short(), err)
+	}
+
+	commitObj, ok := obj.(*commit.Commit)
+	if !ok {
+		return nil, fmt.Errorf("object %s is not a commit", commitSHA.Short())
+	}
+
+	return commitObj, nil
 }
