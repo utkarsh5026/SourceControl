@@ -144,12 +144,12 @@ func TestFileObjectStore_WriteAndReadTree(t *testing.T) {
 	}
 
 	// Create tree entries
-	entry1, err := tree.NewTreeEntryFromStrings(string(objects.FileModeRegular), "file1.txt", hash1.String())
+	entry1, err := tree.NewTreeEntryFromStrings(string(rune(objects.FileModeRegular)), "file1.txt", hash1.String())
 	if err != nil {
 		t.Fatalf("failed to create tree entry 1: %v", err)
 	}
 
-	entry2, err := tree.NewTreeEntryFromStrings(string(objects.FileModeRegular), "file2.txt", hash2.String())
+	entry2, err := tree.NewTreeEntryFromStrings(string(rune(objects.FileModeRegular)), "file2.txt", hash2.String())
 	if err != nil {
 		t.Fatalf("failed to create tree entry 2: %v", err)
 	}
