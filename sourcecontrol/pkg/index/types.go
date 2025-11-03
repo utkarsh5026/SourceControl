@@ -144,21 +144,6 @@ func (f EntryFlags) FilenameLength() int {
 
 // Binary layout constants for index entries
 const (
-	// Field offsets in bytes
-	OffsetCTimeSeconds     = 0
-	OffsetCTimeNanoseconds = 4
-	OffsetMTimeSeconds     = 8
-	OffsetMTimeNanoseconds = 12
-	OffsetDeviceID         = 16
-	OffsetInode            = 20
-	OffsetMode             = 24
-	OffsetUserID           = 28
-	OffsetGroupID          = 32
-	OffsetFileSize         = 36
-	OffsetSHA              = 40
-	OffsetFlags            = 60
-
-	// Size constants
 	FixedHeaderSize   = 62 // Everything before filename
 	SHALength         = 20 // SHA-1 is always 20 bytes
 	FlagsLength       = 2  // Flags are 2 bytes

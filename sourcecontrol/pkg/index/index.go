@@ -44,11 +44,6 @@ type Index struct {
 }
 
 // NewIndex creates a new empty index with the default version.
-//
-// Example:
-//
-//	idx := NewIndex()
-//	fmt.Println(idx.Count()) // Output: 0
 func NewIndex() *Index {
 	return &Index{
 		Version: IndexVersion,
