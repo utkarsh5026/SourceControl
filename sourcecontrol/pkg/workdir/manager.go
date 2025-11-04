@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/utkarsh5026/SourceControl/pkg/index"
 	"github.com/utkarsh5026/SourceControl/pkg/objects"
 	"github.com/utkarsh5026/SourceControl/pkg/repository/scpath"
@@ -66,7 +68,7 @@ func (m *Manager) UpdateToCommit(ctx context.Context, commitSHA objects.ObjectHa
 		}
 	}
 
-	analysis, err := m.analyzeChanges(commitSHA)
+	analysis, err := m.analyzeChanges(ctx, commitSHA)
 	if err != nil {
 		return UpdateResult{
 			Success: false,
@@ -149,17 +151,35 @@ func (m *Manager) performSafetyChecks() error {
 	return nil
 }
 
-// analyzeChanges determines what operations are needed to reach the target commit
-func (m *Manager) analyzeChanges(commitSHA objects.ObjectHash) (ChangeAnalysis, error) {
+// analyzeChanges determines what operations are needed to reach the target commit.
+// It fetches commit files and reads the index concurrently for better performance.
+func (m *Manager) analyzeChanges(ctx context.Context, commitSHA objects.ObjectHash) (ChangeAnalysis, error) {
 	var change ChangeAnalysis
-	targetFiles, err := m.treeAnalyzer.GetCommitFiles(commitSHA)
-	if err != nil {
-		return change, fmt.Errorf("get commit files: %w", err)
-	}
+	var targetFiles map[scpath.RelativePath]internal.FileInfo
+	var idx *index.Index
 
-	idx, err := index.Read(m.indexPath)
-	if err != nil {
-		return change, fmt.Errorf("read index: %w", err)
+	g, ctx := errgroup.WithContext(ctx)
+
+	g.Go(func() error {
+		files, err := m.treeAnalyzer.GetCommitFiles(ctx, commitSHA)
+		if err != nil {
+			return fmt.Errorf("get commit files: %w", err)
+		}
+		targetFiles = files
+		return nil
+	})
+
+	g.Go(func() error {
+		indexData, err := index.Read(m.indexPath)
+		if err != nil {
+			return fmt.Errorf("read index: %w", err)
+		}
+		idx = indexData
+		return nil
+	})
+
+	if err := g.Wait(); err != nil {
+		return change, err
 	}
 
 	currentFiles := m.treeAnalyzer.GetIndexFiles(idx)

@@ -3,7 +3,7 @@ package workdir
 import (
 	"fmt"
 
-	"github.com/utkarsh5026/SourceControl/pkg/err"
+	"github.com/utkarsh5026/SourceControl/pkg/common/err"
 	"github.com/utkarsh5026/SourceControl/pkg/repository/scpath"
 	"github.com/utkarsh5026/SourceControl/pkg/workdir/internal"
 )
