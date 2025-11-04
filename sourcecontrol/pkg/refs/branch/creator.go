@@ -37,12 +37,8 @@ func (c *Creator) Create(ctx context.Context, name string, config *CreateConfig)
 	}
 
 	if !config.Force {
-		exists, err := c.refService.Exists(name)
-		if err != nil {
-			return nil, fmt.Errorf("check branch exists: %w", err)
-		}
-		if exists {
-			return nil, NewAlreadyExistsError(name)
+		if err := c.validateNotExists(name); err != nil {
+			return nil, err
 		}
 	}
 
@@ -55,7 +51,6 @@ func (c *Creator) Create(ctx context.Context, name string, config *CreateConfig)
 		return nil, fmt.Errorf("verify commit: %w", err)
 	}
 
-	// Create or update the branch reference
 	if config.Force {
 		if err := c.refService.Update(name, startSHA, true); err != nil {
 			return nil, fmt.Errorf("update branch: %w", err)
@@ -66,7 +61,6 @@ func (c *Creator) Create(ctx context.Context, name string, config *CreateConfig)
 		}
 	}
 
-	// Get branch info to return
 	info, err := c.infoService.GetInfo(ctx, name)
 	if err != nil {
 		return &BranchInfo{
@@ -133,12 +127,8 @@ func (c *Creator) CreateOrphan(ctx context.Context, name string) error {
 		return err
 	}
 
-	exists, err := c.refService.Exists(name)
-	if err != nil {
-		return fmt.Errorf("check branch exists: %w", err)
-	}
-	if exists {
-		return NewAlreadyExistsError(name)
+	if err := c.validateNotExists(name); err != nil {
+		return err
 	}
 
 	// For orphan branches, we just update HEAD to point to the new branch
@@ -148,6 +138,18 @@ func (c *Creator) CreateOrphan(ctx context.Context, name string) error {
 		// For orphan branches, we need to create an empty ref first
 		// We'll use a special empty commit marker
 		return fmt.Errorf("create orphan branch: %w", err)
+	}
+
+	return nil
+}
+
+func (c *Creator) validateNotExists(name string) error {
+	exists, err := c.refService.Exists(name)
+	if err != nil {
+		return fmt.Errorf("check branch exists: %w", err)
+	}
+	if exists {
+		return NewAlreadyExistsError(name)
 	}
 
 	return nil
