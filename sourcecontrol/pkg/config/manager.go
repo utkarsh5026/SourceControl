@@ -69,29 +69,7 @@ func (m *Manager) Load(ctx context.Context) error {
 func (m *Manager) Get(key string) *ConfigEntry {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-
-	if value, exists := m.commandLine[key]; exists {
-		return NewEntry(key, value, CommandLineLevel, "command-line", 0)
-	}
-
-	levels := []ConfigLevel{RepositoryLevel, UserLevel, SystemLevel}
-	for _, level := range levels {
-		store, exists := m.stores[level]
-		if !exists {
-			continue
-		}
-
-		entries := store.GetEntries(key)
-		if len(entries) > 0 {
-			return entries[len(entries)-1]
-		}
-	}
-
-	if value, exists := m.builtinDefaults[key]; exists {
-		return NewEntry(key, value, BuiltinLevel, "builtin", 0)
-	}
-
-	return nil
+	return m.getUnsafe(key)
 }
 
 // GetAll retrieves all values for a configuration key across all levels
@@ -102,24 +80,12 @@ func (m *Manager) GetAll(key string) []*ConfigEntry {
 
 	var allEntries []*ConfigEntry
 
-	// Command line
 	if value, exists := m.commandLine[key]; exists {
 		allEntries = append(allEntries, NewEntry(key, value, CommandLineLevel, "command-line", 0))
 	}
 
-	// Check each level
-	levels := []ConfigLevel{RepositoryLevel, UserLevel, SystemLevel}
-	for _, level := range levels {
-		store, exists := m.stores[level]
-		if !exists {
-			continue
-		}
+	allEntries = append(allEntries, m.findInStores(key)...)
 
-		entries := store.GetEntries(key)
-		allEntries = append(allEntries, entries...)
-	}
-
-	// Builtin defaults
 	if value, exists := m.builtinDefaults[key]; exists {
 		allEntries = append(allEntries, NewEntry(key, value, BuiltinLevel, "builtin", 0))
 	}
@@ -195,9 +161,12 @@ func (m *Manager) List() []*ConfigEntry {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
+	return m.listUnsafe()
+}
+
+func (m *Manager) collectAllKeys() map[string]bool {
 	allKeys := make(map[string]bool)
 
-	// Collect all unique keys
 	for key := range m.commandLine {
 		allKeys[key] = true
 	}
@@ -210,20 +179,7 @@ func (m *Manager) List() []*ConfigEntry {
 		allKeys[key] = true
 	}
 
-	// Get effective value for each key
-	var entries []*ConfigEntry
-	for key := range allKeys {
-		if entry := m.getUnsafe(key); entry != nil {
-			entries = append(entries, entry)
-		}
-	}
-
-	// Sort by key for consistent output
-	sort.Slice(entries, func(i, j int) bool {
-		return entries[i].Key < entries[j].Key
-	})
-
-	return entries
+	return allKeys
 }
 
 // ExportJSON exports configuration as JSON string
@@ -264,15 +220,12 @@ func (m *Manager) GetStore(level ConfigLevel) *Store {
 
 // initializeStores creates stores for different configuration levels
 func (m *Manager) initializeStores(repositoryPath scpath.RepositoryPath) {
-	// System level
 	systemPath := m.getSystemConfigPath()
 	m.stores[SystemLevel] = NewStore(systemPath, SystemLevel)
 
-	// User level
 	userPath := m.getUserConfigPath()
 	m.stores[UserLevel] = NewStore(userPath, UserLevel)
 
-	// Repository level (if provided)
 	if repositoryPath != "" {
 		repoPath := scpath.AbsolutePath(filepath.Join(string(repositoryPath), ConfigFileName))
 		m.stores[RepositoryLevel] = NewStore(repoPath, RepositoryLevel)
@@ -329,20 +282,11 @@ func (m *Manager) getUnsafe(key string) *ConfigEntry {
 		return NewEntry(key, value, CommandLineLevel, "command-line", 0)
 	}
 
-	levels := []ConfigLevel{RepositoryLevel, UserLevel, SystemLevel}
-	for _, level := range levels {
-		store, exists := m.stores[level]
-		if !exists {
-			continue
-		}
-
-		entries := store.GetEntries(key)
-		if len(entries) > 0 {
-			return entries[len(entries)-1]
-		}
+	entries := m.findInStores(key)
+	if len(entries) > 0 {
+		return entries[len(entries)-1]
 	}
 
-	// Check builtin defaults
 	if value, exists := m.builtinDefaults[key]; exists {
 		return NewEntry(key, value, BuiltinLevel, "builtin", 0)
 	}
@@ -353,20 +297,7 @@ func (m *Manager) getUnsafe(key string) *ConfigEntry {
 // listUnsafe is the internal implementation of List without locking
 // Caller must hold at least read lock
 func (m *Manager) listUnsafe() []*ConfigEntry {
-	allKeys := make(map[string]bool)
-
-	for key := range m.commandLine {
-		allKeys[key] = true
-	}
-	for _, store := range m.stores {
-		for key := range store.GetAllEntries() {
-			allKeys[key] = true
-		}
-	}
-	for key := range m.builtinDefaults {
-		allKeys[key] = true
-	}
-
+	allKeys := m.collectAllKeys()
 	var entries []*ConfigEntry
 	for key := range allKeys {
 		if entry := m.getUnsafe(key); entry != nil {
@@ -379,4 +310,20 @@ func (m *Manager) listUnsafe() []*ConfigEntry {
 	})
 
 	return entries
+}
+
+func (m *Manager) findInStores(key string) []*ConfigEntry {
+	levels := []ConfigLevel{RepositoryLevel, UserLevel, SystemLevel}
+	for _, level := range levels {
+		store, exists := m.stores[level]
+		if !exists {
+			continue
+		}
+
+		entries := store.GetEntries(key)
+		if len(entries) > 0 {
+			return entries
+		}
+	}
+	return nil
 }
