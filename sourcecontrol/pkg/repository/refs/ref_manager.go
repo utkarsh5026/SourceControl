@@ -2,10 +2,9 @@ package refs
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
+	"github.com/utkarsh5026/SourceControl/pkg/common/fileops"
 	"github.com/utkarsh5026/SourceControl/pkg/objects"
 	"github.com/utkarsh5026/SourceControl/pkg/repository/scpath"
 	"github.com/utkarsh5026/SourceControl/pkg/repository/sourcerepo"
@@ -36,12 +35,12 @@ func NewRefManager(repo sourcerepo.Repository) *RefManager {
 
 // Init initializes the ref manager by creating the refs directory and HEAD file
 func (rm *RefManager) Init() error {
-	if err := os.MkdirAll(rm.refsPath.String(), 0755); err != nil {
+	if err := fileops.EnsureDir(rm.refsPath.ToAbsolutePath()); err != nil {
 		return fmt.Errorf("failed to create refs directory: %w", err)
 	}
 
 	defaultRef := "ref: refs/heads/master\n"
-	if err := os.WriteFile(rm.headPath.String(), []byte(defaultRef), 0644); err != nil {
+	if err := fileops.WriteConfigString(rm.headPath.ToAbsolutePath(), defaultRef); err != nil {
 		return fmt.Errorf("failed to create HEAD file: %w", err)
 	}
 
@@ -52,15 +51,12 @@ func (rm *RefManager) Init() error {
 func (rm *RefManager) ReadRef(ref RefPath) (string, error) {
 	fullPath := rm.resolveReferencePath(ref)
 
-	data, err := os.ReadFile(fullPath.String())
+	content, err := fileops.ReadStringStrict(fullPath.ToAbsolutePath())
 	if err != nil {
-		if os.IsNotExist(err) {
-			return "", fmt.Errorf("ref %s not found", ref)
-		}
 		return "", fmt.Errorf("error reading ref %s: %w", ref, err)
 	}
 
-	return strings.TrimSpace(string(data)), nil
+	return content, nil
 }
 
 // UpdateRef updates a reference with a new SHA-1 hash
@@ -70,14 +66,14 @@ func (rm *RefManager) UpdateRef(ref RefPath, hash objects.ObjectHash) error {
 		return fmt.Errorf("invalid hash: %w", err)
 	}
 
-	fullPath := rm.resolveReferencePath(ref)
+	fullPath := rm.resolveReferencePath(ref).ToAbsolutePath()
 
-	if err := os.MkdirAll(filepath.Dir(fullPath.String()), 0755); err != nil {
+	if err := fileops.EnsureParentDir(fullPath); err != nil {
 		return fmt.Errorf("failed to create ref directory: %w", err)
 	}
 
 	content := hash.String() + "\n"
-	if err := os.WriteFile(fullPath.String(), []byte(content), 0644); err != nil {
+	if err := fileops.WriteConfigString(fullPath, content); err != nil {
 		return fmt.Errorf("failed to write ref %s: %w", ref, err)
 	}
 
@@ -113,12 +109,17 @@ func (rm *RefManager) ResolveToSHA(ref RefPath) (objects.ObjectHash, error) {
 
 // DeleteRef deletes a reference
 func (rm *RefManager) DeleteRef(ref RefPath) (bool, error) {
-	fullPath := rm.resolveReferencePath(ref)
+	fullPath := rm.resolveReferencePath(ref).ToAbsolutePath()
 
-	if err := os.Remove(fullPath.String()); err != nil {
-		if os.IsNotExist(err) {
-			return false, nil
-		}
+	exists, err := fileops.Exists(fullPath)
+	if err != nil {
+		return false, err
+	}
+	if !exists {
+		return false, nil
+	}
+
+	if err := fileops.SafeRemove(fullPath); err != nil {
 		return false, err
 	}
 
@@ -127,15 +128,8 @@ func (rm *RefManager) DeleteRef(ref RefPath) (bool, error) {
 
 // Exists checks if a reference exists
 func (rm *RefManager) Exists(ref RefPath) (bool, error) {
-	fullPath := rm.resolveReferencePath(ref)
-	_, err := os.Stat(fullPath.String())
-	if err != nil {
-		if os.IsNotExist(err) {
-			return false, nil
-		}
-		return false, err
-	}
-	return true, nil
+	fullPath := rm.resolveReferencePath(ref).ToAbsolutePath()
+	return fileops.Exists(fullPath)
 }
 
 // GetHeadPath returns the full path to the HEAD file

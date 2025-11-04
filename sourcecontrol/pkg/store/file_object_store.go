@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/utkarsh5026/SourceControl/pkg/common/fileops"
 	"github.com/utkarsh5026/SourceControl/pkg/objects"
 	"github.com/utkarsh5026/SourceControl/pkg/objects/blob"
 	"github.com/utkarsh5026/SourceControl/pkg/objects/commit"
@@ -88,7 +89,7 @@ func NewFileObjectStore() *FileObjectStore {
 func (f *FileObjectStore) Initialize(repoPath scpath.RepositoryPath) error {
 	f.objectsPath = repoPath.SourcePath().ObjectsPath()
 
-	if err := os.MkdirAll(f.objectsPath.String(), 0755); err != nil {
+	if err := fileops.EnsureDir(f.objectsPath.ToAbsolutePath()); err != nil {
 		return fmt.Errorf("failed to initialize object store: %w", err)
 	}
 
@@ -157,7 +158,13 @@ func (f *FileObjectStore) WriteObject(obj objects.BaseObject) (objects.ObjectHas
 //   - error: Returns an error if compression fails, directory creation fails, or file writing fails.
 //     Returns nil if the file was already present or was written successfully.
 func writeObjectToDisk(obj objects.SerializedObject, filePath scpath.SourcePath) error {
-	if _, err := os.Stat(filePath.String()); err == nil {
+	absPath := filePath.ToAbsolutePath()
+
+	exists, err := fileops.Exists(absPath)
+	if err != nil {
+		return fmt.Errorf("failed to check object existence: %w", err)
+	}
+	if exists {
 		return nil
 	}
 
@@ -166,13 +173,8 @@ func writeObjectToDisk(obj objects.SerializedObject, filePath scpath.SourcePath)
 		return fmt.Errorf("failed to compress object: %w", err)
 	}
 
-	dirPath := filePath.Dir()
-	if err := os.MkdirAll(dirPath.String(), 0755); err != nil {
-		return fmt.Errorf("failed to create object directory: %w", err)
-	}
-
-	if err := os.WriteFile(filePath.String(), compressed.Bytes(), 0444); err != nil {
-		return fmt.Errorf("failed to write object file: %w", err)
+	if err := fileops.WriteReadOnly(absPath, compressed.Bytes()); err != nil {
+		return err
 	}
 
 	return nil
@@ -236,11 +238,7 @@ func (f *FileObjectStore) readFromDisk(hash objects.ObjectHash) (objects.Compres
 		return nil, err
 	}
 
-	if _, err := os.Stat(filePath.String()); os.IsNotExist(err) {
-		return nil, nil
-	}
-
-	compressed, err := os.ReadFile(filePath.String())
+	compressed, err := fileops.ReadBytes(filePath.ToAbsolutePath())
 	if err != nil {
 		return nil, fmt.Errorf("failed to read object file: %w", err)
 	}
@@ -268,15 +266,7 @@ func (f *FileObjectStore) HasObject(hash objects.ObjectHash) (bool, error) {
 		return false, err
 	}
 
-	_, err = os.Stat(filePath.String())
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	if err != nil {
-		return false, fmt.Errorf("failed to check object existence: %w", err)
-	}
-
-	return true, nil
+	return fileops.Exists(filePath.ToAbsolutePath())
 }
 
 // resolveObjectPath converts a SHA-1 hash to the corresponding file path in Git's object storage
