@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/utkarsh5026/SourceControl/pkg/common/fileops"
 	"github.com/utkarsh5026/SourceControl/pkg/objects/blob"
 	"github.com/utkarsh5026/SourceControl/pkg/repository/scpath"
 	"github.com/utkarsh5026/SourceControl/pkg/store"
@@ -109,7 +110,7 @@ func (m *Manager) addFile(path string, objectStore store.ObjectStore, result *Ad
 	}
 
 	// Read file content
-	content, err := os.ReadFile(absPath.String())
+	content, err := fileops.ReadBytesStrict(absPath)
 	if err != nil {
 		return fmt.Errorf("failed to read file: %w", err)
 	}
@@ -185,7 +186,7 @@ func (m *Manager) Remove(paths []string, deleteFromDisk bool) (*RemoveResult, er
 
 		// Optionally delete from disk
 		if deleteFromDisk {
-			if err := os.Remove(absPath.String()); err != nil && !os.IsNotExist(err) {
+			if err := fileops.SafeRemove(absPath); err != nil {
 				// File was removed from index but failed to delete from disk
 				// We don't add this to Failed since index operation succeeded
 			}
@@ -316,13 +317,14 @@ func (m *Manager) resolvePaths(path string) (scpath.AbsolutePath, scpath.Relativ
 
 // Read reads an index file from disk.
 func Read(path scpath.AbsolutePath) (*Index, error) {
-	if _, err := os.Stat(path.String()); os.IsNotExist(err) {
-		return NewIndex(), nil
-	}
-
-	data, err := os.ReadFile(path.String())
+	data, err := fileops.ReadBytes(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read index file: %w", err)
+	}
+
+	// If file doesn't exist, return empty index
+	if data == nil {
+		return NewIndex(), nil
 	}
 
 	index := NewIndex()
