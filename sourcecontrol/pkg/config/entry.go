@@ -54,7 +54,7 @@ func (e *ConfigEntry) AsString() string {
 func (e *ConfigEntry) AsInt() (int, error) {
 	val, err := strconv.Atoi(e.Value)
 	if err != nil {
-		return 0, NewConfigError("convert", CodeConversionErr, e.Key, "", "", err)
+		return 0, NewConversionError(e.Key, err)
 	}
 	return val, nil
 }
@@ -63,7 +63,7 @@ func (e *ConfigEntry) AsInt() (int, error) {
 func (e *ConfigEntry) AsInt64() (int64, error) {
 	val, err := strconv.ParseInt(e.Value, 10, 64)
 	if err != nil {
-		return 0, NewConfigError("convert", CodeConversionErr, e.Key, "", "", err)
+		return 0, NewConversionError(e.Key, err)
 	}
 	return val, nil
 }
@@ -72,7 +72,7 @@ func (e *ConfigEntry) AsInt64() (int64, error) {
 func (e *ConfigEntry) AsFloat64() (float64, error) {
 	val, err := strconv.ParseFloat(e.Value, 64)
 	if err != nil {
-		return 0, NewConfigError("convert", CodeConversionErr, e.Key, "", "", err)
+		return 0, NewConversionError(e.Key, err)
 	}
 	return val, nil
 }
@@ -88,7 +88,7 @@ func (e *ConfigEntry) AsBoolean() (bool, error) {
 	case "false", "no", "0", "off":
 		return false, nil
 	default:
-		return false, NewConfigError("convert", CodeConversionErr, e.Key, "", "", ErrConversion)
+		return false, NewConversionError(e.Key, ErrConversion)
 	}
 }
 

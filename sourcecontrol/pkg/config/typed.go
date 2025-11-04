@@ -235,7 +235,7 @@ func (tc *TypedConfig) GetString(key string) string {
 func (tc *TypedConfig) GetInt(key string) (int, error) {
 	entry := tc.manager.Get(key)
 	if entry == nil {
-		return 0, NewConfigError("get", CodeNotFoundErr, key, "", "", ErrNotFound)
+		return 0, NewNotFoundError(key, "")
 	}
 	return entry.AsInt()
 }
@@ -244,7 +244,7 @@ func (tc *TypedConfig) GetInt(key string) (int, error) {
 func (tc *TypedConfig) GetBool(key string) (bool, error) {
 	entry := tc.manager.Get(key)
 	if entry == nil {
-		return false, NewConfigError("get", CodeNotFoundErr, key, "", "", ErrNotFound)
+		return false, NewNotFoundError(key, "")
 	}
 	return entry.AsBoolean()
 }

@@ -25,7 +25,7 @@ func (p *Parser) Parse(content string, source ConfigSource, level ConfigLevel) (
 
 	configData := NewConfigFileStructure()
 	if err := json.Unmarshal([]byte(content), configData); err != nil {
-		return nil, NewConfigError("parse", CodeInvalidFormatErr, "", source.String(), "", fmt.Errorf("%w: %v", ErrInvalidFormat, err))
+		return nil, NewInvalidFormatError("parse", source.String(), fmt.Errorf("%w: %v", ErrInvalidFormat, err))
 	}
 
 	if err := p.parseSection(configData, result, source, level, ""); err != nil {
@@ -49,7 +49,7 @@ func (p *Parser) Serialize(entries map[string][]*ConfigEntry) (string, error) {
 
 	data, err := json.MarshalIndent(configData, "", "  ")
 	if err != nil {
-		return "", NewConfigError("serialize", CodeInvalidFormatErr, "", "", "", fmt.Errorf("%w: %v", ErrInvalidFormat, err))
+		return "", NewInvalidFormatError("serialize", "", fmt.Errorf("%w: %v", ErrInvalidFormat, err))
 	}
 
 	return string(data), nil
@@ -91,7 +91,7 @@ func (p *Parser) FormatForDisplay(entries map[string][]*ConfigEntry) (string, er
 
 	data, err := json.MarshalIndent(configData, "", "  ")
 	if err != nil {
-		return "", NewConfigError("format", CodeInvalidFormatErr, "", "", "", fmt.Errorf("%w: %v", ErrInvalidFormat, err))
+		return "", NewInvalidFormatError("format", "", fmt.Errorf("%w: %v", ErrInvalidFormat, err))
 	}
 
 	return string(data), nil

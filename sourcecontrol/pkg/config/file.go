@@ -59,7 +59,7 @@ func (c *ConfigFileStructure) Range(fn func(key string, value any) error) error 
 func (c *ConfigFileStructure) SetNestedValue(keyPath, value string) error {
 	pathSegments := strings.Split(keyPath, ".")
 	if len(pathSegments) == 0 {
-		return NewConfigError("set", CodeInvalidValueErr, keyPath, "", "", fmt.Errorf("empty key path"))
+		return NewInvalidValueError(keyPath, fmt.Errorf("empty key path"))
 	}
 
 	finalKey := pathSegments[len(pathSegments)-1]

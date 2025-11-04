@@ -55,7 +55,7 @@ func (s *Store) Load() error {
 
 	entries, err := s.parser.Parse(string(content), NewFileSource(s.path), s.level)
 	if err != nil {
-		return NewConfigError("load", CodeInvalidFormatErr, "", s.path.String(), "", err)
+		return NewInvalidFormatError("load", s.path.String(), err)
 	}
 
 	s.entries = entries
@@ -67,16 +67,16 @@ func (s *Store) Load() error {
 func (s *Store) Save() error {
 	content, err := s.parser.Serialize(s.entries)
 	if err != nil {
-		return NewConfigError("save", CodeInvalidFormatErr, "", s.path.String(), "", err)
+		return NewInvalidFormatError("save", s.path.String(), err)
 	}
 
 	dir := filepath.Dir(s.path.String())
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		return NewConfigError("save", CodeInvalidFormatErr, "", s.path.String(), "", fmt.Errorf("failed to create directory: %w", err))
+		return NewInvalidFormatError("save", s.path.String(), fmt.Errorf("failed to create directory: %w", err))
 	}
 
 	if err := fileops.AtomicWrite(s.path, []byte(content), 0644); err != nil {
-		return NewConfigError("save", CodeInvalidFormatErr, "", s.path.String(), "", err)
+		return NewInvalidFormatError("save", s.path.String(), err)
 	}
 
 	return nil
@@ -137,12 +137,12 @@ func (s *Store) ToJSON() (string, error) {
 func (s *Store) FromJSON(jsonContent string) error {
 	validation := s.parser.Validate(jsonContent)
 	if !validation.Valid {
-		return NewConfigError("import", CodeInvalidFormatErr, "", "", "", fmt.Errorf("invalid JSON configuration: %v", validation.Errors))
+		return NewInvalidFormatError("import", "", fmt.Errorf("invalid JSON configuration: %v", validation.Errors))
 	}
 
 	entries, err := s.parser.Parse(jsonContent, NewFileSource(s.path), s.level)
 	if err != nil {
-		return NewConfigError("import", CodeInvalidFormatErr, "", "", "", err)
+		return NewInvalidFormatError("import", "", err)
 	}
 
 	s.entries = entries

@@ -2,7 +2,6 @@ package config
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -143,7 +142,7 @@ func (m *Manager) validateStore(operation string, key string, level ConfigLevel)
 
 	store, exists := m.stores[level]
 	if !exists {
-		return nil, NewConfigError(operation, CodeNotFoundErr, key, "", level.String(), fmt.Errorf("store does not exist for level"))
+		return nil, NewNotFoundError(key, level.String())
 	}
 
 	return store, nil
