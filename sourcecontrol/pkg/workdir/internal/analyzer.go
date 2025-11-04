@@ -1,10 +1,11 @@
 package internal
 
 import (
+	"context"
 	"fmt"
 	"maps"
-	"sync"
 
+	pool "github.com/utkarsh5026/SourceControl/pkg/common/concurrency"
 	"github.com/utkarsh5026/SourceControl/pkg/index"
 	"github.com/utkarsh5026/SourceControl/pkg/objects"
 	"github.com/utkarsh5026/SourceControl/pkg/objects/tree"
@@ -57,7 +58,7 @@ func (a *Analyzer) GetCommitFiles(commitSHA objects.ObjectHash) (map[scpath.Rela
 
 // getTreeFiles recursively walks a tree object and collects all files.
 // It handles nested trees (subdirectories) and builds the complete file map.
-// Subdirectories are processed concurrently for better performance.
+// Subdirectories are processed concurrently for better performance using a worker pool.
 func (a *Analyzer) getTreeFiles(treeSHA objects.ObjectHash, basePath scpath.RelativePath) (map[scpath.RelativePath]FileInfo, error) {
 	files := make(map[scpath.RelativePath]FileInfo)
 	treeObj, err := a.repo.ReadTreeObject(treeSHA)
@@ -65,11 +66,11 @@ func (a *Analyzer) getTreeFiles(treeSHA objects.ObjectHash, basePath scpath.Rela
 		return nil, fmt.Errorf("read tree %s: %w", treeSHA.Short(), err)
 	}
 
-	// Separate directories from files
-	var directories []struct {
+	type dirTask struct {
 		sha  objects.ObjectHash
 		path scpath.RelativePath
 	}
+	var directories []dirTask
 
 	for _, e := range treeObj.Entries() {
 		var fullPath scpath.RelativePath
@@ -80,10 +81,7 @@ func (a *Analyzer) getTreeFiles(treeSHA objects.ObjectHash, basePath scpath.Rela
 		}
 
 		if e.IsDirectory() {
-			directories = append(directories, struct {
-				sha  objects.ObjectHash
-				path scpath.RelativePath
-			}{e.SHA(), fullPath})
+			directories = append(directories, dirTask{e.SHA(), fullPath})
 			continue
 		}
 
@@ -95,13 +93,11 @@ func (a *Analyzer) getTreeFiles(treeSHA objects.ObjectHash, basePath scpath.Rela
 		}
 	}
 
-	// Process subdirectories concurrently if there are multiple
 	if len(directories) == 0 {
 		return files, nil
 	}
 
 	if len(directories) == 1 {
-		// Single directory - no need for concurrency overhead
 		subFiles, err := a.getTreeFiles(directories[0].sha, directories[0].path)
 		if err != nil {
 			return nil, err
@@ -110,35 +106,18 @@ func (a *Analyzer) getTreeFiles(treeSHA objects.ObjectHash, basePath scpath.Rela
 		return files, nil
 	}
 
-	// Multiple directories - process concurrently
-	type result struct {
-		files map[scpath.RelativePath]FileInfo
-		err   error
+	pool := pool.NewWorkerPool[dirTask, FileMap]()
+	processFn := func(ctx context.Context, task dirTask) (FileMap, error) {
+		return a.getTreeFiles(task.sha, task.path)
 	}
 
-	resultChan := make(chan result, len(directories))
-	var wg sync.WaitGroup
-
-	for _, dir := range directories {
-		wg.Add(1)
-		go func(sha objects.ObjectHash, path scpath.RelativePath) {
-			defer wg.Done()
-			subFiles, err := a.getTreeFiles(sha, path)
-			resultChan <- result{files: subFiles, err: err}
-		}(dir.sha, dir.path)
+	results, err := pool.Process(context.Background(), directories, processFn)
+	if err != nil {
+		return nil, err
 	}
 
-	go func() {
-		wg.Wait()
-		close(resultChan)
-	}()
-
-	// Collect results
-	for res := range resultChan {
-		if res.err != nil {
-			return nil, res.err
-		}
-		maps.Copy(files, res.files)
+	for _, subFiles := range results {
+		maps.Copy(files, subFiles)
 	}
 
 	return files, nil
@@ -146,23 +125,21 @@ func (a *Analyzer) getTreeFiles(treeSHA objects.ObjectHash, basePath scpath.Rela
 
 // GetIndexFiles extracts file information from the Git index.
 // Converts index entries to the FileInfo format used by the analyzer.
-func (a *Analyzer) GetIndexFiles(idx *index.Index) map[scpath.RelativePath]FileInfo {
-	files := make(map[scpath.RelativePath]FileInfo)
-
+func (a *Analyzer) GetIndexFiles(idx *index.Index) FileMap {
+	files := make(FileMap)
 	for _, entry := range idx.Entries {
 		files[entry.Path] = FileInfo{
 			SHA:  entry.BlobHash,
 			Mode: entry.Mode,
 		}
 	}
-
 	return files
 }
 
 // AnalyzeChanges compares current and target file states to generate operations.
 // It detects files that need to be created, modified, or deleted.
-// The analysis runs concurrently for better performance.
-func (a *Analyzer) AnalyzeChanges(current, target map[scpath.RelativePath]FileInfo) ChangeAnalysis {
+// The analysis runs concurrently for better performance using errgroup.
+func (a *Analyzer) AnalyzeChanges(current, target FileMap) ChangeAnalysis {
 	var operations []Operation
 	summary := ChangeSummary{}
 
@@ -173,30 +150,31 @@ func (a *Analyzer) AnalyzeChanges(current, target map[scpath.RelativePath]FileIn
 		changed int
 	}
 
-	deleteChan := make(chan analysisResult, 1)
-	createModifyChan := make(chan analysisResult, 1)
+	var deleteResult, createModifyResult analysisResult
+	g := new(errgroup.Group)
 
-	go func() {
+	g.Go(func() error {
 		var localSummary ChangeSummary
 		ops := findDeletedFiles(current, target, &localSummary)
-		deleteChan <- analysisResult{
+		deleteResult = analysisResult{
 			ops:     ops,
 			deleted: localSummary.Deleted,
 		}
-	}()
+		return nil
+	})
 
-	go func() {
+	g.Go(func() error {
 		var localSummary ChangeSummary
 		ops := a.findCreatedAndModifiedFiles(current, target, &localSummary)
-		createModifyChan <- analysisResult{
+		createModifyResult = analysisResult{
 			ops:     ops,
 			created: localSummary.Created,
 			changed: localSummary.Modified,
 		}
-	}()
+		return nil
+	})
 
-	deleteResult := <-deleteChan
-	createModifyResult := <-createModifyChan
+	_ = g.Wait()
 
 	operations = append(operations, deleteResult.ops...)
 	operations = append(operations, createModifyResult.ops...)
@@ -212,7 +190,7 @@ func (a *Analyzer) AnalyzeChanges(current, target map[scpath.RelativePath]FileIn
 	}
 }
 
-func findDeletedFiles(current, target map[scpath.RelativePath]FileInfo, summary *ChangeSummary) []Operation {
+func findDeletedFiles(current, target FileMap, summary *ChangeSummary) []Operation {
 	var operations []Operation
 
 	for path := range current {
@@ -229,7 +207,7 @@ func findDeletedFiles(current, target map[scpath.RelativePath]FileInfo, summary 
 }
 
 // findCreatedAndModifiedFiles identifies new and changed files in target
-func (a *Analyzer) findCreatedAndModifiedFiles(current, target map[scpath.RelativePath]FileInfo, summary *ChangeSummary) []Operation {
+func (a *Analyzer) findCreatedAndModifiedFiles(current, target FileMap, summary *ChangeSummary) []Operation {
 	var operations []Operation
 
 	for path, targetInfo := range target {
