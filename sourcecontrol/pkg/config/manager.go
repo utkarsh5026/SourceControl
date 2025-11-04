@@ -81,13 +81,13 @@ func (m *Manager) GetAll(key string) []*ConfigEntry {
 	var allEntries []*ConfigEntry
 
 	if value, exists := m.commandLine[key]; exists {
-		allEntries = append(allEntries, NewEntry(key, value, CommandLineLevel, CommandLineSource, 0))
+		allEntries = append(allEntries, NewCommandLineEntry(key, value))
 	}
 
 	allEntries = append(allEntries, m.findInStores(key)...)
 
 	if value, exists := m.builtinDefaults[key]; exists {
-		allEntries = append(allEntries, NewEntry(key, value, BuiltinLevel, BuiltinSource, 0))
+		allEntries = append(allEntries, NewBuiltinEntry(key, value))
 	}
 
 	return allEntries
@@ -279,7 +279,7 @@ func (m *Manager) loadBuiltinDefaults() {
 // Caller must hold at least read lock
 func (m *Manager) getUnsafe(key string) *ConfigEntry {
 	if value, exists := m.commandLine[key]; exists {
-		return NewEntry(key, value, CommandLineLevel, CommandLineSource, 0)
+		return NewCommandLineEntry(key, value)
 	}
 
 	entries := m.findInStores(key)
@@ -288,7 +288,7 @@ func (m *Manager) getUnsafe(key string) *ConfigEntry {
 	}
 
 	if value, exists := m.builtinDefaults[key]; exists {
-		return NewEntry(key, value, BuiltinLevel, BuiltinSource, 0)
+		return NewBuiltinEntry(key, value)
 	}
 
 	return nil

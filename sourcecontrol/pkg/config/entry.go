@@ -25,6 +25,26 @@ func NewEntry(key, value string, level ConfigLevel, source ConfigSource, lineNum
 	}
 }
 
+func NewCommandLineEntry(key, value string) *ConfigEntry {
+	return &ConfigEntry{
+		Key:        key,
+		Value:      value,
+		Level:      CommandLineLevel,
+		Source:     CommandLineSource,
+		LineNumber: 0,
+	}
+}
+
+func NewBuiltinEntry(key, value string) *ConfigEntry {
+	return &ConfigEntry{
+		Key:        key,
+		Value:      value,
+		Level:      BuiltinLevel,
+		Source:     BuiltinSource,
+		LineNumber: 0,
+	}
+}
+
 // AsString returns the value as a string
 func (e *ConfigEntry) AsString() string {
 	return e.Value
