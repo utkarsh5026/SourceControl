@@ -1,9 +1,11 @@
 package internal
 
 import (
+	"context"
 	"fmt"
 	"os"
 
+	pool "github.com/utkarsh5026/SourceControl/pkg/common/concurrency"
 	"github.com/utkarsh5026/SourceControl/pkg/index"
 	"github.com/utkarsh5026/SourceControl/pkg/objects"
 	"github.com/utkarsh5026/SourceControl/pkg/objects/blob"
@@ -80,12 +82,22 @@ func (v *Validator) ValidateCleanState(idx *index.Index) (Status, error) {
 		Details:       []FileStatusDetail{},
 	}
 
-	for _, entry := range idx.Entries {
-		detail, err := v.checkFileStatus(entry)
-		if err != nil {
-			return status, fmt.Errorf("check %s: %w", entry.Path, err)
-		}
+	if len(idx.Entries) == 0 {
+		return status, nil
+	}
 
+	wp := pool.NewWorkerPool[*index.Entry, *FileStatusDetail]()
+
+	processFn := func(ctx context.Context, entry *index.Entry) (*FileStatusDetail, error) {
+		return v.checkFileStatus(entry)
+	}
+
+	results, err := wp.Process(context.Background(), idx.Entries, processFn)
+	if err != nil {
+		return status, err
+	}
+
+	for _, detail := range results {
 		if detail != nil {
 			status.Clean = false
 			status.Details = append(status.Details, *detail)
@@ -103,22 +115,45 @@ func (v *Validator) ValidateCleanState(idx *index.Index) (Status, error) {
 
 // CanSafelyOverwrite checks if files can be safely replaced without losing changes.
 // Returns an error if any file has uncommitted modifications.
+// Uses concurrent processing for better performance on multiple files.
 func (v *Validator) CanSafelyOverwrite(paths []scpath.RelativePath, idx *index.Index) error {
-	var conflicts []scpath.RelativePath
+	if len(paths) == 0 {
+		return nil
+	}
 
+	type checkTask struct {
+		path  scpath.RelativePath
+		entry *index.Entry
+	}
+
+	tasks := make([]checkTask, 0, len(paths))
 	for _, path := range paths {
 		entry, ok := idx.Get(path)
 		if !ok {
 			continue
 		}
+		tasks = append(tasks, checkTask{path: path, entry: entry})
+	}
 
-		detail, err := v.checkFileStatus(entry)
-		if err != nil {
-			return fmt.Errorf("check %s: %w", path, err)
-		}
+	if len(tasks) == 0 {
+		return nil
+	}
 
+	wp := pool.NewWorkerPool[checkTask, *FileStatusDetail]()
+
+	results, err := wp.Process(context.Background(), tasks, func(ctx context.Context, task checkTask) (*FileStatusDetail, error) {
+		return v.checkFileStatus(task.entry)
+	})
+
+	if err != nil {
+		return err
+	}
+
+	// Collect conflicts
+	var conflicts []scpath.RelativePath
+	for i, detail := range results {
 		if detail != nil && detail.Status != FileTimeChanged {
-			conflicts = append(conflicts, path)
+			conflicts = append(conflicts, tasks[i].path)
 		}
 	}
 
