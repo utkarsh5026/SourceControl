@@ -3,7 +3,6 @@ package config
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/utkarsh5026/SourceControl/pkg/common/fileops"
 	"github.com/utkarsh5026/SourceControl/pkg/repository/scpath"
@@ -32,15 +31,15 @@ func NewStore(path scpath.AbsolutePath, level ConfigLevel) *Store {
 // Returns nil if the file doesn't exist (empty config is valid)
 // Returns error only for actual read/parse failures
 func (s *Store) Load() error {
-	if _, err := os.Stat(s.path.String()); os.IsNotExist(err) {
-		// File doesn't exist - this is fine, start with empty config
-		s.entries = make(map[string][]*ConfigEntry)
-		return nil
-	}
-
-	content, err := os.ReadFile(s.path.String())
+	content, err := fileops.ReadBytes(s.path)
 	if err != nil {
 		return NewConfigError("load", CodeNotFoundErr, "", s.path.String(), "", err)
+	}
+
+	// File doesn't exist - start with empty config
+	if content == nil {
+		s.entries = make(map[string][]*ConfigEntry)
+		return nil
 	}
 
 	validation := s.parser.Validate(string(content))
@@ -70,11 +69,12 @@ func (s *Store) Save() error {
 		return NewInvalidFormatError("save", s.path.String(), err)
 	}
 
-	dir := filepath.Dir(s.path.String())
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return NewInvalidFormatError("save", s.path.String(), fmt.Errorf("failed to create directory: %w", err))
+	// Ensure parent directory exists
+	if err := fileops.EnsureParentDir(s.path); err != nil {
+		return NewInvalidFormatError("save", s.path.String(), err)
 	}
 
+	// AtomicWrite handles the temp file creation, sync, and atomic rename
 	if err := fileops.AtomicWrite(s.path, []byte(content), 0644); err != nil {
 		return NewInvalidFormatError("save", s.path.String(), err)
 	}
