@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	pool "github.com/utkarsh5026/SourceControl/pkg/common/concurrency"
 	"github.com/utkarsh5026/SourceControl/pkg/repository/scpath"
 )
 
@@ -186,21 +187,41 @@ func (m *Manager) validateOperations(ops []Operation) error {
 	return nil
 }
 
-// createBackups creates backups for all modify/delete operations
+// createBackups creates backups for all modify/delete operations.
+// Uses concurrent processing for better performance when backing up multiple files.
 func (m *Manager) createBackups(ops []Operation) ([]*Backup, error) {
-	var backups []*Backup
-
+	var needsBackup []Operation
 	for _, op := range ops {
 		if op.Action == ActionModify || op.Action == ActionDelete {
+			needsBackup = append(needsBackup, op)
+		}
+	}
+
+	if len(needsBackup) == 0 {
+		return nil, nil
+	}
+
+	workerPool := pool.NewWorkerPool[Operation, *Backup]()
+	backups, err := workerPool.Process(
+		context.Background(),
+		needsBackup,
+		func(ctx context.Context, op Operation) (*Backup, error) {
 			backup, err := m.fileOps.CreateBackup(op.Path)
 			if err != nil {
-				for _, b := range backups {
-					m.fileOps.CleanupBackup(b)
-				}
 				return nil, fmt.Errorf("backup %s: %w", op.Path, err)
 			}
-			backups = append(backups, backup)
+			return backup, nil
+		},
+	)
+
+	if err != nil {
+		// Cleanup any successfully created backups
+		for _, b := range backups {
+			if b != nil {
+				m.fileOps.CleanupBackup(b)
+			}
 		}
+		return nil, err
 	}
 
 	return backups, nil
