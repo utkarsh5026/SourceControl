@@ -109,3 +109,23 @@ func Open(path scpath.RepositoryPath) (*SourceRepository, error) {
 	repo.initialized = true
 	return repo, nil
 }
+
+// InitializeRepository is a convenience function to initialize a new repository.
+// It creates a new SourceRepository instance and initializes it at the given path.
+//
+// Parameters:
+//   - path: The source path where the repository should be initialized
+//   - bare: Whether to create a bare repository (no working directory)
+//
+// Returns:
+//   - error: nil on success, or an error if initialization fails
+func InitializeRepository(path scpath.SourcePath, bare bool) error {
+	repoPath := scpath.RepositoryPath(path.String())
+
+	repo := NewSourceRepository()
+	if err := repo.Initialize(repoPath); err != nil {
+		return err
+	}
+
+	return nil
+}

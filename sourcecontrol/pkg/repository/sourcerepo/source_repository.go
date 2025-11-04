@@ -59,13 +59,6 @@ type SourceRepository struct {
 //
 // Returns:
 //   - *SourceRepository: A new uninitialized repository instance
-//
-// Example:
-//
-//	repo := NewSourceRepository()
-//	if err := repo.Initialize(scpath.RepositoryPath("/path/to/repo")); err != nil {
-//	    log.Fatal(err)
-//	}
 func NewSourceRepository() *SourceRepository {
 	return &SourceRepository{
 		objectStore: store.NewFileObjectStore(),
@@ -100,14 +93,6 @@ func NewSourceRepository() *SourceRepository {
 //   - Directory creation fails
 //   - Object store initialization fails
 //   - Initial file creation fails
-//
-// Example:
-//
-//	repo := NewSourceRepository()
-//	err := repo.Initialize(scpath.RepositoryPath("/path/to/new/repo"))
-//	if err != nil {
-//	    log.Fatalf("Failed to initialize repository: %v", err)
-//	}
 func (sr *SourceRepository) Initialize(path scpath.RepositoryPath) error {
 	exists, err := RepositoryExists(path)
 	if err != nil {
@@ -469,4 +454,16 @@ func (sr *SourceRepository) ReadCommitObject(commitSHA objects.ObjectHash) (*com
 	}
 
 	return commitObj, nil
+}
+
+// SourcePath returns the path to the .source directory.
+// This is a convenience method for accessing the source directory path.
+func (sr *SourceRepository) SourcePath() scpath.SourcePath {
+	return sr.SourceDirectory()
+}
+
+// ObjectsPath returns the path to the objects directory.
+// This is a convenience method for accessing the objects storage path.
+func (sr *SourceRepository) ObjectsPath() scpath.SourcePath {
+	return sr.sourceDir.ObjectsPath()
 }
