@@ -79,7 +79,7 @@ func TestParser_Parse(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := parser.Parse(tt.content, "test.json", UserLevel)
+			result, err := parser.Parse(tt.content, ConfigSource("test.json"), UserLevel)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Parse() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -127,7 +127,7 @@ func TestParser_ParseArrayValues(t *testing.T) {
 		}
 	}`
 
-	result, err := parser.Parse(content, "test.json", UserLevel)
+	result, err := parser.Parse(content, ConfigSource("test.json"), UserLevel)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -170,10 +170,10 @@ func TestParser_Serialize(t *testing.T) {
 			name: "simple entries",
 			entries: map[string][]*ConfigEntry{
 				"core.filemode": {
-					NewEntry("core.filemode", "true", UserLevel, "test", 0),
+					NewEntry("core.filemode", "true", UserLevel, ConfigSource("test"), 0),
 				},
 				"user.name": {
-					NewEntry("user.name", "John Doe", UserLevel, "test", 0),
+					NewEntry("user.name", "John Doe", UserLevel, ConfigSource("test"), 0),
 				},
 			},
 			wantErr: false,
@@ -182,7 +182,7 @@ func TestParser_Serialize(t *testing.T) {
 			name: "multi-value entries",
 			entries: map[string][]*ConfigEntry{
 				"remote.origin.fetch": {
-					NewEntry("remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*", UserLevel, "test", 0),
+					NewEntry("remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*", UserLevel, ConfigSource("test"), 0),
 					NewEntry("remote.origin.fetch", "+refs/tags/*:refs/tags/*", UserLevel, "test", 0),
 				},
 			},
@@ -265,10 +265,10 @@ func TestParser_RoundTrip(t *testing.T) {
 
 	original := map[string][]*ConfigEntry{
 		"core.filemode": {
-			NewEntry("core.filemode", "true", UserLevel, "test", 0),
+			NewEntry("core.filemode", "true", UserLevel, ConfigSource("test"), 0),
 		},
 		"user.name": {
-			NewEntry("user.name", "John Doe", UserLevel, "test", 0),
+			NewEntry("user.name", "John Doe", UserLevel, ConfigSource("test"), 0),
 		},
 		"remote.origin.url": {
 			NewEntry("remote.origin.url", "https://github.com/user/repo.git", UserLevel, "test", 0),

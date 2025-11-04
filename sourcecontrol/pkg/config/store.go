@@ -53,7 +53,7 @@ func (s *Store) Load() error {
 		return nil
 	}
 
-	entries, err := s.parser.Parse(string(content), s.path.String(), s.level)
+	entries, err := s.parser.Parse(string(content), NewFileSource(s.path), s.level)
 	if err != nil {
 		return NewConfigError("load", CodeInvalidFormatErr, "", s.path.String(), "", err)
 	}
@@ -110,7 +110,7 @@ func (s *Store) GetAllEntries() map[string][]*ConfigEntry {
 
 // Set replaces all values for a key with a single value
 func (s *Store) Set(key, value string) {
-	entry := NewEntry(key, value, s.level, s.path.String(), 0)
+	entry := NewEntry(key, value, s.level, NewFileSource(s.path), 0)
 	s.entries[key] = []*ConfigEntry{entry}
 }
 
@@ -119,7 +119,7 @@ func (s *Store) Add(key, value string) {
 	if _, exists := s.entries[key]; !exists {
 		s.entries[key] = []*ConfigEntry{}
 	}
-	entry := NewEntry(key, value, s.level, s.path.String(), 0)
+	entry := NewEntry(key, value, s.level, NewFileSource(s.path), 0)
 	s.entries[key] = append(s.entries[key], entry)
 }
 
@@ -140,7 +140,7 @@ func (s *Store) FromJSON(jsonContent string) error {
 		return NewConfigError("import", CodeInvalidFormatErr, "", "", "", fmt.Errorf("invalid JSON configuration: %v", validation.Errors))
 	}
 
-	entries, err := s.parser.Parse(jsonContent, s.path.String(), s.level)
+	entries, err := s.parser.Parse(jsonContent, NewFileSource(s.path), s.level)
 	if err != nil {
 		return NewConfigError("import", CodeInvalidFormatErr, "", "", "", err)
 	}

@@ -5,7 +5,7 @@ import (
 )
 
 func TestConfigEntry_AsString(t *testing.T) {
-	entry := NewEntry("test.key", "hello world", UserLevel, "test", 0)
+	entry := NewEntry("test.key", "hello world", UserLevel, ConfigSource("test"), 0)
 	if got := entry.AsString(); got != "hello world" {
 		t.Errorf("AsString() = %q, want %q", got, "hello world")
 	}
@@ -28,7 +28,7 @@ func TestConfigEntry_AsInt(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			entry := NewEntry("test.key", tt.value, UserLevel, "test", 0)
+			entry := NewEntry("test.key", tt.value, UserLevel, ConfigSource("test"), 0)
 			got, err := entry.AsInt()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("AsInt() error = %v, wantErr %v", err, tt.wantErr)
@@ -75,7 +75,7 @@ func TestConfigEntry_AsBoolean(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			entry := NewEntry("test.key", tt.value, UserLevel, "test", 0)
+			entry := NewEntry("test.key", tt.value, UserLevel, ConfigSource("test"), 0)
 			got, err := entry.AsBoolean()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("AsBoolean() error = %v, wantErr %v", err, tt.wantErr)
@@ -105,7 +105,7 @@ func TestConfigEntry_AsList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			entry := NewEntry("test.key", tt.value, UserLevel, "test", 0)
+			entry := NewEntry("test.key", tt.value, UserLevel, ConfigSource("test"), 0)
 			got := entry.AsList()
 			if len(got) != len(tt.want) {
 				t.Errorf("AsList() length = %d, want %d", len(got), len(tt.want))
@@ -121,7 +121,7 @@ func TestConfigEntry_AsList(t *testing.T) {
 }
 
 func TestConfigEntry_Clone(t *testing.T) {
-	original := NewEntry("test.key", "value", UserLevel, "test.json", 42)
+	original := NewEntry("test.key", "value", UserLevel, ConfigSource("test.json"), 42)
 	clone := original.Clone()
 
 	// Check all fields are equal

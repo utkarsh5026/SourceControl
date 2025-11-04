@@ -16,7 +16,7 @@ type ValidationResult struct {
 }
 
 // Parse parses JSON configuration content into a map of entries
-func (p *Parser) Parse(content string, source string, level ConfigLevel) (map[string][]*ConfigEntry, error) {
+func (p *Parser) Parse(content string, source ConfigSource, level ConfigLevel) (map[string][]*ConfigEntry, error) {
 	result := make(map[string][]*ConfigEntry)
 
 	if strings.TrimSpace(content) == "" {
@@ -25,7 +25,7 @@ func (p *Parser) Parse(content string, source string, level ConfigLevel) (map[st
 
 	configData := NewConfigFileStructure()
 	if err := json.Unmarshal([]byte(content), configData); err != nil {
-		return nil, NewConfigError("parse", CodeInvalidFormatErr, "", source, "", fmt.Errorf("%w: %v", ErrInvalidFormat, err))
+		return nil, NewConfigError("parse", CodeInvalidFormatErr, "", source.String(), "", fmt.Errorf("%w: %v", ErrInvalidFormat, err))
 	}
 
 	if err := p.parseSection(configData, result, source, level, ""); err != nil {
@@ -101,7 +101,7 @@ func (p *Parser) FormatForDisplay(entries map[string][]*ConfigEntry) (string, er
 func (p *Parser) parseSection(
 	configData *ConfigFileStructure,
 	result map[string][]*ConfigEntry,
-	source string,
+	source ConfigSource,
 	level ConfigLevel,
 	keyPrefix string,
 ) error {
@@ -124,7 +124,7 @@ func (p *Parser) processConfigValue(
 	key string,
 	value any,
 	result map[string][]*ConfigEntry,
-	source string,
+	source ConfigSource,
 	level ConfigLevel,
 ) error {
 	switch v := value.(type) {
@@ -149,7 +149,7 @@ func (p *Parser) processArrayValue(
 	key string,
 	values []any,
 	result map[string][]*ConfigEntry,
-	source string,
+	source ConfigSource,
 	level ConfigLevel,
 ) error {
 	for _, item := range values {
@@ -167,7 +167,7 @@ func (p *Parser) addEntry(
 	entryMap map[string][]*ConfigEntry,
 	configKey string,
 	configValue string,
-	source string,
+	source ConfigSource,
 	level ConfigLevel,
 ) {
 	if _, exists := entryMap[configKey]; !exists {

@@ -7,15 +7,15 @@ import (
 
 // ConfigEntry represents a single configuration entry with its value and metadata
 type ConfigEntry struct {
-	Key        string      // Configuration key (e.g., "user.name")
-	Value      string      // String value
-	Level      ConfigLevel // Configuration level
-	Source     string      // Source file path or "command-line" or "builtin"
-	LineNumber int         // Line number in source file (0 if not applicable)
+	Key        string       // Configuration key (e.g., "user.name")
+	Value      string       // String value
+	Level      ConfigLevel  // Configuration level
+	Source     ConfigSource // Source of this configuration (command-line, builtin, or file path)
+	LineNumber int          // Line number in source file (0 if not applicable)
 }
 
 // NewEntry creates a new configuration entry
-func NewEntry(key, value string, level ConfigLevel, source string, lineNumber int) *ConfigEntry {
+func NewEntry(key, value string, level ConfigLevel, source ConfigSource, lineNumber int) *ConfigEntry {
 	return &ConfigEntry{
 		Key:        key,
 		Value:      value,
