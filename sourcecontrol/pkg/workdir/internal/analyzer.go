@@ -42,7 +42,7 @@ func NewAnalyzer(repo *sourcerepo.SourceRepository) *Analyzer {
 
 // GetCommitFiles retrieves all files from a commit's tree.
 // It reads the commit object, gets the root tree SHA, and recursively walks the tree.
-func (a *Analyzer) GetCommitFiles(commitSHA objects.ObjectHash) (map[scpath.RelativePath]FileInfo, error) {
+func (a *Analyzer) GetCommitFiles(ctx context.Context, commitSHA objects.ObjectHash) (map[scpath.RelativePath]FileInfo, error) {
 	commit, err := a.repo.ReadCommitObject(commitSHA)
 	if err != nil {
 		return nil, err
@@ -53,13 +53,18 @@ func (a *Analyzer) GetCommitFiles(commitSHA objects.ObjectHash) (map[scpath.Rela
 	}
 
 	treeSHA := objects.ObjectHash(commit.TreeSHA)
-	return a.getTreeFiles(treeSHA, scpath.RelativePath(""))
+	return a.getTreeFiles(ctx, treeSHA, scpath.RelativePath(""))
 }
 
 // getTreeFiles recursively walks a tree object and collects all files.
 // It handles nested trees (subdirectories) and builds the complete file map.
-// Subdirectories are processed concurrently for better performance using a worker pool.
-func (a *Analyzer) getTreeFiles(treeSHA objects.ObjectHash, basePath scpath.RelativePath) (map[scpath.RelativePath]FileInfo, error) {
+func (a *Analyzer) getTreeFiles(ctx context.Context, treeSHA objects.ObjectHash, basePath scpath.RelativePath) (map[scpath.RelativePath]FileInfo, error) {
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
 	files := make(map[scpath.RelativePath]FileInfo)
 	treeObj, err := a.repo.ReadTreeObject(treeSHA)
 	if err != nil {
@@ -98,7 +103,7 @@ func (a *Analyzer) getTreeFiles(treeSHA objects.ObjectHash, basePath scpath.Rela
 	}
 
 	if len(directories) == 1 {
-		subFiles, err := a.getTreeFiles(directories[0].sha, directories[0].path)
+		subFiles, err := a.getTreeFiles(ctx, directories[0].sha, directories[0].path)
 		if err != nil {
 			return nil, err
 		}
@@ -108,10 +113,10 @@ func (a *Analyzer) getTreeFiles(treeSHA objects.ObjectHash, basePath scpath.Rela
 
 	pool := pool.NewWorkerPool[dirTask, FileMap]()
 	processFn := func(ctx context.Context, task dirTask) (FileMap, error) {
-		return a.getTreeFiles(task.sha, task.path)
+		return a.getTreeFiles(ctx, task.sha, task.path)
 	}
 
-	results, err := pool.Process(context.Background(), directories, processFn)
+	results, err := pool.Process(ctx, directories, processFn)
 	if err != nil {
 		return nil, err
 	}
@@ -237,18 +242,18 @@ func (a *Analyzer) findCreatedAndModifiedFiles(current, target FileMap, summary 
 
 // AreTreesIdentical checks if two trees contain exactly the same files.
 // This is an optimization to avoid unnecessary operations.
-func (a *Analyzer) AreTreesIdentical(treeSHA1, treeSHA2 objects.ObjectHash) (bool, error) {
+func (a *Analyzer) AreTreesIdentical(ctx context.Context, treeSHA1, treeSHA2 objects.ObjectHash) (bool, error) {
 	if treeSHA1 == treeSHA2 {
 		return true, nil
 	}
 
 	var tree1Files, tree2Files FileMap
 
-	g := new(errgroup.Group)
+	g, ctx := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
 		var err error
-		tree1Files, err = a.getTreeFiles(treeSHA1, scpath.RelativePath(""))
+		tree1Files, err = a.getTreeFiles(ctx, treeSHA1, scpath.RelativePath(""))
 		if err != nil {
 			return fmt.Errorf("read tree1: %w", err)
 		}
@@ -257,7 +262,7 @@ func (a *Analyzer) AreTreesIdentical(treeSHA1, treeSHA2 objects.ObjectHash) (boo
 
 	g.Go(func() error {
 		var err error
-		tree2Files, err = a.getTreeFiles(treeSHA2, scpath.RelativePath(""))
+		tree2Files, err = a.getTreeFiles(ctx, treeSHA2, scpath.RelativePath(""))
 		if err != nil {
 			return fmt.Errorf("read tree2: %w", err)
 		}

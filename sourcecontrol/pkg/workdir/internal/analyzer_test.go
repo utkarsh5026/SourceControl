@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -96,7 +97,7 @@ func TestGetCommitFiles_EmptyCommit(t *testing.T) {
 	commitSHA := createTestCommit(t, repo, treeSHA)
 
 	// Get files from commit
-	files, err := analyzer.GetCommitFiles(commitSHA)
+	files, err := analyzer.GetCommitFiles(context.Background(), commitSHA)
 	if err != nil {
 		t.Fatalf("GetCommitFiles failed: %v", err)
 	}
@@ -122,7 +123,7 @@ func TestGetCommitFiles_SingleFile(t *testing.T) {
 	commitSHA := createTestCommit(t, repo, treeSHA)
 
 	// Get files from commit
-	files, err := analyzer.GetCommitFiles(commitSHA)
+	files, err := analyzer.GetCommitFiles(context.Background(), commitSHA)
 	if err != nil {
 		t.Fatalf("GetCommitFiles failed: %v", err)
 	}
@@ -174,7 +175,7 @@ func TestGetCommitFiles_NestedDirectories(t *testing.T) {
 	commitSHA := createTestCommit(t, repo, rootTreeSHA)
 
 	// Get files from commit
-	files, err := analyzer.GetCommitFiles(commitSHA)
+	files, err := analyzer.GetCommitFiles(context.Background(), commitSHA)
 	if err != nil {
 		t.Fatalf("GetCommitFiles failed: %v", err)
 	}
@@ -224,7 +225,7 @@ func TestGetCommitFiles_DifferentFileTypes(t *testing.T) {
 	commitSHA := createTestCommit(t, repo, treeSHA)
 
 	// Get files from commit
-	files, err := analyzer.GetCommitFiles(commitSHA)
+	files, err := analyzer.GetCommitFiles(context.Background(), commitSHA)
 	if err != nil {
 		t.Fatalf("GetCommitFiles failed: %v", err)
 	}
@@ -268,7 +269,7 @@ func TestGetCommitFiles_InvalidCommit(t *testing.T) {
 
 	// Try to get files from non-existent commit
 	invalidSHA := objects.ObjectHash("0000000000000000000000000000000000000000")
-	_, err := analyzer.GetCommitFiles(invalidSHA)
+	_, err := analyzer.GetCommitFiles(context.Background(), invalidSHA)
 	if err == nil {
 		t.Error("Expected error for invalid commit SHA, got nil")
 	}
@@ -634,7 +635,7 @@ func TestAreTreesIdentical_SameSHA(t *testing.T) {
 	treeSHA := createTestTree(t, repo, []*tree.TreeEntry{entry})
 
 	// Compare tree with itself
-	identical, err := analyzer.AreTreesIdentical(treeSHA, treeSHA)
+	identical, err := analyzer.AreTreesIdentical(context.Background(), treeSHA, treeSHA)
 	if err != nil {
 		t.Fatalf("AreTreesIdentical failed: %v", err)
 	}
@@ -664,7 +665,7 @@ func TestAreTreesIdentical_SameContent(t *testing.T) {
 		t.Skip("Trees with identical content should have same SHA - skipping comparison")
 	}
 
-	identical, err := analyzer.AreTreesIdentical(tree1SHA, tree2SHA)
+	identical, err := analyzer.AreTreesIdentical(context.Background(), tree1SHA, tree2SHA)
 	if err != nil {
 		t.Fatalf("AreTreesIdentical failed: %v", err)
 	}
@@ -690,7 +691,7 @@ func TestAreTreesIdentical_DifferentContent(t *testing.T) {
 	entry2 := createTestEntry(t, "file.txt", blob2SHA, objects.FileModeRegular)
 	tree2SHA := createTestTree(t, repo, []*tree.TreeEntry{entry2})
 
-	identical, err := analyzer.AreTreesIdentical(tree1SHA, tree2SHA)
+	identical, err := analyzer.AreTreesIdentical(context.Background(), tree1SHA, tree2SHA)
 	if err != nil {
 		t.Fatalf("AreTreesIdentical failed: %v", err)
 	}
@@ -717,7 +718,7 @@ func TestAreTreesIdentical_DifferentFileCount(t *testing.T) {
 	entry2b := createTestEntry(t, "file2.txt", blob2SHA, objects.FileModeRegular)
 	tree2SHA := createTestTree(t, repo, []*tree.TreeEntry{entry2a, entry2b})
 
-	identical, err := analyzer.AreTreesIdentical(tree1SHA, tree2SHA)
+	identical, err := analyzer.AreTreesIdentical(context.Background(), tree1SHA, tree2SHA)
 	if err != nil {
 		t.Fatalf("AreTreesIdentical failed: %v", err)
 	}
@@ -742,7 +743,7 @@ func TestAreTreesIdentical_DifferentModes(t *testing.T) {
 	entry2 := createTestEntry(t, "file.txt", blobSHA, objects.FileModeExecutable)
 	tree2SHA := createTestTree(t, repo, []*tree.TreeEntry{entry2})
 
-	identical, err := analyzer.AreTreesIdentical(tree1SHA, tree2SHA)
+	identical, err := analyzer.AreTreesIdentical(context.Background(), tree1SHA, tree2SHA)
 	if err != nil {
 		t.Fatalf("AreTreesIdentical failed: %v", err)
 	}
@@ -764,13 +765,13 @@ func TestAreTreesIdentical_InvalidTree(t *testing.T) {
 	invalidSHA := objects.ObjectHash("0000000000000000000000000000000000000000")
 
 	// Test with first tree invalid
-	_, err := analyzer.AreTreesIdentical(invalidSHA, validTreeSHA)
+	_, err := analyzer.AreTreesIdentical(context.Background(), invalidSHA, validTreeSHA)
 	if err == nil {
 		t.Error("Expected error for invalid tree1 SHA, got nil")
 	}
 
 	// Test with second tree invalid
-	_, err = analyzer.AreTreesIdentical(validTreeSHA, invalidSHA)
+	_, err = analyzer.AreTreesIdentical(context.Background(), validTreeSHA, invalidSHA)
 	if err == nil {
 		t.Error("Expected error for invalid tree2 SHA, got nil")
 	}
