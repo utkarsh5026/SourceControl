@@ -100,3 +100,14 @@ bin/
 
 # Runtime configuration
 .sourcecontrol/
+
+# Test directories
+test-repo/
+test-repo*/
+test_*/
+*_test_repo/
+
+# Built binaries
+sourcecontrol/sc.exe
+sourcecontrol/sc
+*.exe
