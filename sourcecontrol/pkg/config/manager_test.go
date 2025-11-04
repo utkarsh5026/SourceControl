@@ -235,7 +235,7 @@ func TestManager_ExportJSON(t *testing.T) {
 	}
 
 	// Parse and verify content
-	entries, err := parser.Parse(json, "test", UserLevel)
+	entries, err := parser.Parse(json, ConfigSource("test"), UserLevel)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}

@@ -183,7 +183,7 @@ func TestParser_Serialize(t *testing.T) {
 			entries: map[string][]*ConfigEntry{
 				"remote.origin.fetch": {
 					NewEntry("remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*", UserLevel, ConfigSource("test"), 0),
-					NewEntry("remote.origin.fetch", "+refs/tags/*:refs/tags/*", UserLevel, "test", 0),
+					NewEntry("remote.origin.fetch", "+refs/tags/*:refs/tags/*", UserLevel, ConfigSource("test"), 0),
 				},
 			},
 			wantErr: false,
@@ -271,7 +271,7 @@ func TestParser_RoundTrip(t *testing.T) {
 			NewEntry("user.name", "John Doe", UserLevel, ConfigSource("test"), 0),
 		},
 		"remote.origin.url": {
-			NewEntry("remote.origin.url", "https://github.com/user/repo.git", UserLevel, "test", 0),
+			NewEntry("remote.origin.url", "https://github.com/user/repo.git", UserLevel, ConfigSource("test"), 0),
 		},
 	}
 
