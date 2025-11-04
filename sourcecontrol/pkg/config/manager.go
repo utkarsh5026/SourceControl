@@ -147,13 +147,9 @@ func (m *Manager) Add(key, value string, level ConfigLevel) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if !level.CanWrite() {
-		return NewConfigError("add", CodeReadOnlyErr, key, "", level.String(), ErrReadOnly)
-	}
-
-	store, exists := m.stores[level]
-	if !exists {
-		return NewConfigError("add", CodeNotFoundErr, key, "", level.String(), fmt.Errorf("store does not exist for level"))
+	store, err := m.validateStore("add", key, level)
+	if err != nil {
+		return err
 	}
 
 	store.Add(key, value)
@@ -165,13 +161,9 @@ func (m *Manager) Unset(key string, level ConfigLevel) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if !level.CanWrite() {
-		return NewConfigError("unset", CodeReadOnlyErr, key, "", level.String(), ErrReadOnly)
-	}
-
-	store, exists := m.stores[level]
-	if !exists {
-		return NewConfigError("unset", CodeNotFoundErr, key, "", level.String(), fmt.Errorf("store does not exist for level"))
+	store, err := m.validateStore("unset", key, level)
+	if err != nil {
+		return err
 	}
 
 	store.Unset(key)
