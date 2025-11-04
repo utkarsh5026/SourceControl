@@ -3,12 +3,14 @@ package internal
 import (
 	"fmt"
 	"maps"
+	"sync"
 
 	"github.com/utkarsh5026/SourceControl/pkg/index"
 	"github.com/utkarsh5026/SourceControl/pkg/objects"
 	"github.com/utkarsh5026/SourceControl/pkg/objects/tree"
 	"github.com/utkarsh5026/SourceControl/pkg/repository/scpath"
 	"github.com/utkarsh5026/SourceControl/pkg/repository/sourcerepo"
+	"golang.org/x/sync/errgroup"
 )
 
 // FileInfo represents metadata about a file in a tree or index
@@ -55,11 +57,18 @@ func (a *Analyzer) GetCommitFiles(commitSHA objects.ObjectHash) (map[scpath.Rela
 
 // getTreeFiles recursively walks a tree object and collects all files.
 // It handles nested trees (subdirectories) and builds the complete file map.
+// Subdirectories are processed concurrently for better performance.
 func (a *Analyzer) getTreeFiles(treeSHA objects.ObjectHash, basePath scpath.RelativePath) (map[scpath.RelativePath]FileInfo, error) {
 	files := make(map[scpath.RelativePath]FileInfo)
 	treeObj, err := a.repo.ReadTreeObject(treeSHA)
 	if err != nil {
 		return nil, fmt.Errorf("read tree %s: %w", treeSHA.Short(), err)
+	}
+
+	// Separate directories from files
+	var directories []struct {
+		sha  objects.ObjectHash
+		path scpath.RelativePath
 	}
 
 	for _, e := range treeObj.Entries() {
@@ -71,11 +80,10 @@ func (a *Analyzer) getTreeFiles(treeSHA objects.ObjectHash, basePath scpath.Rela
 		}
 
 		if e.IsDirectory() {
-			subFiles, err := a.getTreeFiles(e.SHA(), fullPath)
-			if err != nil {
-				return nil, err
-			}
-			maps.Copy(files, subFiles)
+			directories = append(directories, struct {
+				sha  objects.ObjectHash
+				path scpath.RelativePath
+			}{e.SHA(), fullPath})
 			continue
 		}
 
@@ -85,6 +93,52 @@ func (a *Analyzer) getTreeFiles(treeSHA objects.ObjectHash, basePath scpath.Rela
 				Mode: e.Mode(),
 			}
 		}
+	}
+
+	// Process subdirectories concurrently if there are multiple
+	if len(directories) == 0 {
+		return files, nil
+	}
+
+	if len(directories) == 1 {
+		// Single directory - no need for concurrency overhead
+		subFiles, err := a.getTreeFiles(directories[0].sha, directories[0].path)
+		if err != nil {
+			return nil, err
+		}
+		maps.Copy(files, subFiles)
+		return files, nil
+	}
+
+	// Multiple directories - process concurrently
+	type result struct {
+		files map[scpath.RelativePath]FileInfo
+		err   error
+	}
+
+	resultChan := make(chan result, len(directories))
+	var wg sync.WaitGroup
+
+	for _, dir := range directories {
+		wg.Add(1)
+		go func(sha objects.ObjectHash, path scpath.RelativePath) {
+			defer wg.Done()
+			subFiles, err := a.getTreeFiles(sha, path)
+			resultChan <- result{files: subFiles, err: err}
+		}(dir.sha, dir.path)
+	}
+
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	// Collect results
+	for res := range resultChan {
+		if res.err != nil {
+			return nil, res.err
+		}
+		maps.Copy(files, res.files)
 	}
 
 	return files, nil
@@ -107,13 +161,49 @@ func (a *Analyzer) GetIndexFiles(idx *index.Index) map[scpath.RelativePath]FileI
 
 // AnalyzeChanges compares current and target file states to generate operations.
 // It detects files that need to be created, modified, or deleted.
+// The analysis runs concurrently for better performance.
 func (a *Analyzer) AnalyzeChanges(current, target map[scpath.RelativePath]FileInfo) ChangeAnalysis {
 	var operations []Operation
 	summary := ChangeSummary{}
 
-	operations = append(operations, findDeletedFiles(current, target, &summary)...)
+	type analysisResult struct {
+		ops     []Operation
+		deleted int
+		created int
+		changed int
+	}
 
-	operations = append(operations, a.findCreatedAndModifiedFiles(current, target, &summary)...)
+	deleteChan := make(chan analysisResult, 1)
+	createModifyChan := make(chan analysisResult, 1)
+
+	go func() {
+		var localSummary ChangeSummary
+		ops := findDeletedFiles(current, target, &localSummary)
+		deleteChan <- analysisResult{
+			ops:     ops,
+			deleted: localSummary.Deleted,
+		}
+	}()
+
+	go func() {
+		var localSummary ChangeSummary
+		ops := a.findCreatedAndModifiedFiles(current, target, &localSummary)
+		createModifyChan <- analysisResult{
+			ops:     ops,
+			created: localSummary.Created,
+			changed: localSummary.Modified,
+		}
+	}()
+
+	deleteResult := <-deleteChan
+	createModifyResult := <-createModifyChan
+
+	operations = append(operations, deleteResult.ops...)
+	operations = append(operations, createModifyResult.ops...)
+
+	summary.Deleted = deleteResult.deleted
+	summary.Created = createModifyResult.created
+	summary.Modified = createModifyResult.changed
 
 	return ChangeAnalysis{
 		Operations:  operations,
@@ -174,14 +264,30 @@ func (a *Analyzer) AreTreesIdentical(treeSHA1, treeSHA2 objects.ObjectHash) (boo
 		return true, nil
 	}
 
-	tree1Files, err := a.getTreeFiles(treeSHA1, scpath.RelativePath(""))
-	if err != nil {
-		return false, fmt.Errorf("read tree1: %w", err)
-	}
+	var tree1Files, tree2Files FileMap
 
-	tree2Files, err := a.getTreeFiles(treeSHA2, scpath.RelativePath(""))
-	if err != nil {
-		return false, fmt.Errorf("read tree2: %w", err)
+	g := new(errgroup.Group)
+
+	g.Go(func() error {
+		var err error
+		tree1Files, err = a.getTreeFiles(treeSHA1, scpath.RelativePath(""))
+		if err != nil {
+			return fmt.Errorf("read tree1: %w", err)
+		}
+		return nil
+	})
+
+	g.Go(func() error {
+		var err error
+		tree2Files, err = a.getTreeFiles(treeSHA2, scpath.RelativePath(""))
+		if err != nil {
+			return fmt.Errorf("read tree2: %w", err)
+		}
+		return nil
+	})
+
+	if err := g.Wait(); err != nil {
+		return false, err
 	}
 
 	if len(tree1Files) != len(tree2Files) {
