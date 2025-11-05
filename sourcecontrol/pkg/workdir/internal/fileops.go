@@ -65,7 +65,7 @@ func (f *FileOps) writeFile(op Operation) error {
 	}
 
 	fullPath := f.workDir.Join(op.Path.String())
-	if err := ensureParentDir(fullPath); err != nil {
+	if err := fileops.EnsureParentDir(fullPath); err != nil {
 		return fmt.Errorf("%s %s: create parent directory: %w", op.Action.String(), op.Path, err)
 	}
 
@@ -108,11 +108,15 @@ func (f *FileOps) atomicWrite(targetPath scpath.AbsolutePath, data []byte, mode 
 func (f *FileOps) deleteFile(path scpath.RelativePath) error {
 	fullPath := f.workDir.Join(path.String())
 
-	if _, err := os.Stat(fullPath.String()); os.IsNotExist(err) {
+	exists, err := fileops.Exists(fullPath)
+	if err != nil {
+		return fmt.Errorf("delete %s: check existence: %w", path, err)
+	}
+	if !exists {
 		return nil
 	}
 
-	if err := os.Remove(fullPath.String()); err != nil {
+	if err := fileops.SafeRemove(fullPath); err != nil {
 		return fmt.Errorf("delete %s: remove file: %w", path, err)
 	}
 
@@ -124,14 +128,6 @@ func (f *FileOps) deleteFile(path scpath.RelativePath) error {
 	return nil
 }
 
-// ensureParentDir creates all parent directories for a file path if they don't exist
-func ensureParentDir(filePath scpath.AbsolutePath) error {
-	dir := filepath.Dir(filePath.String())
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return err
-	}
-	return nil
-}
 
 // cleanEmptyParents recursively removes empty directories up to the working directory root
 func (f *FileOps) cleanEmptyParents(dir scpath.AbsolutePath) error {
@@ -220,10 +216,7 @@ func (f *FileOps) createTempBackupFile(pattern string) (*os.File, error) {
 }
 
 func (f *FileOps) ensureTempDir() error {
-	if err := os.MkdirAll(f.tempDir.String(), 0755); err != nil {
-		return fmt.Errorf("create temp directory: %w", err)
-	}
-	return nil
+	return fileops.EnsureDir(f.tempDir)
 }
 
 func writeToTemp(tmpFile *os.File, path scpath.RelativePath, fullPath scpath.AbsolutePath) error {
@@ -253,8 +246,7 @@ func (f *FileOps) RestoreBackup(backup *Backup) error {
 	fullPath := f.workDir.Join(backup.Path.String())
 
 	if !backup.Existed {
-		err := os.Remove(fullPath.String())
-		if err != nil && !os.IsNotExist(err) {
+		if err := fileops.SafeRemove(fullPath); err != nil {
 			return fmt.Errorf("restore %s: remove file: %w", backup.Path, err)
 		}
 		return nil
@@ -264,7 +256,7 @@ func (f *FileOps) RestoreBackup(backup *Backup) error {
 		return fmt.Errorf("restore %s: backup has no temp file", backup.Path)
 	}
 
-	if err := ensureParentDir(fullPath); err != nil {
+	if err := fileops.EnsureParentDir(fullPath); err != nil {
 		return fmt.Errorf("restore %s: create parent directory: %w", backup.Path, err)
 	}
 
@@ -297,7 +289,7 @@ func (f *FileOps) CleanupBackup(backup *Backup) error {
 		return nil
 	}
 
-	if err := os.Remove(backup.TempFile); err != nil && !os.IsNotExist(err) {
+	if err := fileops.SafeRemoveString(backup.TempFile); err != nil {
 		return fmt.Errorf("remove backup file: %w", err)
 	}
 

@@ -43,17 +43,16 @@ func NewAnalyzer(repo *sourcerepo.SourceRepository) *Analyzer {
 // GetCommitFiles retrieves all files from a commit's tree.
 // It reads the commit object, gets the root tree SHA, and recursively walks the tree.
 func (a *Analyzer) GetCommitFiles(ctx context.Context, commitSHA objects.ObjectHash) (map[scpath.RelativePath]FileInfo, error) {
-	commit, err := a.repo.ReadCommitObject(commitSHA)
+	c, err := a.repo.ReadCommitObject(commitSHA)
 	if err != nil {
 		return nil, err
 	}
 
-	if commit.TreeSHA == "" {
+	if c.TreeSHA == "" {
 		return nil, fmt.Errorf("commit %s has no tree", commitSHA.Short())
 	}
 
-	treeSHA := objects.ObjectHash(commit.TreeSHA)
-	return a.getTreeFiles(ctx, treeSHA, scpath.RelativePath(""))
+	return a.getTreeFiles(ctx, c.TreeSHA, scpath.RelativePath(""))
 }
 
 // getTreeFiles recursively walks a tree object and collects all files.
