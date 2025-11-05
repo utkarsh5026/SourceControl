@@ -12,24 +12,46 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [20.x]
+        go-version: [1.21.x, 1.22.x]
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
         with:
-          node-version: ${{ matrix['node-version'] }}
-          cache: npm
+          go-version: ${{ matrix.go-version }}
+          cache: true
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Download dependencies
+        run: go mod download
+        working-directory: ./sourcecontrol
 
-      - name: Lint (optional)
-        run: npm run lint --if-present
-        continue-on-error: true # Linting is optional
+      - name: Verify dependencies
+        run: go mod verify
+        working-directory: ./sourcecontrol
+
+      - name: Run go vet
+        run: go vet ./...
+        working-directory: ./sourcecontrol
+
+      - name: Run go fmt check
+        run: |
+          if [ -n "$(gofmt -l .)" ]; then
+            echo "Go files must be formatted with gofmt. Please run:"
+            echo "  gofmt -w ."
+            exit 1
+          fi
+        working-directory: ./sourcecontrol
 
       - name: Run tests
-        run: npm test
+        run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+        working-directory: ./sourcecontrol
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./sourcecontrol/coverage.out
+          flags: unittests
+        continue-on-error: true
