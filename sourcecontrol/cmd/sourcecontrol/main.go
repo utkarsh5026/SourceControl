@@ -3,25 +3,77 @@ package main
 import (
 	"fmt"
 	"os"
+
+	"github.com/spf13/cobra"
+	"github.com/utkarsh5026/SourceControl/pkg/common/logger"
 )
 
-// Version information (will be set by build flags)
 var (
 	Version   = "0.1.0-dev"
 	BuildTime = "unknown"
 	CommitSHA = "unknown"
 )
 
+var (
+	logLevel  string
+	logFormat string
+	verbose   bool
+)
+
 func main() {
-	// TODO: Initialize Cobra CLI
-	// TODO: Register commands
-	// TODO: Execute root command
+	rootCmd := &cobra.Command{
+		Use:   "sc",
+		Short: "SourceControl - A Git implementation in Go",
+		Long: `SourceControl is a Git-like version control system implemented in Go.
+It provides familiar commands for managing your source code versions.`,
+		Version: Version,
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			setupLogging()
+		},
+	}
 
-	fmt.Println("SourceControl - Go Implementation")
-	fmt.Printf("Version: %s\n", Version)
-	fmt.Println("Status: Migration in progress")
-	fmt.Println()
-	fmt.Println("This is a work in progress. See MIGRATION_PLAN.md for details.")
+	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "info", "Log level (debug, info, warn, error)")
+	rootCmd.PersistentFlags().StringVar(&logFormat, "log-format", "text", "Log format (text, json)")
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output (sets log level to debug)")
 
-	os.Exit(0)
+	rootCmd.AddCommand(newInitCmd())
+	rootCmd.AddCommand(newStatusCmd())
+	rootCmd.AddCommand(newAddCmd())
+	rootCmd.AddCommand(newCommitCmd())
+	rootCmd.AddCommand(newBranchCmd())
+	rootCmd.AddCommand(newLogCmd())
+
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func setupLogging() {
+	level := logger.LevelInfo
+	if verbose {
+		level = logger.LevelDebug
+	} else {
+		switch logLevel {
+		case "debug":
+			level = logger.LevelDebug
+		case "info":
+			level = logger.LevelInfo
+		case "warn":
+			level = logger.LevelWarn
+		case "error":
+			level = logger.LevelError
+		}
+	}
+
+	format := logger.FormatText
+	if logFormat == "json" {
+		format = logger.FormatJSON
+	}
+
+	logger.Default = logger.New(logger.Config{
+		Level:  level,
+		Format: format,
+		Output: os.Stderr,
+	})
 }
