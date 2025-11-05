@@ -12,8 +12,8 @@ import (
 // Exists checks if a file or directory exists at the given path.
 // Returns true if the path exists, false if it doesn't exist.
 // Returns an error only if there's a filesystem error other than non-existence.
-func Exists(path scpath.AbsolutePath) (bool, error) {
-	_, err := os.Stat(path.String())
+func Exists(p scpath.AbsolutePath) (bool, error) {
+	_, err := os.Stat(p.String())
 	if err == nil {
 		return true, nil
 	}
@@ -56,8 +56,8 @@ func EnsureDirString(path string) error {
 
 // EnsureParentDir ensures that the parent directory of a file exists.
 // This is useful before creating or writing to a file.
-func EnsureParentDir(filePath scpath.AbsolutePath) error {
-	dir := filepath.Dir(filePath.String())
+func EnsureParentDir(p scpath.AbsolutePath) error {
+	dir := filepath.Dir(p.String())
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("ensure parent directory: %w", err)
 	}
@@ -67,8 +67,8 @@ func EnsureParentDir(filePath scpath.AbsolutePath) error {
 // ReadString reads a file and returns its content as a trimmed string.
 // If the file doesn't exist, returns an empty string and nil error.
 // This is useful for optional configuration files.
-func ReadString(path scpath.AbsolutePath) (string, error) {
-	data, err := os.ReadFile(path.String())
+func ReadString(p scpath.AbsolutePath) (string, error) {
+	data, err := os.ReadFile(p.String())
 	if err != nil {
 		if os.IsNotExist(err) {
 			return "", nil
@@ -81,8 +81,8 @@ func ReadString(path scpath.AbsolutePath) (string, error) {
 // ReadStringStrict reads a file and returns its content as a trimmed string.
 // Returns an error if the file doesn't exist.
 // Use this when the file is required to exist.
-func ReadStringStrict(path scpath.AbsolutePath) (string, error) {
-	data, err := os.ReadFile(path.String())
+func ReadStringStrict(p scpath.AbsolutePath) (string, error) {
+	data, err := os.ReadFile(p.String())
 	if err != nil {
 		return "", fmt.Errorf("read file: %w", err)
 	}
@@ -92,8 +92,8 @@ func ReadStringStrict(path scpath.AbsolutePath) (string, error) {
 // ReadBytes reads a file and returns its raw bytes.
 // If the file doesn't exist, returns nil and nil error.
 // This is useful for optional files where you need the raw content.
-func ReadBytes(path scpath.AbsolutePath) ([]byte, error) {
-	data, err := os.ReadFile(path.String())
+func ReadBytes(p scpath.AbsolutePath) ([]byte, error) {
+	data, err := os.ReadFile(p.String())
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
@@ -106,8 +106,8 @@ func ReadBytes(path scpath.AbsolutePath) ([]byte, error) {
 // ReadBytesStrict reads a file and returns its raw bytes.
 // Returns an error if the file doesn't exist.
 // Use this when the file is required to exist.
-func ReadBytesStrict(path scpath.AbsolutePath) ([]byte, error) {
-	data, err := os.ReadFile(path.String())
+func ReadBytesStrict(p scpath.AbsolutePath) ([]byte, error) {
+	data, err := os.ReadFile(p.String())
 	if err != nil {
 		return nil, fmt.Errorf("read file: %w", err)
 	}
@@ -117,11 +117,11 @@ func ReadBytesStrict(path scpath.AbsolutePath) ([]byte, error) {
 // WriteConfig writes data to a configuration file with 0644 permissions.
 // This permission allows the owner to read/write and others to read.
 // Ensures the parent directory exists before writing.
-func WriteConfig(path scpath.AbsolutePath, data []byte) error {
-	if err := EnsureParentDir(path); err != nil {
+func WriteConfig(p scpath.AbsolutePath, data []byte) error {
+	if err := EnsureParentDir(p); err != nil {
 		return err
 	}
-	if err := os.WriteFile(path.String(), data, 0644); err != nil {
+	if err := os.WriteFile(p.String(), data, 0644); err != nil {
 		return fmt.Errorf("write config file: %w", err)
 	}
 	return nil
@@ -131,11 +131,11 @@ func WriteConfig(path scpath.AbsolutePath, data []byte) error {
 // This permission makes the file read-only for everyone.
 // Useful for immutable objects like Git blobs, trees, and commits.
 // Ensures the parent directory exists before writing.
-func WriteReadOnly(path scpath.AbsolutePath, data []byte) error {
-	if err := EnsureParentDir(path); err != nil {
+func WriteReadOnly(p scpath.AbsolutePath, data []byte) error {
+	if err := EnsureParentDir(p); err != nil {
 		return err
 	}
-	if err := os.WriteFile(path.String(), data, 0444); err != nil {
+	if err := os.WriteFile(p.String(), data, 0444); err != nil {
 		return fmt.Errorf("write read-only file: %w", err)
 	}
 	return nil
@@ -143,23 +143,23 @@ func WriteReadOnly(path scpath.AbsolutePath, data []byte) error {
 
 // WriteConfigString writes string content to a configuration file.
 // This is a convenience wrapper around WriteConfig for string content.
-func WriteConfigString(path scpath.AbsolutePath, content string) error {
-	return WriteConfig(path, []byte(content))
+func WriteConfigString(p scpath.AbsolutePath, content string) error {
+	return WriteConfig(p, []byte(content))
 }
 
 // SafeRemove removes a file if it exists.
 // Returns nil if the file doesn't exist (not considered an error).
 // Returns an error only if the removal fails for reasons other than non-existence.
-func SafeRemove(path scpath.AbsolutePath) error {
-	if err := os.Remove(path.String()); err != nil && !os.IsNotExist(err) {
+func SafeRemove(p scpath.AbsolutePath) error {
+	if err := os.Remove(p.String()); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("remove file: %w", err)
 	}
 	return nil
 }
 
 // SafeRemoveString removes a file using a string path.
-func SafeRemoveString(path string) error {
-	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+func SafeRemoveString(p string) error {
+	if err := os.Remove(p); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("remove file: %w", err)
 	}
 	return nil
@@ -167,8 +167,8 @@ func SafeRemoveString(path string) error {
 
 // IsDirectory checks if the path exists and is a directory.
 // Returns false if the path doesn't exist or is not a directory.
-func IsDirectory(path scpath.AbsolutePath) (bool, error) {
-	info, err := os.Stat(path.String())
+func IsDirectory(p scpath.AbsolutePath) (bool, error) {
+	info, err := os.Stat(p.String())
 	if err != nil {
 		if os.IsNotExist(err) {
 			return false, nil
@@ -180,8 +180,8 @@ func IsDirectory(path scpath.AbsolutePath) (bool, error) {
 
 // IsFile checks if the path exists and is a regular file (not a directory).
 // Returns false if the path doesn't exist or is a directory.
-func IsFile(path scpath.AbsolutePath) (bool, error) {
-	info, err := os.Stat(path.String())
+func IsFile(p scpath.AbsolutePath) (bool, error) {
+	info, err := os.Stat(p.String())
 	if err != nil {
 		if os.IsNotExist(err) {
 			return false, nil
