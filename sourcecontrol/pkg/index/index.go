@@ -147,10 +147,6 @@ func (idx *Index) Clear() {
 }
 
 // Paths returns a slice of all staged file paths.
-// The returned slice is a copy and can be safely modified.
-//
-// Returns:
-//   - Slice of relative paths for all staged files
 func (idx *Index) Paths() []scpath.RelativePath {
 	paths := make([]scpath.RelativePath, len(idx.Entries))
 	for i, e := range idx.Entries {
@@ -160,8 +156,6 @@ func (idx *Index) Paths() []scpath.RelativePath {
 }
 
 // Count returns the total number of staged files in the index.
-//
-// Returns the number of entries.
 func (idx *Index) Count() int {
 	return len(idx.Entries)
 }
@@ -210,11 +204,6 @@ func (idx *Index) Serialize(w io.Writer) error {
 //   - Signature: "DIRC" (4 bytes)
 //   - Version: uint32 big-endian (4 bytes)
 //   - Entry count: uint32 big-endian (4 bytes)
-//
-// Parameters:
-//   - w: Writer to output the header
-//
-// Returns an error if any write operation fails.
 func (idx *Index) writeHeader(w io.Writer) error {
 	if _, err := w.Write([]byte(IndexSignature)); err != nil {
 		return fmt.Errorf("failed to write signature: %w", err)
@@ -276,13 +265,6 @@ func (idx *Index) Deserialize(r io.Reader) error {
 
 // validateChecksum verifies the SHA-1 checksum of the index data.
 // This ensures the index file hasn't been corrupted or tampered with.
-//
-// Parameters:
-//   - data: Complete index file data including checksum
-//
-// Returns an error if:
-//   - Data is too small to contain a checksum
-//   - Calculated checksum doesn't match stored checksum
 func validateChecksum(data []byte) error {
 	if len(data) < IndexHeaderSize+IndexChecksumSize {
 		return fmt.Errorf("invalid index file: too small")
@@ -301,14 +283,6 @@ func validateChecksum(data []byte) error {
 
 // readHeader reads and validates the 12-byte index header.
 // Initializes the Entries slice based on the entry count from the header.
-//
-// Parameters:
-//   - r: Reader positioned at the start of the index data
-//
-// Returns an error if:
-//   - Signature is not "DIRC"
-//   - Version is not supported (currently only version 2)
-//   - Any read operation fails
 func (idx *Index) readHeader(r io.Reader) error {
 	sig := make([]byte, 4)
 	if _, err := io.ReadFull(r, sig); err != nil {

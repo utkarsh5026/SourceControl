@@ -37,16 +37,22 @@ func setupTestRepo(t *testing.T) (*sourcerepo.SourceRepository, string) {
 func setupTestConfig(t *testing.T, repo *sourcerepo.SourceRepository) {
 	t.Helper()
 
-	// Use environment variables for test configuration
-	// This is what the manager falls back to anyway
-	os.Setenv("GIT_AUTHOR_NAME", "Test User")
-	os.Setenv("GIT_AUTHOR_EMAIL", "test@example.com")
-
-	// Cleanup function to restore environment
+	// Create a temporary HOME directory to isolate config files
+	// This prevents tests from reading/writing to the real user config
+	tempHome, err := os.MkdirTemp("", "test-home-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp home dir: %v", err)
+	}
 	t.Cleanup(func() {
-		os.Unsetenv("GIT_AUTHOR_NAME")
-		os.Unsetenv("GIT_AUTHOR_EMAIL")
+		os.RemoveAll(tempHome)
 	})
+
+	// Use t.Setenv for test-scoped environment variables
+	// This is safe for parallel test execution and handles cleanup automatically
+	t.Setenv("HOME", tempHome)           // Unix/Linux
+	t.Setenv("USERPROFILE", tempHome)   // Windows
+	t.Setenv("GIT_AUTHOR_NAME", "Test User")
+	t.Setenv("GIT_AUTHOR_EMAIL", "test@example.com")
 }
 
 // addFileToIndex adds a file to the index
