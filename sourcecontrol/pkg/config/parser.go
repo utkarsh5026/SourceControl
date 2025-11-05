@@ -15,6 +15,18 @@ type ValidationResult struct {
 	Errors []string
 }
 
+// parseContext holds common parsing parameters
+type parseContext struct {
+	result map[string][]*ConfigEntry
+	source ConfigSource
+	level  ConfigLevel
+}
+
+// validationContext holds validation state
+type validationContext struct {
+	errors *[]string
+}
+
 // Parse parses JSON configuration content into a map of entries
 func (p *Parser) Parse(content string, source ConfigSource, level ConfigLevel) (map[string][]*ConfigEntry, error) {
 	result := make(map[string][]*ConfigEntry)
@@ -28,7 +40,13 @@ func (p *Parser) Parse(content string, source ConfigSource, level ConfigLevel) (
 		return nil, NewInvalidFormatError("parse", source.String(), fmt.Errorf("%w: %v", ErrInvalidFormat, err))
 	}
 
-	if err := p.parseSection(configData, result, source, level, ""); err != nil {
+	ctx := &parseContext{
+		result: result,
+		source: source,
+		level:  level,
+	}
+
+	if err := p.parseSection(configData, ctx, ""); err != nil {
 		return nil, err
 	}
 
@@ -71,25 +89,26 @@ func (p *Parser) Validate(content string) ValidationResult {
 		return ValidationResult{Valid: false, Errors: errors}
 	}
 
-	p.validateSection(configMap, "", &errors)
+	ctx := &validationContext{errors: &errors}
+	p.validateSection(configMap, "", ctx)
 	return ValidationResult{Valid: len(errors) == 0, Errors: errors}
 }
 
 // FormatForDisplay creates a pretty-formatted JSON string for display
 // Only includes the last (effective) value for each key
 func (p *Parser) FormatForDisplay(entries map[string][]*ConfigEntry) (string, error) {
-	configData := NewConfigFileStructure()
+	cfg := NewConfigFileStructure()
 
 	for fullKey, entryList := range entries {
 		if len(entryList) > 0 {
 			effectiveEntry := entryList[len(entryList)-1]
-			if err := configData.SetNestedValue(fullKey, effectiveEntry.Value); err != nil {
+			if err := cfg.SetNestedValue(fullKey, effectiveEntry.Value); err != nil {
 				return "", err
 			}
 		}
 	}
 
-	data, err := json.MarshalIndent(configData, "", "  ")
+	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
 		return "", NewInvalidFormatError("format", "", fmt.Errorf("%w: %v", ErrInvalidFormat, err))
 	}
@@ -98,16 +117,10 @@ func (p *Parser) FormatForDisplay(entries map[string][]*ConfigEntry) (string, er
 }
 
 // parseSection recursively parses sections and subsections
-func (p *Parser) parseSection(
-	configData *ConfigFileStructure,
-	result map[string][]*ConfigEntry,
-	source ConfigSource,
-	level ConfigLevel,
-	keyPrefix string,
-) error {
-	return configData.Range(func(sectionKey string, sectionValue any) error {
-		fullKey := p.buildFullKey(keyPrefix, sectionKey)
-		return p.processConfigValue(fullKey, sectionValue, result, source, level)
+func (p *Parser) parseSection(cfg *ConfigFileStructure, ctx *parseContext, keyPrefix string) error {
+	return cfg.Range(func(k string, v any) error {
+		fullKey := p.buildFullKey(keyPrefix, k)
+		return p.processConfigValue(fullKey, v, ctx)
 	})
 }
 
@@ -120,79 +133,59 @@ func (p *Parser) buildFullKey(prefix, key string) string {
 }
 
 // processConfigValue processes a configuration value based on its type
-func (p *Parser) processConfigValue(
-	key string,
-	value any,
-	result map[string][]*ConfigEntry,
-	source ConfigSource,
-	level ConfigLevel,
-) error {
+func (p *Parser) processConfigValue(key string, value any, ctx *parseContext) error {
 	switch v := value.(type) {
 	case []any:
-		return p.processArrayValue(key, v, result, source, level)
+		return p.processArrayValue(key, v, ctx)
 	case map[string]any:
-		// Create a ConfigFileStructure from the nested map
 		nestedConfig := &ConfigFileStructure{data: v}
-		return p.parseSection(nestedConfig, result, source, level, key)
+		return p.parseSection(nestedConfig, ctx, key)
 	case string:
-		p.addEntry(result, key, v, source, level)
+		p.addEntry(ctx, key, v)
 		return nil
 	default:
-		// Convert other types to string
-		p.addEntry(result, key, fmt.Sprintf("%v", v), source, level)
+		p.addEntry(ctx, key, fmt.Sprintf("%v", v))
 		return nil
 	}
 }
 
 // processArrayValue processes array configuration values
-func (p *Parser) processArrayValue(
-	key string,
-	values []any,
-	result map[string][]*ConfigEntry,
-	source ConfigSource,
-	level ConfigLevel,
-) error {
+func (p *Parser) processArrayValue(key string, values []any, ctx *parseContext) error {
 	for _, item := range values {
 		if strVal, ok := item.(string); ok {
-			p.addEntry(result, key, strVal, source, level)
+			p.addEntry(ctx, key, strVal)
 		} else {
-			p.addEntry(result, key, fmt.Sprintf("%v", item), source, level)
+			p.addEntry(ctx, key, fmt.Sprintf("%v", item))
 		}
 	}
 	return nil
 }
 
 // addEntry adds a configuration entry to the result map
-func (p *Parser) addEntry(
-	entryMap map[string][]*ConfigEntry,
-	configKey string,
-	configValue string,
-	source ConfigSource,
-	level ConfigLevel,
-) {
-	if _, exists := entryMap[configKey]; !exists {
-		entryMap[configKey] = []*ConfigEntry{}
+func (p *Parser) addEntry(ctx *parseContext, configKey string, configValue string) {
+	if _, exists := ctx.result[configKey]; !exists {
+		ctx.result[configKey] = []*ConfigEntry{}
 	}
 
-	entry := NewEntry(configKey, configValue, level, source, 0)
-	entryMap[configKey] = append(entryMap[configKey], entry)
+	entry := NewEntry(configKey, configValue, ctx.level, ctx.source, 0)
+	ctx.result[configKey] = append(ctx.result[configKey], entry)
 }
 
 // validateSection validates a configuration section
-func (p *Parser) validateSection(configSection map[string]any, currentPath string, errors *[]string) {
+func (p *Parser) validateSection(configSection map[string]any, currentPath string, ctx *validationContext) {
 	for key, value := range configSection {
 		valuePath := p.buildFullKey(currentPath, key)
-		p.validateConfigValue(valuePath, value, errors)
+		p.validateConfigValue(valuePath, value, ctx)
 	}
 }
 
 // validateConfigValue validates a single configuration value
-func (p *Parser) validateConfigValue(path string, value any, errors *[]string) {
+func (p *Parser) validateConfigValue(path string, value any, ctx *validationContext) {
 	switch v := value.(type) {
 	case []any:
-		p.validateArrayValue(path, v, errors)
+		p.validateArrayValue(path, v, ctx)
 	case map[string]any:
-		p.validateSection(v, path, errors)
+		p.validateSection(v, path, ctx)
 	case string:
 		// Valid
 	default:
@@ -201,13 +194,13 @@ func (p *Parser) validateConfigValue(path string, value any, errors *[]string) {
 }
 
 // validateArrayValue validates array configuration values
-func (p *Parser) validateArrayValue(path string, values []any, errors *[]string) {
+func (p *Parser) validateArrayValue(path string, values []any, ctx *validationContext) {
 	for _, item := range values {
 		switch item.(type) {
 		case string:
 			// Valid
 		case map[string]any:
-			*errors = append(*errors, fmt.Sprintf("Configuration array at '%s' cannot contain objects", path))
+			*ctx.errors = append(*ctx.errors, fmt.Sprintf("Configuration array at '%s' cannot contain objects", path))
 		default:
 			// Other types are allowed and will be converted to strings
 		}
