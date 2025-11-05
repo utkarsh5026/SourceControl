@@ -7,6 +7,13 @@ import (
 )
 
 func TestInitCommand(t *testing.T) {
+	// Save and restore current directory
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get working directory: %v", err)
+	}
+	defer os.Chdir(origDir)
+
 	// Create test helper - automatically cleans up after test
 	th := NewTestHelper(t)
 	th.Chdir()
@@ -15,7 +22,7 @@ func TestInitCommand(t *testing.T) {
 	cmd := newInitCmd()
 	cmd.SetArgs([]string{})
 
-	err := cmd.Execute()
+	err = cmd.Execute()
 	if err != nil {
 		t.Fatalf("init command failed: %v", err)
 	}
@@ -42,6 +49,13 @@ func TestInitCommand(t *testing.T) {
 }
 
 func TestInitCommandWithExistingRepo(t *testing.T) {
+	// Save and restore current directory
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get working directory: %v", err)
+	}
+	defer os.Chdir(origDir)
+
 	th := NewTestHelper(t)
 	th.Chdir()
 
@@ -55,7 +69,7 @@ func TestInitCommandWithExistingRepo(t *testing.T) {
 	// Try to initialize again - should fail
 	cmd2 := newInitCmd()
 	cmd2.SetArgs([]string{})
-	err := cmd2.Execute()
+	err = cmd2.Execute()
 
 	if err == nil {
 		t.Error("expected error when reinitializing repository, got nil")
