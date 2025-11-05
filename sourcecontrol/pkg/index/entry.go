@@ -16,16 +16,6 @@ import (
 
 // Entry represents a single file entry in the Git index (staging area).
 //
-// Each entry contains comprehensive metadata about a file that enables Git
-// to efficiently track changes and detect modifications. The entry structure
-// closely mirrors Git's index format version 2.
-//
-// Structure Details:
-//   - Timestamps: Creation and modification times with nanosecond precision
-//   - File System Metadata: Device ID, inode, permissions for change detection
-//   - Content Hash: SHA-1 hash of the file's blob object in the object database
-//   - Staging Flags: Indicates merge conflicts and optimization hints
-//
 // Binary Layout:
 //   - Fixed header: 62 bytes (timestamps, metadata, hash, flags)
 //   - Variable path: null-terminated file path relative to repository root
@@ -92,11 +82,6 @@ type Entry struct {
 //
 // The path is automatically normalized to ensure consistency across
 // different platforms (e.g., converting backslashes to forward slashes).
-//
-// Default values:
-//   - Mode: FileModeRegular (0100644 - regular file with standard permissions)
-//   - AssumeValid: false (file changes should be tracked)
-//   - Stage: 0 (no merge conflict)
 func NewEntry(path scpath.RelativePath) *Entry {
 	return &Entry{
 		Path:        path.Normalize(),
@@ -115,47 +100,27 @@ func NewEntry(path scpath.RelativePath) *Entry {
 //   - path: Relative path to the file from repository root
 //   - info: File system information from os.Stat() or os.Lstat()
 //   - hash: SHA-1 hash of the file's content (blob object hash)
-//
-// The function extracts:
-//   - File size from info.Size()
-//   - File mode (type + permissions) from info.Mode()
-//   - Modification time from info.ModTime()
-//   - Platform-specific metadata (device ID, inode, user ID, group ID)
 func NewEntryFromFileInfo(path scpath.RelativePath, info os.FileInfo, hash objects.ObjectHash) (*Entry, error) {
 	if !path.IsValid() {
 		return nil, fmt.Errorf("invalid path: %s", path)
 	}
 
-	entry := NewEntry(path)
-	entry.SizeInBytes = uint32(info.Size())
-	entry.Mode = FileMode(info.Mode())
-	entry.BlobHash = hash
+	e := NewEntry(path)
+	e.SizeInBytes = uint32(info.Size())
+	e.Mode = FileMode(info.Mode())
+	e.BlobHash = hash
 
-	// Set timestamps
 	modTime := info.ModTime()
-	entry.ModificationTime = common.NewTimestampFromTime(modTime)
-	entry.CreationTime = common.NewTimestampFromTime(modTime)
+	e.ModificationTime = common.NewTimestampFromTime(modTime)
+	e.CreationTime = common.NewTimestampFromTime(modTime)
 
 	// Extract platform-specific metadata (device, inode, uid, gid)
-	entry.DeviceID, entry.Inode, entry.UserID, entry.GroupID = extractSystemMetadata(info)
+	e.DeviceID, e.Inode, e.UserID, e.GroupID = extractSystemMetadata(info)
 
-	return entry, nil
+	return e, nil
 }
 
 // IsModified checks if the entry has been modified compared to file stats.
-//
-// This method performs Git's "racy git" check to detect if a file has changed
-// since it was added to the index. It compares cached metadata against current
-// file system information.
-//
-// The check is optimized for performance:
-//  1. If AssumeValid is true, returns false immediately (skip-worktree optimization)
-//  2. Compares file size - most changes affect size
-//  3. Compares modification time - catches remaining changes
-//
-// Note: This is a heuristic check. A file could theoretically be modified
-// and restored to the same size and mtime, though this is extremely rare.
-// Git handles this by eventually comparing content hashes.
 //
 // Parameters:
 //   - info: Current file system information from os.Stat()
@@ -173,11 +138,7 @@ func (e *Entry) IsModified(info os.FileInfo) bool {
 	}
 
 	mtimeSeconds := info.ModTime().Unix()
-	if int64(e.ModificationTime.Seconds) != mtimeSeconds {
-		return true
-	}
-
-	return false
+	return int64(e.ModificationTime.Seconds) != mtimeSeconds
 }
 
 // CompareTo compares this entry with another for sorting.
@@ -187,13 +148,6 @@ func (e *Entry) IsModified(info os.FileInfo) bool {
 //  1. Entries are sorted lexicographically by path
 //  2. Directories are treated as having a trailing '/' character
 //  3. This ensures proper tree structure: parent directories sort before files
-//
-// The comparison is case-sensitive and uses byte-wise comparison.
-//
-// Returns:
-//   - negative value if this entry should sort before other
-//   - zero if entries are equal
-//   - positive value if this entry should sort after other
 func (e *Entry) CompareTo(other *Entry) int {
 	thisKey := e.Path.String()
 	otherKey := other.Path.String()
@@ -209,16 +163,6 @@ func (e *Entry) CompareTo(other *Entry) int {
 }
 
 // Serialize writes the entry in Git's index binary format.
-//
-// The entry is serialized to match Git's index version 2 format:
-//  1. Fixed 62-byte header (timestamps, metadata, hash, flags)
-//  2. Null-terminated file path
-//  3. Padding to align to 8-byte boundary
-//
-// The 8-byte alignment is crucial for:
-//   - Efficient memory-mapped I/O
-//   - Consistent entry boundaries during binary search
-//   - Compatibility with Git's index reading code
 //
 // Binary Layout Example:
 //
@@ -238,6 +182,7 @@ func (e *Entry) Serialize(w io.Writer) error {
 	if _, err := buf.WriteString(e.Path.String()); err != nil {
 		return fmt.Errorf("failed to write path: %w", err)
 	}
+
 	if err := buf.WriteByte(objects.NullByte); err != nil {
 		return fmt.Errorf("failed to write null terminator: %w", err)
 	}
@@ -247,7 +192,7 @@ func (e *Entry) Serialize(w io.Writer) error {
 	paddedSize := (entrySize + AlignmentBoundary - 1) / AlignmentBoundary * AlignmentBoundary
 	padding := paddedSize - entrySize
 
-	for i := 0; i < padding; i++ {
+	for range padding {
 		if err := buf.WriteByte(0); err != nil {
 			return fmt.Errorf("failed to write padding: %w", err)
 		}
@@ -261,18 +206,6 @@ func (e *Entry) Serialize(w io.Writer) error {
 }
 
 // writeFixedFields writes the 62-byte fixed header portion of the entry.
-//
-// The header contains:
-//   - 8 bytes: creation time (4 bytes seconds + 4 bytes nanoseconds)
-//   - 8 bytes: modification time (4 bytes seconds + 4 bytes nanoseconds)
-//   - 4 bytes: device ID
-//   - 4 bytes: inode number
-//   - 4 bytes: mode (file type + permissions)
-//   - 4 bytes: user ID
-//   - 4 bytes: group ID
-//   - 4 bytes: file size
-//   - 20 bytes: SHA-1 hash
-//   - 2 bytes: flags
 //
 // All multi-byte integers are written in big-endian (network) byte order
 // for cross-platform compatibility.
@@ -342,12 +275,6 @@ func (e *Entry) writeTimestampsAndMetadata(w io.Writer) error {
 //  2. Null-terminated path string
 //  3. Padding bytes to 8-byte boundary
 //
-// The method validates:
-//   - Sufficient data for fixed header
-//   - Valid SHA-1 hash format
-//   - Valid path format (relative, no absolute paths)
-//   - Unsupported extended flags (index version 3+)
-//
 // Parameters:
 //   - r: Reader containing binary index entry data
 //
@@ -372,12 +299,6 @@ func (e *Entry) Deserialize(r io.Reader) (int, error) {
 }
 
 // readFixedFields parses the 62-byte fixed header from raw bytes.
-//
-// Extracts all metadata fields in the correct order:
-//   - Timestamps (creation and modification)
-//   - File system metadata (device, inode, mode, ownership, size)
-//   - Content hash (20-byte SHA-1)
-//   - Flags (assume-valid, stage, extended bit)
 //
 // Validates that extended flags are not set, as this implementation
 // only supports Git index version 2.
@@ -443,14 +364,6 @@ func (e *Entry) readTimestamp(r io.Reader) error {
 
 // readMetadata reads file system metadata fields from the header.
 //
-// Extracts:
-//   - Device ID: Identifies the file system device
-//   - Inode: File system inode number
-//   - Mode: File type and permissions
-//   - User ID: Numeric owner ID
-//   - Group ID: Numeric group ID
-//   - Size: File size in bytes
-//
 // All fields are 32-bit unsigned integers in big-endian format.
 func (e *Entry) readMetadata(r io.Reader) error {
 	if err := binary.Read(r, binary.BigEndian, &e.DeviceID); err != nil {
@@ -484,10 +397,6 @@ func (e *Entry) readMetadata(r io.Reader) error {
 // The hash is stored as raw bytes and converted to a hex string
 // for internal representation. It represents the object ID of
 // the blob object containing the file's contents.
-//
-// Returns an error if:
-//   - Fewer than 20 bytes are available
-//   - The hash format is invalid
 func (e *Entry) readHash(r io.Reader) error {
 	hashBytes := make([]byte, SHALength)
 	if _, err := io.ReadFull(r, hashBytes); err != nil {
@@ -543,11 +452,6 @@ func (e *Entry) readFilePath(r io.Reader) error {
 //   - Memory-mapped file performance
 //   - Consistent entry offsets for binary search
 //   - Cache line efficiency
-//
-// The padding calculation:
-//
-//	paddedSize = ((headerSize + pathLen + 1) + 7) / 8 * 8
-//	padding = paddedSize - (headerSize + pathLen + 1)
 //
 // Returns the total size of the entry including padding.
 func (e *Entry) calculatePadding(r io.Reader) (int, error) {
