@@ -11,9 +11,10 @@ import (
 
 // TestHelper provides utilities for CLI command testing
 type TestHelper struct {
-	t       *testing.T
-	tempDir string
-	repo    *sourcerepo.SourceRepository
+	t        *testing.T
+	tempDir  string
+	repo     *sourcerepo.SourceRepository
+	RepoPath string
 }
 
 // NewTestHelper creates a new test helper with automatic cleanup
@@ -24,8 +25,9 @@ func NewTestHelper(t *testing.T) *TestHelper {
 	tempDir := t.TempDir()
 
 	return &TestHelper{
-		t:       t,
-		tempDir: tempDir,
+		t:        t,
+		tempDir:  tempDir,
+		RepoPath: tempDir,
 	}
 }
 
