@@ -3,8 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
 	"time"
 
+	"github.com/charmbracelet/lipgloss"
+	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 	"github.com/utkarsh5026/SourceControl/pkg/commitmanager"
 	"github.com/utkarsh5026/SourceControl/pkg/objects"
@@ -12,6 +16,7 @@ import (
 
 func newLogCmd() *cobra.Command {
 	var limit int
+	var useTable bool
 
 	cmd := &cobra.Command{
 		Use:   "log",
@@ -40,15 +45,14 @@ Displays the commit history starting from the current HEAD.`,
 
 			// Display commits
 			if len(history) == 0 {
-				fmt.Println("No commits yet")
+				fmt.Println(colorYellow("📝 No commits yet"))
 				return nil
 			}
 
-			for _, commit := range history {
-				fmt.Printf("%s commit %s\n", colorYellow("commit"), commit.SHA.String())
-				fmt.Printf("Author: %s <%s>\n", commit.Author.Name, commit.Author.Email)
-				fmt.Printf("Date:   %s\n\n", commit.Author.When.Time().Format(time.RFC1123))
-				fmt.Printf("    %s\n\n", commit.Message)
+			if useTable {
+				displayCommitsAsTable(history)
+			} else {
+				displayCommitsDetailed(history)
 			}
 
 			return nil
@@ -56,6 +60,93 @@ Displays the commit history starting from the current HEAD.`,
 	}
 
 	cmd.Flags().IntVarP(&limit, "limit", "n", 20, "Limit the number of commits to show")
+	cmd.Flags().BoolVarP(&useTable, "table", "t", false, "Display commits in table format")
 
 	return cmd
+}
+
+// displayCommitsDetailed shows commits in a detailed, beautiful format
+func displayCommitsDetailed(history []*commitmanager.CommitResult) {
+	fmt.Println(renderHeader(" Commit History "))
+	fmt.Println()
+
+	commitBoxStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("#5F5FFF")).
+		Padding(1, 2).
+		MarginBottom(1)
+
+	commitHashStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#FFD700")).
+		Bold(true)
+
+	authorStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#00BFFF"))
+
+	dateStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#888888")).
+		Italic(true)
+
+	messageStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#FFFFFF")).
+		MarginTop(1)
+
+	for i, commit := range history {
+		var content strings.Builder
+
+		// Commit hash with icon
+		content.WriteString(fmt.Sprintf("%s %s\n",
+			colorYellow(IconCommit),
+			commitHashStyle.Render(commit.SHA.String())))
+
+		// Author
+		content.WriteString(fmt.Sprintf("%s %s\n",
+			colorCyan(IconAuthor),
+			authorStyle.Render(fmt.Sprintf("%s <%s>", commit.Author.Name, commit.Author.Email))))
+
+		// Date
+		content.WriteString(fmt.Sprintf("%s %s\n",
+			colorMagenta(IconDate),
+			dateStyle.Render(commit.Author.When.Time().Format(time.RFC1123))))
+
+		// Message
+		content.WriteString(messageStyle.Render("\n" + commit.Message))
+
+		fmt.Println(commitBoxStyle.Render(content.String()))
+
+		// Add separator between commits (except last one)
+		if i < len(history)-1 {
+			fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("#444444")).Render("  │"))
+		}
+	}
+}
+
+// displayCommitsAsTable shows commits in a compact table format
+func displayCommitsAsTable(history []*commitmanager.CommitResult) {
+	fmt.Println(renderHeader(" Commit History "))
+	fmt.Println()
+
+	table := tablewriter.NewWriter(os.Stdout)
+	table.Header("Commit", "Author", "Date", "Message")
+
+	for _, commit := range history {
+		shortHash := commit.SHA.String()
+		if len(shortHash) > 8 {
+			shortHash = shortHash[:8]
+		}
+
+		message := commit.Message
+		if len(message) > 50 {
+			message = message[:47] + "..."
+		}
+
+		table.Append(
+			colorYellow(shortHash),
+			colorCyan(commit.Author.Name),
+			colorMagenta(commit.Author.When.Time().Format("2006-01-02 15:04")),
+			message,
+		)
+	}
+
+	table.Render()
 }

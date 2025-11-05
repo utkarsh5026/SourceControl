@@ -28,25 +28,35 @@ Displays which files are modified, staged, untracked, etc.`,
 			// Get current branch
 			branchName := "master" // Default branch name
 
-			// Display status
-			fmt.Printf("On branch %s\n\n", branchName)
+			// Display beautiful status
+			fmt.Println(renderHeader(" Repository Status "))
+			fmt.Printf("%s %s\n\n", colorCyan(IconBranch), colorBlue("Branch: "+branchName))
 
 			if status.Clean {
-				fmt.Println("nothing to commit, working tree clean")
+				fmt.Println(colorGreen(fmt.Sprintf("  %s  Working tree clean - nothing to commit", IconCheck)))
 			} else {
+				hasChanges := false
+
 				if len(status.ModifiedFiles) > 0 {
-					fmt.Println("Changes not staged for commit:")
+					hasChanges = true
+					fmt.Println(renderSection("Changes not staged for commit:"))
 					for _, path := range status.ModifiedFiles {
-						fmt.Printf("  modified: %s\n", path)
+						fmt.Println(formatModified(string(path)))
 					}
 					fmt.Println()
 				}
+
 				if len(status.DeletedFiles) > 0 {
-					fmt.Println("Deleted files:")
+					hasChanges = true
+					fmt.Println(renderSection("Deleted files:"))
 					for _, path := range status.DeletedFiles {
-						fmt.Printf("  deleted: %s\n", path)
+						fmt.Println(formatDeleted(string(path)))
 					}
 					fmt.Println()
+				}
+
+				if hasChanges {
+					fmt.Println(colorYellow("  💡 Use 'sc add <file>' to stage changes for commit"))
 				}
 			}
 
