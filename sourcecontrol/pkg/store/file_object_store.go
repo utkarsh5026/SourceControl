@@ -208,6 +208,11 @@ func (f *FileObjectStore) ReadObject(hash objects.ObjectHash) (objects.BaseObjec
 		return nil, fmt.Errorf("failed to read object file: %w", err)
 	}
 
+	// If object doesn't exist, return nil
+	if compressed == nil {
+		return nil, nil
+	}
+
 	decompressed, err := compressed.Decompress()
 	if err != nil {
 		return nil, fmt.Errorf("failed to decompress object: %w", err)
