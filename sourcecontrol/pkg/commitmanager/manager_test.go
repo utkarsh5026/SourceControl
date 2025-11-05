@@ -55,6 +55,10 @@ func addFileToIndex(t *testing.T, repo *sourcerepo.SourceRepository, filename, c
 
 	// Write file to working directory
 	filePath := filepath.Join(repo.WorkingDirectory().String(), filename)
+	// Create parent directories if they don't exist
+	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+		t.Fatalf("Failed to create directory for %s: %v", filename, err)
+	}
 	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
 		t.Fatalf("Failed to write file %s: %v", filename, err)
 	}
