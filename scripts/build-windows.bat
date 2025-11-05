@@ -12,7 +12,7 @@ echo.
 REM Set build directory
 set BUILD_DIR=%~dp0..\sourcecontrol
 set OUTPUT_DIR=%USERPROFILE%\.sourcecontrol\bin
-set OUTPUT_FILE=%OUTPUT_DIR%\sc.exe
+set OUTPUT_FILE=%OUTPUT_DIR%\srcc.exe
 
 REM Get version info
 for /f "tokens=*" %%i in ('git rev-parse --short HEAD 2^>nul') do set COMMIT_SHA=%%i
@@ -23,7 +23,7 @@ for /f "tokens=*" %%i in ('powershell -Command "Get-Date -Format 'yyyy-MM-dd_HH:
 set VERSION=0.1.0
 
 echo [1/5] Cleaning previous builds...
-if exist "%OUTPUT_DIR%\sc.exe" del /q "%OUTPUT_DIR%\sc.exe"
+if exist "%OUTPUT_DIR%\srcc.exe" del /q "%OUTPUT_DIR%\srcc.exe"
 
 echo [2/5] Creating output directory...
 if not exist "%OUTPUT_DIR%" mkdir "%OUTPUT_DIR%"
@@ -53,22 +53,22 @@ if errorlevel 1 (
     echo Adding to PATH...
     setx PATH "%PATH%;%OUTPUT_DIR%"
     echo.
-    echo ⚠️  PATH updated! Please restart your terminal for changes to take effect.
+    echo  PATH updated! Please restart your terminal for changes to take effect.
 ) else (
     echo PATH already configured.
 )
 
 echo.
 echo ========================================
-echo   ✅ Build completed successfully!
+echo   Build completed successfully!
 echo ========================================
 echo.
 echo Executable location: %OUTPUT_FILE%
 echo.
 echo You can now run:
-echo   sc --help
+echo   srcc --help
 echo.
-echo If 'sc' is not recognized, restart your terminal.
+echo If 'srcc' is not recognized, restart your terminal.
 echo.
 
 endlocal

@@ -22,7 +22,7 @@ var (
 
 func main() {
 	rootCmd := &cobra.Command{
-		Use:     "sc",
+		Use:     "srcc",
 		Short:   "SourceControl - A Git implementation in Go",
 		Long:    getBanner(),
 		Version: fmt.Sprintf("%s (built: %s, commit: %s)", Version, BuildTime, CommitSHA),
@@ -78,9 +78,9 @@ func getBanner() string {
   🔧 Familiar Git-style commands
   💻 Built with Go for performance
 
-  Get started with: sc init
-  Check status with: sc status
-  Need help? Run:   sc --help
+  Get started with: srcc init
+  Check status with: srcc status
+  Need help? Run:   srcc --help
 
 `
 }
