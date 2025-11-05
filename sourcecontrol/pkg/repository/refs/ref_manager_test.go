@@ -256,8 +256,8 @@ func TestRefManager_ResolveToSHA(t *testing.T) {
 		{
 			name: "chained symbolic references",
 			setupRefs: map[RefPath]string{
-				"refs/heads/alias":  "ref: refs/heads/main",
-				"refs/heads/main":   sha,
+				"refs/heads/alias": "ref: refs/heads/main",
+				"refs/heads/main":  sha,
 			},
 			resolveRef:  "refs/heads/alias",
 			expectedSHA: sha,

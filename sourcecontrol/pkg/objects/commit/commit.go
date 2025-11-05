@@ -291,7 +291,6 @@ func (c *Commit) IsMergeCommit() bool {
 	return len(c.ParentSHAs) > 1
 }
 
-
 // ShortSHA returns the first 7 characters of the commit SHA
 func (c *Commit) ShortSHA() (objects.ShortHash, error) {
 	hash, err := c.Hash()

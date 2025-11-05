@@ -229,9 +229,9 @@ func TestBranchManager_RenameBranch(t *testing.T) {
 // TestBranchManager_ValidateBranchName tests branch name validation
 func TestBranchManager_ValidateBranchName(t *testing.T) {
 	testCases := []struct {
-		name      string
+		name       string
 		branchName string
-		shouldErr bool
+		shouldErr  bool
 	}{
 		{"Valid simple name", "feature", false},
 		{"Valid with slash", "feature/new", false},

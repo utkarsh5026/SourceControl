@@ -541,9 +541,9 @@ func TestEntryDeserializeErrors(t *testing.T) {
 // TestEntrySerializationPadding tests that serialization includes proper padding
 func TestEntrySerializationPadding(t *testing.T) {
 	tests := []struct {
-		name     string
-		pathLen  int
-		path     string
+		name    string
+		pathLen int
+		path    string
 	}{
 		{
 			name:    "short path",

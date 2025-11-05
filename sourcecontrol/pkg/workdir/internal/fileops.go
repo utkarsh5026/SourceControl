@@ -128,7 +128,6 @@ func (f *FileOps) deleteFile(path scpath.RelativePath) error {
 	return nil
 }
 
-
 // cleanEmptyParents recursively removes empty directories up to the working directory root
 func (f *FileOps) cleanEmptyParents(dir scpath.AbsolutePath) error {
 	rel, err := filepath.Rel(f.workDir.String(), dir.String())

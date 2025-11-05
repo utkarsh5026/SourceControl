@@ -39,38 +39,38 @@ func findRepository() (*sourcerepo.SourceRepository, error) {
 // Lipgloss styles for beautiful CLI output
 var (
 	// Colors
-	colorGreenStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF00")).Bold(true)
-	colorRedStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0000")).Bold(true)
-	colorYellowStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFD700")).Bold(true)
-	colorBlueStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#00BFFF")).Bold(true)
-	colorCyanStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FFFF"))
+	colorGreenStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF00")).Bold(true)
+	colorRedStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0000")).Bold(true)
+	colorYellowStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFD700")).Bold(true)
+	colorBlueStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#00BFFF")).Bold(true)
+	colorCyanStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FFFF"))
 	colorMagentaStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF00FF"))
 
 	// Status indicators
-	modifiedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFA500")).Bold(true)
-	deletedStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF4444")).Bold(true)
-	addedStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF00")).Bold(true)
+	modifiedStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFA500")).Bold(true)
+	deletedStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF4444")).Bold(true)
+	addedStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF00")).Bold(true)
 	untrackedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#888888"))
 
 	// Headers
 	headerStyle = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("#FFFFFF")).
-		Background(lipgloss.Color("#5F5FFF")).
-		Padding(0, 1).
-		MarginBottom(1)
+			Bold(true).
+			Foreground(lipgloss.Color("#FFFFFF")).
+			Background(lipgloss.Color("#5F5FFF")).
+			Padding(0, 1).
+			MarginBottom(1)
 
 	// Info box
 	infoStyle = lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("#00BFFF")).
-		Padding(0, 1)
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#00BFFF")).
+			Padding(0, 1)
 
 	// Section header
 	sectionStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#FFFFFF")).
-		Bold(true).
-		Underline(true)
+			Foreground(lipgloss.Color("#FFFFFF")).
+			Bold(true).
+			Underline(true)
 )
 
 // Icons for different file states

@@ -2,8 +2,8 @@ package blob
 
 import (
 	"bytes"
-	"testing"
 	"github.com/utkarsh5026/SourceControl/pkg/objects"
+	"testing"
 )
 
 func TestNewBlob(t *testing.T) {

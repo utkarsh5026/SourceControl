@@ -22,39 +22,39 @@ func TestNewPatternSet(t *testing.T) {
 
 func TestPatternSet_Add(t *testing.T) {
 	tests := []struct {
-		name                    string
-		patterns                []string
-		wantPatternsCount       int
+		name                      string
+		patterns                  []string
+		wantPatternsCount         int
 		wantNegationPatternsCount int
 	}{
 		{
-			name:              "add single ignore pattern",
-			patterns:          []string{"*.log"},
-			wantPatternsCount: 1,
+			name:                      "add single ignore pattern",
+			patterns:                  []string{"*.log"},
+			wantPatternsCount:         1,
 			wantNegationPatternsCount: 0,
 		},
 		{
-			name:              "add single negation pattern",
-			patterns:          []string{"!important.log"},
-			wantPatternsCount: 0,
+			name:                      "add single negation pattern",
+			patterns:                  []string{"!important.log"},
+			wantPatternsCount:         0,
 			wantNegationPatternsCount: 1,
 		},
 		{
-			name:              "add mixed patterns",
-			patterns:          []string{"*.log", "*.tmp", "!important.log", "!keep.tmp"},
-			wantPatternsCount: 2,
+			name:                      "add mixed patterns",
+			patterns:                  []string{"*.log", "*.tmp", "!important.log", "!keep.tmp"},
+			wantPatternsCount:         2,
 			wantNegationPatternsCount: 2,
 		},
 		{
-			name:              "add directory patterns",
-			patterns:          []string{"build/", "!dist/"},
-			wantPatternsCount: 1,
+			name:                      "add directory patterns",
+			patterns:                  []string{"build/", "!dist/"},
+			wantPatternsCount:         1,
 			wantNegationPatternsCount: 1,
 		},
 		{
-			name:              "add rooted patterns",
-			patterns:          []string{"/README.md", "!/LICENSE"},
-			wantPatternsCount: 1,
+			name:                      "add rooted patterns",
+			patterns:                  []string{"/README.md", "!/LICENSE"},
+			wantPatternsCount:         1,
 			wantNegationPatternsCount: 1,
 		},
 	}
@@ -81,80 +81,80 @@ func TestPatternSet_Add(t *testing.T) {
 
 func TestPatternSet_AddPatternsFromText(t *testing.T) {
 	tests := []struct {
-		name                    string
-		text                    string
-		source                  string
-		wantPatternsCount       int
+		name                      string
+		text                      string
+		source                    string
+		wantPatternsCount         int
 		wantNegationPatternsCount int
 	}{
 		{
-			name: "single pattern",
-			text: "*.log",
-			source: ".sourceignore",
-			wantPatternsCount: 1,
+			name:                      "single pattern",
+			text:                      "*.log",
+			source:                    ".sourceignore",
+			wantPatternsCount:         1,
 			wantNegationPatternsCount: 0,
 		},
 		{
-			name: "multiple patterns",
-			text: "*.log\n*.tmp\n*.bak",
-			source: ".sourceignore",
-			wantPatternsCount: 3,
+			name:                      "multiple patterns",
+			text:                      "*.log\n*.tmp\n*.bak",
+			source:                    ".sourceignore",
+			wantPatternsCount:         3,
 			wantNegationPatternsCount: 0,
 		},
 		{
-			name: "patterns with comments",
-			text: "# This is a comment\n*.log\n# Another comment\n*.tmp",
-			source: ".sourceignore",
-			wantPatternsCount: 2,
+			name:                      "patterns with comments",
+			text:                      "# This is a comment\n*.log\n# Another comment\n*.tmp",
+			source:                    ".sourceignore",
+			wantPatternsCount:         2,
 			wantNegationPatternsCount: 0,
 		},
 		{
-			name: "patterns with empty lines",
-			text: "*.log\n\n*.tmp\n\n\n*.bak",
-			source: ".sourceignore",
-			wantPatternsCount: 3,
+			name:                      "patterns with empty lines",
+			text:                      "*.log\n\n*.tmp\n\n\n*.bak",
+			source:                    ".sourceignore",
+			wantPatternsCount:         3,
 			wantNegationPatternsCount: 0,
 		},
 		{
-			name: "mixed patterns and negations",
-			text: "*.log\n!important.log\n*.tmp\n!keep.tmp",
-			source: ".sourceignore",
-			wantPatternsCount: 2,
+			name:                      "mixed patterns and negations",
+			text:                      "*.log\n!important.log\n*.tmp\n!keep.tmp",
+			source:                    ".sourceignore",
+			wantPatternsCount:         2,
 			wantNegationPatternsCount: 2,
 		},
 		{
-			name: "default source",
-			text: "*.log",
-			source: "",
-			wantPatternsCount: 1,
+			name:                      "default source",
+			text:                      "*.log",
+			source:                    "",
+			wantPatternsCount:         1,
 			wantNegationPatternsCount: 0,
 		},
 		{
-			name: "complex patterns",
-			text: "# Build outputs\nbuild/\ndist/\n*.o\n*.so\n\n# But keep important builds\n!dist/important/\n\n# Logs\n*.log\n!debug.log",
-			source: ".sourceignore",
-			wantPatternsCount: 5,
+			name:                      "complex patterns",
+			text:                      "# Build outputs\nbuild/\ndist/\n*.o\n*.so\n\n# But keep important builds\n!dist/important/\n\n# Logs\n*.log\n!debug.log",
+			source:                    ".sourceignore",
+			wantPatternsCount:         5,
 			wantNegationPatternsCount: 2,
 		},
 		{
-			name: "patterns with whitespace",
-			text: "  *.log  \n\t*.tmp\t\n  \n*.bak",
-			source: ".sourceignore",
-			wantPatternsCount: 3,
+			name:                      "patterns with whitespace",
+			text:                      "  *.log  \n\t*.tmp\t\n  \n*.bak",
+			source:                    ".sourceignore",
+			wantPatternsCount:         3,
 			wantNegationPatternsCount: 0,
 		},
 		{
-			name: "empty text",
-			text: "",
-			source: ".sourceignore",
-			wantPatternsCount: 0,
+			name:                      "empty text",
+			text:                      "",
+			source:                    ".sourceignore",
+			wantPatternsCount:         0,
 			wantNegationPatternsCount: 0,
 		},
 		{
-			name: "only comments and empty lines",
-			text: "# Comment 1\n\n# Comment 2\n\n",
-			source: ".sourceignore",
-			wantPatternsCount: 0,
+			name:                      "only comments and empty lines",
+			text:                      "# Comment 1\n\n# Comment 2\n\n",
+			source:                    ".sourceignore",
+			wantPatternsCount:         0,
 			wantNegationPatternsCount: 0,
 		},
 	}

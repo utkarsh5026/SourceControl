@@ -6,84 +6,84 @@ import (
 
 func TestNewPatternConfig(t *testing.T) {
 	tests := []struct {
-		name           string
-		pattern        string
-		wantNegation   bool
-		wantDirOnly    bool
-		wantRooted     bool
-		wantCleaned    string
+		name         string
+		pattern      string
+		wantNegation bool
+		wantDirOnly  bool
+		wantRooted   bool
+		wantCleaned  string
 	}{
 		{
-			name:           "simple pattern",
-			pattern:        "*.log",
-			wantNegation:   false,
-			wantDirOnly:    false,
-			wantRooted:     false,
-			wantCleaned:    "*.log",
+			name:         "simple pattern",
+			pattern:      "*.log",
+			wantNegation: false,
+			wantDirOnly:  false,
+			wantRooted:   false,
+			wantCleaned:  "*.log",
 		},
 		{
-			name:           "negation pattern",
-			pattern:        "!important.log",
-			wantNegation:   true,
-			wantDirOnly:    false,
-			wantRooted:     false,
-			wantCleaned:    "important.log",
+			name:         "negation pattern",
+			pattern:      "!important.log",
+			wantNegation: true,
+			wantDirOnly:  false,
+			wantRooted:   false,
+			wantCleaned:  "important.log",
 		},
 		{
-			name:           "directory only pattern",
-			pattern:        "build/",
-			wantNegation:   false,
-			wantDirOnly:    true,
-			wantRooted:     false,
-			wantCleaned:    "build",
+			name:         "directory only pattern",
+			pattern:      "build/",
+			wantNegation: false,
+			wantDirOnly:  true,
+			wantRooted:   false,
+			wantCleaned:  "build",
 		},
 		{
-			name:           "rooted pattern",
-			pattern:        "/TODO",
-			wantNegation:   false,
-			wantDirOnly:    false,
-			wantRooted:     true,
-			wantCleaned:    "TODO",
+			name:         "rooted pattern",
+			pattern:      "/TODO",
+			wantNegation: false,
+			wantDirOnly:  false,
+			wantRooted:   true,
+			wantCleaned:  "TODO",
 		},
 		{
-			name:           "negation + directory",
-			pattern:        "!temp/",
-			wantNegation:   true,
-			wantDirOnly:    true,
-			wantRooted:     false,
-			wantCleaned:    "temp",
+			name:         "negation + directory",
+			pattern:      "!temp/",
+			wantNegation: true,
+			wantDirOnly:  true,
+			wantRooted:   false,
+			wantCleaned:  "temp",
 		},
 		{
-			name:           "rooted + directory",
-			pattern:        "/build/",
-			wantNegation:   false,
-			wantDirOnly:    true,
-			wantRooted:     true,
-			wantCleaned:    "build",
+			name:         "rooted + directory",
+			pattern:      "/build/",
+			wantNegation: false,
+			wantDirOnly:  true,
+			wantRooted:   true,
+			wantCleaned:  "build",
 		},
 		{
-			name:           "negation + rooted + directory",
-			pattern:        "!/dist/",
-			wantNegation:   true,
-			wantDirOnly:    true,
-			wantRooted:     true,
-			wantCleaned:    "dist",
+			name:         "negation + rooted + directory",
+			pattern:      "!/dist/",
+			wantNegation: true,
+			wantDirOnly:  true,
+			wantRooted:   true,
+			wantCleaned:  "dist",
 		},
 		{
-			name:           "pattern with whitespace",
-			pattern:        "  test.txt  ",
-			wantNegation:   false,
-			wantDirOnly:    false,
-			wantRooted:     false,
-			wantCleaned:    "test.txt",
+			name:         "pattern with whitespace",
+			pattern:      "  test.txt  ",
+			wantNegation: false,
+			wantDirOnly:  false,
+			wantRooted:   false,
+			wantCleaned:  "test.txt",
 		},
 		{
-			name:           "wildcard pattern",
-			pattern:        "**/node_modules",
-			wantNegation:   false,
-			wantDirOnly:    false,
-			wantRooted:     false,
-			wantCleaned:    "**/node_modules",
+			name:         "wildcard pattern",
+			pattern:      "**/node_modules",
+			wantNegation: false,
+			wantDirOnly:  false,
+			wantRooted:   false,
+			wantCleaned:  "**/node_modules",
 		},
 	}
 
@@ -109,64 +109,64 @@ func TestNewPatternConfig(t *testing.T) {
 
 func TestNewIgnorePattern(t *testing.T) {
 	tests := []struct {
-		name            string
-		pattern         string
-		source          string
-		lineNumber      int
-		wantPattern     string
-		wantOriginal    string
-		wantIsNegation  bool
-		wantIsDirOnly   bool
-		wantIsRooted    bool
-		wantSource      string
+		name           string
+		pattern        string
+		source         string
+		lineNumber     int
+		wantPattern    string
+		wantOriginal   string
+		wantIsNegation bool
+		wantIsDirOnly  bool
+		wantIsRooted   bool
+		wantSource     string
 	}{
 		{
-			name:            "simple pattern",
-			pattern:         "*.log",
-			source:          ".sourceignore",
-			lineNumber:      1,
-			wantPattern:     "*.log",
-			wantOriginal:    "*.log",
-			wantIsNegation:  false,
-			wantIsDirOnly:   false,
-			wantIsRooted:    false,
-			wantSource:      ".sourceignore",
+			name:           "simple pattern",
+			pattern:        "*.log",
+			source:         ".sourceignore",
+			lineNumber:     1,
+			wantPattern:    "*.log",
+			wantOriginal:   "*.log",
+			wantIsNegation: false,
+			wantIsDirOnly:  false,
+			wantIsRooted:   false,
+			wantSource:     ".sourceignore",
 		},
 		{
-			name:            "negated pattern",
-			pattern:         "!important.txt",
-			source:          ".sourceignore",
-			lineNumber:      5,
-			wantPattern:     "important.txt",
-			wantOriginal:    "!important.txt",
-			wantIsNegation:  true,
-			wantIsDirOnly:   false,
-			wantIsRooted:    false,
-			wantSource:      ".sourceignore",
+			name:           "negated pattern",
+			pattern:        "!important.txt",
+			source:         ".sourceignore",
+			lineNumber:     5,
+			wantPattern:    "important.txt",
+			wantOriginal:   "!important.txt",
+			wantIsNegation: true,
+			wantIsDirOnly:  false,
+			wantIsRooted:   false,
+			wantSource:     ".sourceignore",
 		},
 		{
-			name:            "default source",
-			pattern:         "test",
-			source:          "",
-			lineNumber:      1,
-			wantPattern:     "test",
-			wantOriginal:    "test",
-			wantIsNegation:  false,
-			wantIsDirOnly:   false,
-			wantIsRooted:    false,
-			wantSource:      DefaultSource,
+			name:           "default source",
+			pattern:        "test",
+			source:         "",
+			lineNumber:     1,
+			wantPattern:    "test",
+			wantOriginal:   "test",
+			wantIsNegation: false,
+			wantIsDirOnly:  false,
+			wantIsRooted:   false,
+			wantSource:     DefaultSource,
 		},
 		{
-			name:            "escaped pattern",
-			pattern:         `\*.txt`,
-			source:          ".sourceignore",
-			lineNumber:      1,
-			wantPattern:     "*.txt",
-			wantOriginal:    `\*.txt`,
-			wantIsNegation:  false,
-			wantIsDirOnly:   false,
-			wantIsRooted:    false,
-			wantSource:      ".sourceignore",
+			name:           "escaped pattern",
+			pattern:        `\*.txt`,
+			source:         ".sourceignore",
+			lineNumber:     1,
+			wantPattern:    "*.txt",
+			wantOriginal:   `\*.txt`,
+			wantIsNegation: false,
+			wantIsDirOnly:  false,
+			wantIsRooted:   false,
+			wantSource:     ".sourceignore",
 		},
 	}
 
@@ -201,19 +201,19 @@ func TestNewIgnorePattern(t *testing.T) {
 
 func TestFromLine(t *testing.T) {
 	tests := []struct {
-		name       string
-		line       string
-		source     string
-		lineNumber int
-		wantNil    bool
+		name        string
+		line        string
+		source      string
+		lineNumber  int
+		wantNil     bool
 		wantPattern string
 	}{
 		{
-			name:       "valid pattern",
-			line:       "*.log",
-			source:     ".sourceignore",
-			lineNumber: 1,
-			wantNil:    false,
+			name:        "valid pattern",
+			line:        "*.log",
+			source:      ".sourceignore",
+			lineNumber:  1,
+			wantNil:     false,
 			wantPattern: "*.log",
 		},
 		{
@@ -238,19 +238,19 @@ func TestFromLine(t *testing.T) {
 			wantNil:    true,
 		},
 		{
-			name:       "pattern with trailing whitespace",
-			line:       "test.txt   ",
-			source:     ".sourceignore",
-			lineNumber: 5,
-			wantNil:    false,
+			name:        "pattern with trailing whitespace",
+			line:        "test.txt   ",
+			source:      ".sourceignore",
+			lineNumber:  5,
+			wantNil:     false,
 			wantPattern: "test.txt",
 		},
 		{
-			name:       "pattern with escaped trailing space",
-			line:       `test.txt\ `,
-			source:     ".sourceignore",
-			lineNumber: 6,
-			wantNil:    false,
+			name:        "pattern with escaped trailing space",
+			line:        `test.txt\ `,
+			source:      ".sourceignore",
+			lineNumber:  6,
+			wantNil:     false,
 			wantPattern: "test.txt",
 		},
 	}
