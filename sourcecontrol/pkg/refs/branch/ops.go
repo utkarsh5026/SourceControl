@@ -7,11 +7,11 @@ import (
 
 // Delete handles branch deletion operations
 type Delete struct {
-	refService *RefService
+	refService *BranchRefManager
 }
 
 // NewDelete creates a new branch delete service
-func NewDelete(refSvc *RefService) *Delete {
+func NewDelete(refSvc *BranchRefManager) *Delete {
 	return &Delete{
 		refService: refSvc,
 	}
@@ -23,23 +23,6 @@ func (d *Delete) Delete(ctx context.Context, name string, config *DeleteConfig) 
 	case <-ctx.Done():
 		return ctx.Err()
 	default:
-	}
-
-	if err := ValidateBranchName(name); err != nil {
-		return err
-	}
-
-	err := d.refService.ValidateExists(name)
-	if err != nil {
-		return err
-	}
-
-	current, err := d.refService.Current()
-	if err != nil {
-		return fmt.Errorf("get current branch: %w", err)
-	}
-	if current == name {
-		return NewIsCurrentError(name)
 	}
 
 	if !config.Force {
