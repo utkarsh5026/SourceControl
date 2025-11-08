@@ -660,12 +660,12 @@ func TestIntegrationRepositoryIntegrity(t *testing.T) {
 	h.Chdir()
 	defer os.Chdir(origDir)
 
-	// Verify .source directory structure
+	// Verify .git directory structure
 	expectedDirs := []string{
 		scpath.SourceDir,
-		".source/objects",
-		".source/refs",
-		".source/refs/heads",
+		filepath.Join(scpath.SourceDir, "objects"),
+		filepath.Join(scpath.SourceDir, "refs"),
+		filepath.Join(scpath.SourceDir, "refs", "heads"),
 	}
 
 	for _, dir := range expectedDirs {
