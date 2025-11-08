@@ -12,6 +12,7 @@ import (
 	"github.com/utkarsh5026/SourceControl/pkg/index"
 	"github.com/utkarsh5026/SourceControl/pkg/objects"
 	"github.com/utkarsh5026/SourceControl/pkg/refs/branch"
+	"github.com/utkarsh5026/SourceControl/pkg/repository/scpath"
 )
 
 // TestComplexWorkflow_FeatureBranchDevelopment simulates a realistic feature branch workflow
@@ -185,7 +186,7 @@ func TestComplexWorkflow_LargeRepository(t *testing.T) {
 	}
 
 	// Verify objects were created
-	objectsDir := filepath.Join(h.RepoPath, ".source", "objects")
+	objectsDir := filepath.Join(h.RepoPath, scpath.SourceDir, "objects")
 	entries, err := os.ReadDir(objectsDir)
 	if err != nil {
 		t.Fatalf("failed to read objects directory: %v", err)
@@ -876,7 +877,7 @@ func TestComplexWorkflow_StressTest(t *testing.T) {
 	}
 
 	// Verify repository integrity
-	objectsDir := filepath.Join(h.RepoPath, ".source", "objects")
+	objectsDir := filepath.Join(h.RepoPath, scpath.SourceDir, "objects")
 	entries, err := os.ReadDir(objectsDir)
 	if err != nil {
 		t.Fatalf("failed to read objects directory: %v", err)

@@ -41,7 +41,7 @@ func TestRepositoryPath_SourcePath(t *testing.T) {
 	repo := RepositoryPath("/home/user/repo")
 	sourcePath := repo.SourcePath()
 
-	expected := filepath.Join("/home/user/repo", ".source")
+	expected := filepath.Join("/home/user/repo", SourceDir)
 	if sourcePath.String() != expected {
 		t.Errorf("SourcePath() = %v, want %v", sourcePath, expected)
 	}
@@ -51,7 +51,7 @@ func TestRepositoryPath_ObjectsPath(t *testing.T) {
 	repo := RepositoryPath("/home/user/repo")
 	objectsPath := repo.SourcePath().ObjectsPath()
 
-	expected := filepath.Join("/home/user/repo", ".source", "objects")
+	expected := filepath.Join("/home/user/repo", SourceDir, "objects")
 	if objectsPath.String() != expected {
 		t.Errorf("ObjectsPath() = %v, want %v", objectsPath, expected)
 	}
@@ -245,7 +245,7 @@ func TestRelativePath_Join(t *testing.T) {
 }
 
 func TestSourcePath_ObjectFilePath(t *testing.T) {
-	objectsPath := SourcePath(filepath.Join("/repo", ".source", "objects"))
+	objectsPath := SourcePath(filepath.Join("/repo", SourceDir, "objects"))
 
 	tests := []struct {
 		name         string

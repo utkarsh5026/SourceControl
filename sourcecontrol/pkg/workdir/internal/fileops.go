@@ -25,7 +25,7 @@ type FileOps struct {
 // NewFileOps creates a new FileOps service
 func NewFileOps(repo *sourcerepo.SourceRepository) *FileOps {
 	workDir := repo.WorkingDirectory()
-	tempDir := workDir.Join(".source", "tmp")
+	tempDir := workDir.Join(scpath.SourceDir, "tmp")
 	return &FileOps{
 		repo:    repo,
 		workDir: workDir,

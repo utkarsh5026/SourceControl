@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/utkarsh5026/SourceControl/pkg/repository/scpath"
 )
 
 func TestInitCommand(t *testing.T) {
@@ -28,7 +30,7 @@ func TestInitCommand(t *testing.T) {
 	}
 
 	// Verify .source directory was created
-	sourceDir := filepath.Join(th.TempDir(), ".source")
+	sourceDir := filepath.Join(th.TempDir(), scpath.SourceDir)
 	if _, err := os.Stat(sourceDir); os.IsNotExist(err) {
 		t.Error(".source directory was not created")
 	}

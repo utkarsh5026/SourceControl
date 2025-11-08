@@ -11,6 +11,7 @@ import (
 	"github.com/utkarsh5026/SourceControl/pkg/index"
 	"github.com/utkarsh5026/SourceControl/pkg/objects"
 	"github.com/utkarsh5026/SourceControl/pkg/refs/branch"
+	"github.com/utkarsh5026/SourceControl/pkg/repository/scpath"
 )
 
 // TestIntegrationBasicWorkflow tests the complete workflow: init -> add -> commit
@@ -24,7 +25,7 @@ func TestIntegrationBasicWorkflow(t *testing.T) {
 	defer os.Chdir(origDir)
 
 	// Verify repository was initialized
-	sourceDir := filepath.Join(h.RepoPath, ".source")
+	sourceDir := filepath.Join(h.RepoPath, scpath.SourceDir)
 	if _, err := os.Stat(sourceDir); os.IsNotExist(err) {
 		t.Fatal(".source directory was not created")
 	}
@@ -131,7 +132,7 @@ func TestIntegrationMultipleFiles(t *testing.T) {
 	}
 
 	// Verify objects directory contains objects
-	objectsDir := filepath.Join(h.RepoPath, ".source", "objects")
+	objectsDir := filepath.Join(h.RepoPath, scpath.SourceDir, "objects")
 	entries, err := os.ReadDir(objectsDir)
 	if err != nil {
 		t.Fatalf("failed to read objects directory: %v", err)
@@ -661,7 +662,7 @@ func TestIntegrationRepositoryIntegrity(t *testing.T) {
 
 	// Verify .source directory structure
 	expectedDirs := []string{
-		".source",
+		scpath.SourceDir,
 		".source/objects",
 		".source/refs",
 		".source/refs/heads",
@@ -677,7 +678,7 @@ func TestIntegrationRepositoryIntegrity(t *testing.T) {
 	}
 
 	// Verify HEAD file exists
-	headPath := filepath.Join(h.RepoPath, ".source", "HEAD")
+	headPath := filepath.Join(h.RepoPath, scpath.SourceDir, "HEAD")
 	if _, err := os.Stat(headPath); os.IsNotExist(err) {
 		t.Error("HEAD file does not exist")
 	}
@@ -704,7 +705,7 @@ func TestIntegrationRepositoryIntegrity(t *testing.T) {
 	}
 
 	// Verify objects were created
-	objectsDir := filepath.Join(h.RepoPath, ".source", "objects")
+	objectsDir := filepath.Join(h.RepoPath, scpath.SourceDir, "objects")
 	entries, err := os.ReadDir(objectsDir)
 	if err != nil {
 		t.Fatalf("failed to read objects directory: %v", err)
@@ -715,8 +716,8 @@ func TestIntegrationRepositoryIntegrity(t *testing.T) {
 	}
 
 	// Verify master or main branch ref exists
-	masterRefPath := filepath.Join(h.RepoPath, ".source", "refs", "heads", "master")
-	mainRefPath := filepath.Join(h.RepoPath, ".source", "refs", "heads", "main")
+	masterRefPath := filepath.Join(h.RepoPath, scpath.SourceDir, "refs", "heads", "master")
+	mainRefPath := filepath.Join(h.RepoPath, scpath.SourceDir, "refs", "heads", "main")
 
 	_, masterErr := os.Stat(masterRefPath)
 	_, mainErr := os.Stat(mainRefPath)

@@ -19,7 +19,7 @@ func findRepository() (*sourcerepo.SourceRepository, error) {
 
 	dir := cwd
 	for {
-		sourceDir := filepath.Join(dir, ".source")
+		sourceDir := filepath.Join(dir, scpath.SourceDir)
 		if info, err := os.Stat(sourceDir); err == nil && info.IsDir() {
 			repoPath, err := scpath.NewRepositoryPath(dir)
 			if err != nil {
