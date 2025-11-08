@@ -111,7 +111,9 @@ func (rs *BranchRefManager) Create(name string, sha objects.ObjectHash) error {
 	return nil
 }
 
-// Update updates an existing branch to point to a new SHA
+// Update updates an existing branch to point to a new SHA.
+// If the branch doesn't exist and force is true, it will be created.
+// This is useful for the initial commit which needs to create the branch reference.
 func (rs *BranchRefManager) Update(name string, sha objects.ObjectHash, force bool) error {
 	if err := rs.validateBranchName(name); err != nil {
 		return err
@@ -124,6 +126,9 @@ func (rs *BranchRefManager) Update(name string, sha objects.ObjectHash, force bo
 	if err != nil {
 		return fmt.Errorf("check branch exists: %w", err)
 	}
+
+	// If branch doesn't exist and force is false, return error
+	// If force is true, we allow creating the branch (used for initial commit)
 	if !exists && !force {
 		return NewNotFoundError(name)
 	}
