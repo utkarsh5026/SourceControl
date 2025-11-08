@@ -13,7 +13,7 @@ func TestRefService_CreateAndResolve(t *testing.T) {
 	defer cleanup()
 
 	refMgr := refs.NewRefManager(repo)
-	refSvc := NewRefService(refMgr)
+	refSvc := NewBranchRefManager(refMgr)
 
 	// Create a test commit SHA
 	testSHA := objects.ObjectHash("0123456789abcdef0123456789abcdef01234567")
@@ -41,7 +41,7 @@ func TestRefService_CreateDuplicate(t *testing.T) {
 	defer cleanup()
 
 	refMgr := refs.NewRefManager(repo)
-	refSvc := NewRefService(refMgr)
+	refSvc := NewBranchRefManager(refMgr)
 
 	testSHA := objects.ObjectHash("0123456789abcdef0123456789abcdef01234567")
 
@@ -68,7 +68,7 @@ func TestRefService_Update(t *testing.T) {
 	defer cleanup()
 
 	refMgr := refs.NewRefManager(repo)
-	refSvc := NewRefService(refMgr)
+	refSvc := NewBranchRefManager(refMgr)
 
 	oldSHA := objects.ObjectHash("0123456789abcdef0123456789abcdef01234567")
 	newSHA := objects.ObjectHash("fedcba9876543210fedcba9876543210fedcba98")
@@ -102,7 +102,7 @@ func TestRefService_Delete(t *testing.T) {
 	defer cleanup()
 
 	refMgr := refs.NewRefManager(repo)
-	refSvc := NewRefService(refMgr)
+	refSvc := NewBranchRefManager(refMgr)
 
 	testSHA := objects.ObjectHash("0123456789abcdef0123456789abcdef01234567")
 
@@ -153,7 +153,7 @@ func TestRefService_List(t *testing.T) {
 	defer cleanup()
 
 	refMgr := refs.NewRefManager(repo)
-	refSvc := NewRefService(refMgr)
+	refSvc := NewBranchRefManager(refMgr)
 
 	testSHA := objects.ObjectHash("0123456789abcdef0123456789abcdef01234567")
 
@@ -191,7 +191,7 @@ func TestRefService_CurrentAndSetHead(t *testing.T) {
 	defer cleanup()
 
 	refMgr := refs.NewRefManager(repo)
-	refSvc := NewRefService(refMgr)
+	refSvc := NewBranchRefManager(refMgr)
 
 	testSHA := objects.ObjectHash("0123456789abcdef0123456789abcdef01234567")
 
@@ -233,7 +233,7 @@ func TestRefService_DetachedHead(t *testing.T) {
 	defer cleanup()
 
 	refMgr := refs.NewRefManager(repo)
-	refSvc := NewRefService(refMgr)
+	refSvc := NewBranchRefManager(refMgr)
 
 	testSHA := objects.ObjectHash("0123456789abcdef0123456789abcdef01234567")
 
@@ -277,7 +277,7 @@ func TestRefService_Rename(t *testing.T) {
 	defer cleanup()
 
 	refMgr := refs.NewRefManager(repo)
-	refSvc := NewRefService(refMgr)
+	refSvc := NewBranchRefManager(refMgr)
 
 	testSHA := objects.ObjectHash("0123456789abcdef0123456789abcdef01234567")
 
@@ -318,7 +318,7 @@ func TestValidateBranchName(t *testing.T) {
 	defer cleanup()
 
 	refMgr := refs.NewRefManager(repo)
-	refSvc := NewRefService(refMgr)
+	refSvc := NewBranchRefManager(refMgr)
 	testCases := []struct {
 		name  string
 		valid bool

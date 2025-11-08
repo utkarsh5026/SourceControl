@@ -26,10 +26,25 @@ type BranchRefManager struct {
 }
 
 // NewRefService creates a new branch reference service
-func NewRefService(refMgr *refs.RefManager) *BranchRefManager {
+func NewBranchRefManager(refMgr *refs.RefManager) *BranchRefManager {
 	return &BranchRefManager{
 		refManager: refMgr,
 	}
+}
+
+// Init initializes the branch manager by creating necessary directories.
+// This should be called once after creating a new Manager instance.
+func (rs *BranchRefManager) Init() error {
+	if err := rs.refManager.Init(); err != nil {
+		return fmt.Errorf("init ref manager: %w", err)
+	}
+
+	branchDir := filepath.Join(rs.refManager.GetRefsPath().String(), BranchDirName)
+	if err := os.MkdirAll(branchDir, 0755); err != nil {
+		return fmt.Errorf("create branch directory: %w", err)
+	}
+
+	return nil
 }
 
 // Current returns the name of the current branch, or empty string if detached

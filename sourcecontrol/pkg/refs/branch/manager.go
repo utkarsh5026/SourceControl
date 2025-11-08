@@ -3,8 +3,6 @@ package branch
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 
 	"github.com/utkarsh5026/SourceControl/pkg/objects"
 	"github.com/utkarsh5026/SourceControl/pkg/repository/refs"
@@ -49,7 +47,7 @@ type Manager struct {
 //	}
 func NewManager(repo *sourcerepo.SourceRepository) *Manager {
 	refMgr := refs.NewRefManager(repo)
-	branchRefSvc := NewRefService(refMgr)
+	branchRefSvc := NewBranchRefManager(refMgr)
 	branchInfoSvc := NewInfoService(repo, branchRefSvc)
 	workdirMgr := workdir.NewManager(repo)
 
@@ -65,16 +63,7 @@ func NewManager(repo *sourcerepo.SourceRepository) *Manager {
 // Init initializes the branch manager by creating necessary directories.
 // This should be called once after creating a new Manager instance.
 func (m *Manager) Init() error {
-	if err := m.refManager.Init(); err != nil {
-		return fmt.Errorf("init ref manager: %w", err)
-	}
-
-	branchDir := filepath.Join(m.refManager.GetRefsPath().String(), BranchDirName)
-	if err := os.MkdirAll(branchDir, 0755); err != nil {
-		return fmt.Errorf("create branch directory: %w", err)
-	}
-
-	return nil
+	return m.branchRefSvc.Init()
 }
 
 // CreateBranch creates a new branch with the given options.
