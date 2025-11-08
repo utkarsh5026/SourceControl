@@ -43,6 +43,7 @@ func main() {
 	rootCmd.AddCommand(newAddCmd())
 	rootCmd.AddCommand(newCommitCmd())
 	rootCmd.AddCommand(newBranchCmd())
+	rootCmd.AddCommand(newCheckoutCmd())
 	rootCmd.AddCommand(newLogCmd())
 
 	if err := rootCmd.Execute(); err != nil {

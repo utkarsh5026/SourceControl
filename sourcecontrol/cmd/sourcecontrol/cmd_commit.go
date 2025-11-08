@@ -44,7 +44,8 @@ Commits are snapshots of your project at a specific point in time.`,
 			}
 
 			// Display result
-			fmt.Printf("[%s] %s\n", result.SHA.Short(), result.Message)
+			commitHash, _ := result.Hash()
+			fmt.Printf("[%s] %s\n", commitHash.Short(), result.Message)
 			fmt.Printf("Author: %s <%s>\n", result.Author.Name, result.Author.Email)
 
 			return nil

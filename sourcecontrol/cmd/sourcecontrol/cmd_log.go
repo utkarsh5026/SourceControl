@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/utkarsh5026/SourceControl/pkg/commitmanager"
 	"github.com/utkarsh5026/SourceControl/pkg/objects"
+	"github.com/utkarsh5026/SourceControl/pkg/objects/commit"
 )
 
 func newLogCmd() *cobra.Command {
@@ -66,7 +67,7 @@ Displays the commit history starting from the current HEAD.`,
 }
 
 // displayCommitsDetailed shows commits in a detailed, beautiful format
-func displayCommitsDetailed(history []*commitmanager.CommitResult) {
+func displayCommitsDetailed(history []*commit.Commit) {
 	fmt.Println(renderHeader(" Commit History "))
 	fmt.Println()
 
@@ -91,26 +92,29 @@ func displayCommitsDetailed(history []*commitmanager.CommitResult) {
 		Foreground(lipgloss.Color("#FFFFFF")).
 		MarginTop(1)
 
-	for i, commit := range history {
+	for i, c := range history {
 		var content strings.Builder
+
+		// Get commit hash
+		commitHash, _ := c.Hash()
 
 		// Commit hash with icon
 		content.WriteString(fmt.Sprintf("%s %s\n",
 			colorYellow(IconCommit),
-			commitHashStyle.Render(commit.SHA.String())))
+			commitHashStyle.Render(commitHash.String())))
 
 		// Author
 		content.WriteString(fmt.Sprintf("%s %s\n",
 			colorCyan(IconAuthor),
-			authorStyle.Render(fmt.Sprintf("%s <%s>", commit.Author.Name, commit.Author.Email))))
+			authorStyle.Render(fmt.Sprintf("%s <%s>", c.Author.Name, c.Author.Email))))
 
 		// Date
 		content.WriteString(fmt.Sprintf("%s %s\n",
 			colorMagenta(IconDate),
-			dateStyle.Render(commit.Author.When.Time().Format(time.RFC1123))))
+			dateStyle.Render(c.Author.When.Time().Format(time.RFC1123))))
 
 		// Message
-		content.WriteString(messageStyle.Render("\n" + commit.Message))
+		content.WriteString(messageStyle.Render("\n" + c.Message))
 
 		fmt.Println(commitBoxStyle.Render(content.String()))
 
@@ -122,28 +126,29 @@ func displayCommitsDetailed(history []*commitmanager.CommitResult) {
 }
 
 // displayCommitsAsTable shows commits in a compact table format
-func displayCommitsAsTable(history []*commitmanager.CommitResult) {
+func displayCommitsAsTable(history []*commit.Commit) {
 	fmt.Println(renderHeader(" Commit History "))
 	fmt.Println()
 
 	table := tablewriter.NewWriter(os.Stdout)
 	table.Header("Commit", "Author", "Date", "Message")
 
-	for _, commit := range history {
-		shortHash := commit.SHA.String()
+	for _, c := range history {
+		commitHash, _ := c.Hash()
+		shortHash := commitHash.String()
 		if len(shortHash) > 8 {
 			shortHash = shortHash[:8]
 		}
 
-		message := commit.Message
+		message := c.Message
 		if len(message) > 50 {
 			message = message[:47] + "..."
 		}
 
 		table.Append(
 			colorYellow(shortHash),
-			colorCyan(commit.Author.Name),
-			colorMagenta(commit.Author.When.Time().Format("2006-01-02 15:04")),
+			colorCyan(c.Author.Name),
+			colorMagenta(c.Author.When.Time().Format("2006-01-02 15:04")),
 			message,
 		)
 	}
