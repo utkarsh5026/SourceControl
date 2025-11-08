@@ -2,8 +2,8 @@ package sourcerepo
 
 import (
 	"fmt"
-	"os"
 
+	"github.com/utkarsh5026/SourceControl/pkg/common/fileops"
 	"github.com/utkarsh5026/SourceControl/pkg/objects"
 	"github.com/utkarsh5026/SourceControl/pkg/objects/blob"
 	"github.com/utkarsh5026/SourceControl/pkg/objects/commit"
@@ -15,32 +15,8 @@ import (
 // SourceRepository is a Git repository implementation that manages the complete Git repository
 // structure and provides access to Git objects, references, and configuration.
 //
-// This struct represents a standard Git repository with the following structure:
-//
-//	┌─ <working-directory>/
-//	│ ├─ .source/ ← Git metadata directory
-//	│ │ ├─ objects/ ← Object storage (blobs, trees, commits, tags)
-//	│ │ │ ├─ ab/ ← Object subdirectories (first 2 chars of SHA)
-//	│ │ │ │ └─ cdef123... ← Object files (remaining 38 chars of SHA)
-//	│ │ │ └─ ...
-//	│ │ ├─ refs/ ← References (branches and tags)
-//	│ │ │ ├─ heads/ ← Branch references
-//	│ │ │ └─ tags/ ← Tag references
-//	│ │ ├─ HEAD ← Current branch pointer
-//	│ │ ├─ config ← Repository configuration
-//	│ │ └─ description ← Repository description
-//	│ ├─ file1.txt ← Working directory files
-//	│ ├─ file2.txt
-//	│ └─ ...
-//
 // The repository manages both the working directory (user files) and the Source
 // directory (metadata and object storage).
-//
-// Fields:
-//   - workingDir: The root directory of the repository where user files are stored
-//   - sourceDir: The .source directory containing all Git metadata and objects
-//   - objectStore: Interface for reading and writing Git objects (blobs, trees, commits, tags)
-//   - initialized: Flag indicating whether the repository has been properly initialized
 //
 // Thread Safety:
 // This struct is not thread-safe. External synchronization is required when
@@ -86,13 +62,6 @@ func NewSourceRepository() *SourceRepository {
 //
 // Parameters:
 //   - path: The directory path where the repository should be initialized
-//
-// Returns:
-//   - error: nil on success, or an error if:
-//   - A repository already exists at the path
-//   - Directory creation fails
-//   - Object store initialization fails
-//   - Initial file creation fails
 func (sr *SourceRepository) Initialize(path scpath.RepositoryPath) error {
 	exists, err := RepositoryExists(path)
 	if err != nil {
@@ -113,7 +82,6 @@ func (sr *SourceRepository) Initialize(path scpath.RepositoryPath) error {
 		return fmt.Errorf("failed to initialize object store: %w", err)
 	}
 
-	// Create initial files
 	if err := sr.createInitialFiles(); err != nil {
 		return fmt.Errorf("failed to create initial files: %w", err)
 	}
@@ -132,12 +100,6 @@ func (sr *SourceRepository) Initialize(path scpath.RepositoryPath) error {
 //
 // Panics:
 //   - If the repository has not been initialized via Initialize()
-//
-// Example:
-//
-//	repo := NewSourceRepository()
-//	repo.Initialize(scpath.RepositoryPath("/home/user/myrepo"))
-//	workDir := repo.WorkingDirectory() // Returns "/home/user/myrepo"
 func (sr *SourceRepository) WorkingDirectory() scpath.RepositoryPath {
 	if !sr.initialized {
 		panic("repository not initialized")
@@ -146,10 +108,6 @@ func (sr *SourceRepository) WorkingDirectory() scpath.RepositoryPath {
 }
 
 // SourceDirectory returns the path to the .source metadata directory.
-//
-// The .source directory contains all Git metadata including objects, references,
-// configuration files, and the HEAD pointer. This is equivalent to the .git
-// directory in standard Git repositories.
 //
 // Returns:
 //   - scpath.SourcePath: The absolute path to the .source directory
@@ -182,23 +140,6 @@ func (sr *SourceRepository) ObjectStore() store.ObjectStore {
 //
 // Parameters:
 //   - hash: The SHA-1 hash of the object to read (40 character hex string)
-//
-// Returns:
-//   - objects.BaseObject: The deserialized Git object
-//   - error: nil on success, or an error if:
-//   - The repository is not initialized
-//   - The object does not exist
-//   - The object file is corrupted
-//   - Deserialization fails
-//
-// Example:
-//
-//	hash := objects.ObjectHash("a1b2c3d4e5f6...")
-//	obj, err := repo.ReadObject(hash)
-//	if err != nil {
-//	    log.Fatalf("Failed to read object: %v", err)
-//	}
-//	fmt.Printf("Object type: %s\n", obj.Type())
 func (sr *SourceRepository) ReadObject(hash objects.ObjectHash) (objects.BaseObject, error) {
 	if !sr.initialized {
 		return nil, fmt.Errorf("repository not initialized")
@@ -223,23 +164,6 @@ func (sr *SourceRepository) ReadObject(hash objects.ObjectHash) (objects.BaseObj
 //
 // Parameters:
 //   - obj: The Git object to write (must implement objects.BaseObject interface)
-//
-// Returns:
-//   - objects.ObjectHash: The SHA-1 hash of the written object
-//   - error: nil on success, or an error if:
-//   - The repository is not initialized
-//   - Serialization fails
-//   - File system write fails
-//   - Hash computation fails
-//
-// Example:
-//
-//	blob := objects.NewBlob([]byte("Hello, World!"))
-//	hash, err := repo.WriteObject(blob)
-//	if err != nil {
-//	    log.Fatalf("Failed to write object: %v", err)
-//	}
-//	fmt.Printf("Object written with hash: %s\n", hash)
 func (sr *SourceRepository) WriteObject(obj objects.BaseObject) (objects.ObjectHash, error) {
 	if !sr.initialized {
 		return "", fmt.Errorf("repository not initialized")
@@ -253,15 +177,6 @@ func (sr *SourceRepository) WriteObject(obj objects.BaseObject) (objects.ObjectH
 }
 
 // Exists checks if a valid repository exists at the working directory.
-//
-// This method verifies that a .source directory exists at the working directory
-// path and contains the necessary repository structure.
-//
-// Returns:
-//   - bool: true if a valid repository exists, false otherwise
-//   - error: nil on success, or an error if:
-//   - The repository is not initialized
-//   - File system access fails
 func (sr *SourceRepository) Exists() (bool, error) {
 	if !sr.initialized {
 		return false, fmt.Errorf("repository not initialized")
@@ -270,13 +185,6 @@ func (sr *SourceRepository) Exists() (bool, error) {
 }
 
 // IsInitialized returns whether the repository has been properly initialized.
-//
-// A repository is considered initialized after a successful call to Initialize().
-// This flag indicates that all directory structures and initial files have been
-// created, and the repository is ready for use.
-//
-// Returns:
-//   - bool: true if Initialize() has been successfully called, false otherwise
 func (sr *SourceRepository) IsInitialized() bool {
 	return sr.initialized
 }
@@ -299,16 +207,17 @@ func (sr *SourceRepository) IsInitialized() bool {
 // Returns:
 //   - error: nil on success, or an error if any directory creation fails
 func (sr *SourceRepository) createDirectories() error {
+	source := sr.sourceDir
 	directories := []scpath.SourcePath{
-		sr.sourceDir,
-		sr.sourceDir.ObjectsPath(),
-		sr.sourceDir.RefsPath(),
-		sr.sourceDir.RefsPath().Join(scpath.HeadsDir),
-		sr.sourceDir.RefsPath().Join(scpath.TagsDir),
+		source,
+		source.ObjectsPath(),
+		source.RefsPath(),
+		source.RefsPath().Join(scpath.HeadsDir),
+		source.RefsPath().Join(scpath.TagsDir),
 	}
 
 	for _, dir := range directories {
-		if err := os.MkdirAll(dir.String(), 0755); err != nil {
+		if err := fileops.EnsureDir(dir.ToAbsolutePath()); err != nil {
 			return fmt.Errorf("failed to create directory %s: %w", dir, err)
 		}
 	}
@@ -361,7 +270,7 @@ func (sr *SourceRepository) createInitialFiles() error {
 	}
 
 	for _, file := range files {
-		if err := os.WriteFile(file.path.String(), []byte(file.content), 0644); err != nil {
+		if err := fileops.WriteConfig(file.path.ToAbsolutePath(), []byte(file.content)); err != nil {
 			return fmt.Errorf("failed to create %s file: %w", file.name, err)
 		}
 	}
@@ -371,19 +280,8 @@ func (sr *SourceRepository) createInitialFiles() error {
 
 // ReadBlobObject reads and validates a blob object from the repository.
 //
-// This method retrieves a Git blob object by its SHA-1 hash and ensures that
-// the retrieved object is actually a blob (not a tree, commit, or tag).
-// Blobs represent file contents in Git's object database.
-//
 // Parameters:
 //   - blobSHA: The SHA-1 hash of the blob object to read
-//
-// Returns:
-//   - *objects.Blob: The validated blob object containing file content
-//   - error: nil on success, or an error if:
-//   - The object cannot be read from the object store
-//   - The object exists but is not a blob type
-//   - The repository is not initialized
 func (sr *SourceRepository) ReadBlobObject(blobSHA objects.ObjectHash) (*blob.Blob, error) {
 	obj, err := sr.ReadObject(blobSHA)
 	if err != nil {
@@ -400,19 +298,8 @@ func (sr *SourceRepository) ReadBlobObject(blobSHA objects.ObjectHash) (*blob.Bl
 
 // ReadTreeObject reads and validates a tree object from the repository.
 //
-// This method retrieves a Git tree object by its SHA-1 hash and ensures that
-// the retrieved object is actually a tree (not a blob, commit, or tag).
-// Trees represent directory structures in Git's object database.
-//
 // Parameters:
 //   - treeSHA: The SHA-1 hash of the tree object to read
-//
-// Returns:
-//   - *tree.Tree: The validated tree object containing directory entries
-//   - error: nil on success, or an error if:
-//   - The object cannot be read from the object store
-//   - The object exists but is not a tree type
-//   - The repository is not initialized
 func (sr *SourceRepository) ReadTreeObject(treeSHA objects.ObjectHash) (*tree.Tree, error) {
 	obj, err := sr.ReadObject(treeSHA)
 	if err != nil {
@@ -429,19 +316,8 @@ func (sr *SourceRepository) ReadTreeObject(treeSHA objects.ObjectHash) (*tree.Tr
 
 // ReadCommitObject reads and validates a commit object from the repository.
 //
-// This method retrieves a Git commit object by its SHA-1 hash and ensures that
-// the retrieved object is actually a commit (not a blob, tree, or tag).
-// Commits represent snapshots in the repository's history.
-//
 // Parameters:
 //   - commitSHA: The SHA-1 hash of the commit object to read
-//
-// Returns:
-//   - *commit.Commit: The validated commit object containing metadata and tree reference
-//   - error: nil on success, or an error if:
-//   - The object cannot be read from the object store
-//   - The object exists but is not a commit type
-//   - The repository is not initialized
 func (sr *SourceRepository) ReadCommitObject(commitSHA objects.ObjectHash) (*commit.Commit, error) {
 	obj, err := sr.ReadObject(commitSHA)
 	if err != nil {
