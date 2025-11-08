@@ -2,6 +2,7 @@ package branch
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/utkarsh5026/SourceControl/pkg/objects"
@@ -11,12 +12,12 @@ import (
 // Creator handles branch creation operations
 type Creator struct {
 	repo        *sourcerepo.SourceRepository
-	refService  *RefService
+	refService  *BranchRefManager
 	infoService *InfoService
 }
 
 // NewCreator creates a new branch creator service
-func NewCreator(repo *sourcerepo.SourceRepository, refSvc *RefService, infoSvc *InfoService) *Creator {
+func NewCreator(repo *sourcerepo.SourceRepository, refSvc *BranchRefManager, infoSvc *InfoService) *Creator {
 	return &Creator{
 		repo:        repo,
 		refService:  refSvc,
@@ -32,84 +33,66 @@ func (c *Creator) Create(ctx context.Context, name string, config *CreateConfig)
 	default:
 	}
 
-	if err := ValidateBranchName(name); err != nil {
-		return nil, err
-	}
-
 	if !config.Force {
 		if err := c.validateNotExists(name); err != nil {
 			return nil, err
 		}
 	}
 
-	startSHA, err := c.resolveStartPoint(config.StartPoint)
+	startSha, err := c.resolveStartPoint(config.StartPoint)
 	if err != nil {
 		return nil, fmt.Errorf("resolve start point: %w", err)
 	}
 
-	if err := c.verifyCommitExists(startSHA); err != nil {
+	if err := c.verifyCommitExists(startSha); err != nil {
 		return nil, fmt.Errorf("verify commit: %w", err)
 	}
 
-	if config.Force {
-		if err := c.refService.Update(name, startSHA, true); err != nil {
-			return nil, fmt.Errorf("update branch: %w", err)
-		}
-	} else {
-		if err := c.refService.Create(name, startSHA); err != nil {
-			return nil, fmt.Errorf("create branch: %w", err)
-		}
+	if err := c.createOrUpdate(name, startSha, config.Force); err != nil {
+		return nil, err
 	}
 
-	info, err := c.infoService.GetInfo(ctx, name)
-	if err != nil {
-		return &BranchInfo{
-			Name: name,
-			SHA:  startSHA,
-		}, nil
+	return c.infoService.GetInfo(ctx, name)
+}
+
+func (c *Creator) createOrUpdate(name string, startSha objects.ObjectHash, force bool) error {
+	if force {
+		if err := c.refService.Update(name, startSha, true); err != nil {
+			return fmt.Errorf("update branch: %w", err)
+		}
+		return nil
 	}
 
-	return info, nil
+	if err := c.refService.Create(name, startSha); err != nil {
+		return fmt.Errorf("create branch: %w", err)
+	}
+	return nil
 }
 
 // resolveStartPoint resolves the start point to a commit SHA
 func (c *Creator) resolveStartPoint(startPoint string) (objects.ObjectHash, error) {
 	if startPoint == "" {
-		headSHA, err := c.refService.GetHeadSHA()
-		if err != nil {
-			return "", fmt.Errorf("get HEAD SHA: %w", err)
-		}
-		return headSHA, nil
+		return c.refService.GetHeadSHA()
 	}
 
-	// Try to resolve as a branch name first
-	if err := ValidateBranchName(startPoint); err == nil {
-		exists, err := c.refService.Exists(startPoint)
-		if err != nil {
-			return "", fmt.Errorf("check branch exists: %w", err)
-		}
-		if exists {
-			sha, err := c.refService.Resolve(startPoint)
-			if err != nil {
-				return "", fmt.Errorf("resolve branch: %w", err)
-			}
+	if sha, err := c.refService.Resolve(startPoint); err != nil {
+		var notFoundErr *NotFoundError
+		if !errors.As(err, &notFoundErr) {
 			return sha, nil
 		}
 	}
 
-	// Try to parse as a commit SHA
-	sha, err := objects.NewObjectHashFromString(startPoint)
-	if err != nil {
-		return "", fmt.Errorf("invalid start point '%s': not a valid branch name or commit SHA", startPoint)
+	if sha, err := objects.NewObjectHashFromString(startPoint); err == nil {
+		return sha, nil
 	}
 
-	return sha, nil
+	return "", fmt.Errorf("invalid start point '%s': not a valid branch name or commit SHA", startPoint)
 }
 
 // verifyCommitExists checks if a commit object exists in the repository
 func (c *Creator) verifyCommitExists(sha objects.ObjectHash) error {
-	_, err := c.repo.ReadCommitObject(sha)
-	if err != nil {
+	exists, err := c.repo.ObjectStore().HasObject(sha)
+	if err != nil || !exists {
 		return fmt.Errorf("commit %s does not exist: %w", sha.Short(), err)
 	}
 	return nil
@@ -121,10 +104,6 @@ func (c *Creator) CreateOrphan(ctx context.Context, name string) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	default:
-	}
-
-	if err := ValidateBranchName(name); err != nil {
-		return err
 	}
 
 	if err := c.validateNotExists(name); err != nil {
