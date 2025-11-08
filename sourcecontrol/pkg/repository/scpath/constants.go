@@ -2,7 +2,7 @@ package scpath
 
 const (
 	// SourceDir is the name of the source control directory
-	SourceDir = ".source"
+	SourceDir = ".git"
 
 	// ObjectsDir is the name of the objects directory
 	ObjectsDir = "objects"

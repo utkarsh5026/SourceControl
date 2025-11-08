@@ -56,7 +56,7 @@ func FindRepository(startPath scpath.RepositoryPath) (*SourceRepository, error) 
 }
 
 // RepositoryExists checks whether a valid source control repository exists at the specified path.
-// A repository is considered to exist if there is a .source directory at the given location.
+// A repository is considered to exist if there is a .git directory at the given location.
 //
 // Parameters:
 //   - path: The repository path to check for existence
@@ -73,7 +73,7 @@ func RepositoryExists(path scpath.RepositoryPath) (bool, error) {
 	}
 
 	if err != nil {
-		return false, fmt.Errorf("failed to check .source directory: %w", err)
+		return false, fmt.Errorf("failed to check .git directory: %w", err)
 	}
 
 	return info.IsDir(), nil

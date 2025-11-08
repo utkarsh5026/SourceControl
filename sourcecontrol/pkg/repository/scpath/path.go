@@ -14,8 +14,8 @@ type RepositoryPath string
 // This can be used for paths anywhere in the repository structure
 type AbsolutePath string
 
-// SourcePath represents a path within the .source directory (Git metadata)
-// Example: "/repo/.source" or "/repo/.source/refs/heads"
+// SourcePath represents a path within the .git directory (Git metadata)
+// Example: "/repo/.git" or "/repo/.git/refs/heads"
 type SourcePath string
 
 // RelativePath represents a normalized relative path (forward slashes, no ..)

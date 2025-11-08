@@ -93,7 +93,7 @@ func (sr *SourceRepository) Initialize(path scpath.RepositoryPath) error {
 // WorkingDirectory returns the path to the repository's working directory.
 //
 // The working directory is the root directory of the repository where user files
-// and directories are stored. It is the parent directory of the .source folder.
+// and directories are stored. It is the parent directory of the .git folder.
 //
 // Returns:
 //   - scpath.RepositoryPath: The absolute path to the working directory
@@ -107,10 +107,10 @@ func (sr *SourceRepository) WorkingDirectory() scpath.RepositoryPath {
 	return sr.workingDir
 }
 
-// SourceDirectory returns the path to the .source metadata directory.
+// SourceDirectory returns the path to the .git metadata directory.
 //
 // Returns:
-//   - scpath.SourcePath: The absolute path to the .source directory
+//   - scpath.SourcePath: The absolute path to the .git directory
 //
 // Panics:
 //   - If the repository has not been initialized via Initialize()

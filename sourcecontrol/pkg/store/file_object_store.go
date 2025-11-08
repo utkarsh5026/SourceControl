@@ -56,7 +56,7 @@ func NewFileObjectStore() *FileObjectStore {
 // Calling Initialize multiple times is safe and will update the objectsPath.
 //
 // Parameters:
-//   - repoPath: The repository path that contains the .source directory
+//   - repoPath: The repository path that contains the .git directory
 //
 // Returns:
 //   - error: Returns an error if directory creation fails
