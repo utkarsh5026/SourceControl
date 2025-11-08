@@ -52,6 +52,13 @@ func NewTree(entries []*TreeEntry) *Tree {
 	return tree
 }
 
+func NewEmptyTree() *Tree {
+	return &Tree{
+		entries: []*TreeEntry{},
+		hash:    nil,
+	}
+}
+
 // ParseTree parses a tree object from serialized data (with header)
 func ParseTree(data []byte) (*Tree, error) {
 	content, err := objects.ParseSerializedObject(data, objects.TreeType)

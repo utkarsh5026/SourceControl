@@ -3,8 +3,6 @@ package commitmanager
 import (
 	"context"
 	"fmt"
-	"path/filepath"
-	"strings"
 
 	pool "github.com/utkarsh5026/SourceControl/pkg/common/concurrency"
 	"github.com/utkarsh5026/SourceControl/pkg/index"
@@ -62,7 +60,8 @@ func (tb *TreeBuilder) BuildFromIndex(ctx context.Context, idx *index.Index) (ob
 	}
 
 	if idx.Count() == 0 {
-		return tb.writeEmptyTree()
+		t := tree.NewEmptyTree()
+		return tb.repo.WriteObject(t)
 	}
 
 	root := tb.buildDirectoryTree(idx)
@@ -81,12 +80,6 @@ func (tb *TreeBuilder) buildDirectoryTree(idx *index.Index) *directoryNode {
 		root.addEntry(entry.Path.String(), entry.BlobHash, objects.FileModeRegular)
 	}
 	return root
-}
-
-// writeEmptyTree creates and writes an empty tree object to the repository
-func (tb *TreeBuilder) writeEmptyTree() (objects.ObjectHash, error) {
-	emptyTree := tree.NewTree([]*tree.TreeEntry{})
-	return tb.repo.WriteObject(emptyTree)
 }
 
 // checkContext checks if the context has been cancelled
@@ -124,8 +117,6 @@ func (tb *TreeBuilder) buildTree(ctx context.Context, node *directoryNode) (obje
 		return "", err
 	}
 	entries = append(entries, subdirEntries...)
-
-	// Write the complete tree object
 	return tb.writeTreeObject(entries)
 }
 
@@ -209,7 +200,6 @@ func (tb *TreeBuilder) buildSubdirectoriesConcurrent(ctx context.Context, node *
 
 // buildSubdirectoryEntry builds a single subdirectory tree and creates its entry
 func (tb *TreeBuilder) buildSubdirectoryEntry(ctx context.Context, name string, subdir *directoryNode) (*tree.TreeEntry, error) {
-	// Recursively build the subtree
 	subTreeSHA, err := tb.buildTree(ctx, subdir)
 	if err != nil {
 		return nil, fmt.Errorf("build subdirectory %s: %w", name, err)
@@ -232,82 +222,4 @@ func (tb *TreeBuilder) writeTreeObject(entries []*tree.TreeEntry) (objects.Objec
 		return "", fmt.Errorf("write tree: %w", err)
 	}
 	return treeSHA, nil
-}
-
-// directoryNode represents a directory in the in-memory tree structure.
-//
-// It holds references to:
-//   - files: Regular files in this directory (name -> blob SHA)
-//   - modes: File permissions/modes for each file
-//   - subdirs: Child directories (name -> directoryNode)
-//
-// This structure is built up from flat paths and then recursively converted
-// into Git tree objects.
-type directoryNode struct {
-	name    string                        // Directory name (empty for root)
-	files   map[string]objects.ObjectHash // filename -> blob SHA
-	modes   map[string]objects.FileMode   // filename -> file mode
-	subdirs map[string]*directoryNode     // dirname -> subdirectory node
-}
-
-// newDirectoryNode creates a new directory node with initialized maps
-func newDirectoryNode(name string) *directoryNode {
-	return &directoryNode{
-		name:    name,
-		files:   make(map[string]objects.ObjectHash),
-		modes:   make(map[string]objects.FileMode),
-		subdirs: make(map[string]*directoryNode),
-	}
-}
-
-// addEntry adds a file entry to the directory tree recursively.
-//
-// For a path like "src/utils/helper.go":
-//  1. Split into parts: ["src", "utils", "helper.go"]
-//  2. If only one part, add as file to current directory
-//  3. Otherwise, create/get subdirectory "src" and recurse with "utils/helper.go"
-//
-// Example:
-//
-//	node.addEntry("src/main.go", "abc123", FileModeRegular)
-//	- Creates subdirectory "src" if needed
-//	- Adds "main.go" to the "src" directory node
-func (dn *directoryNode) addEntry(path string, sha objects.ObjectHash, mode objects.FileMode) {
-	parts := dn.splitPath(path)
-
-	// Base case: file directly in this directory
-	if len(parts) == 1 {
-		dn.addFile(parts[0], sha, mode)
-		return
-	}
-
-	// Recursive case: file in a subdirectory
-	firstDir := parts[0]
-	restOfPath := strings.Join(parts[1:], "/")
-
-	// Ensure subdirectory exists
-	subdir := dn.getOrCreateSubdir(firstDir)
-	subdir.addEntry(restOfPath, sha, mode)
-}
-
-// splitPath splits a file path into its directory components
-func (dn *directoryNode) splitPath(path string) []string {
-	return strings.Split(filepath.ToSlash(path), "/")
-}
-
-// addFile adds a file to this directory node
-func (dn *directoryNode) addFile(name string, sha objects.ObjectHash, mode objects.FileMode) {
-	dn.files[name] = sha
-	dn.modes[name] = mode
-}
-
-// getOrCreateSubdir gets an existing subdirectory or creates a new one
-func (dn *directoryNode) getOrCreateSubdir(name string) *directoryNode {
-	if subdir, exists := dn.subdirs[name]; exists {
-		return subdir
-	}
-
-	subdir := newDirectoryNode(name)
-	dn.subdirs[name] = subdir
-	return subdir
 }
