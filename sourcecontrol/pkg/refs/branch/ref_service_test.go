@@ -314,6 +314,11 @@ func TestRefService_Rename(t *testing.T) {
 
 // TestValidateBranchName tests the ValidateBranchName function
 func TestValidateBranchName(t *testing.T) {
+	repo, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	refMgr := refs.NewRefManager(repo)
+	refSvc := NewRefService(refMgr)
 	testCases := []struct {
 		name  string
 		valid bool
@@ -334,7 +339,7 @@ func TestValidateBranchName(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := ValidateBranchName(tc.name)
+			err := refSvc.validateBranchName(tc.name)
 			if tc.valid && err != nil {
 				t.Errorf("Expected '%s' to be valid, got error: %v", tc.name, err)
 			}

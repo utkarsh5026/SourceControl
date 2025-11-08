@@ -9,7 +9,6 @@ import (
 	"github.com/utkarsh5026/SourceControl/pkg/common/fileops"
 	"github.com/utkarsh5026/SourceControl/pkg/objects"
 	"github.com/utkarsh5026/SourceControl/pkg/repository/refs"
-	"github.com/utkarsh5026/SourceControl/pkg/repository/scpath"
 )
 
 const (
@@ -20,21 +19,21 @@ const (
 	HeadFile = "HEAD"
 )
 
-// RefService handles low-level branch reference operations.
+// BranchRefManager handles low-level branch reference operations.
 // It wraps the RefManager to provide branch-specific functionality.
-type RefService struct {
+type BranchRefManager struct {
 	refManager *refs.RefManager
 }
 
 // NewRefService creates a new branch reference service
-func NewRefService(refMgr *refs.RefManager) *RefService {
-	return &RefService{
+func NewRefService(refMgr *refs.RefManager) *BranchRefManager {
+	return &BranchRefManager{
 		refManager: refMgr,
 	}
 }
 
 // Current returns the name of the current branch, or empty string if detached
-func (rs *RefService) Current() (string, error) {
+func (rs *BranchRefManager) Current() (string, error) {
 	headPath := rs.refManager.GetHeadPath().ToAbsolutePath()
 	content, err := fileops.ReadStringStrict(headPath)
 	if err != nil {
@@ -53,7 +52,7 @@ func (rs *RefService) Current() (string, error) {
 	return "", nil
 }
 
-func (rs *RefService) ValidateExists(name string) error {
+func (rs *BranchRefManager) ValidateExists(name string) error {
 	exists, err := rs.Exists(name)
 	if err != nil {
 		return fmt.Errorf("check branch exists: %w", err)
@@ -66,7 +65,7 @@ func (rs *RefService) ValidateExists(name string) error {
 }
 
 // IsDetached checks if HEAD is in detached state
-func (rs *RefService) IsDetached() (bool, error) {
+func (rs *BranchRefManager) IsDetached() (bool, error) {
 	current, err := rs.Current()
 	if err != nil {
 		return false, err
@@ -75,8 +74,8 @@ func (rs *RefService) IsDetached() (bool, error) {
 }
 
 // Create creates a new branch reference pointing to the given SHA
-func (rs *RefService) Create(name string, sha objects.ObjectHash) error {
-	if err := ValidateBranchName(name); err != nil {
+func (rs *BranchRefManager) Create(name string, sha objects.ObjectHash) error {
+	if err := rs.validateBranchName(name); err != nil {
 		return err
 	}
 
@@ -98,8 +97,8 @@ func (rs *RefService) Create(name string, sha objects.ObjectHash) error {
 }
 
 // Update updates an existing branch to point to a new SHA
-func (rs *RefService) Update(name string, sha objects.ObjectHash, force bool) error {
-	if err := ValidateBranchName(name); err != nil {
+func (rs *BranchRefManager) Update(name string, sha objects.ObjectHash, force bool) error {
+	if err := rs.validateBranchName(name); err != nil {
 		return err
 	}
 
@@ -122,12 +121,11 @@ func (rs *RefService) Update(name string, sha objects.ObjectHash, force bool) er
 }
 
 // Delete deletes a branch reference
-func (rs *RefService) Delete(name string) error {
-	if err := ValidateBranchName(name); err != nil {
+func (rs *BranchRefManager) Delete(name string) error {
+	if err := rs.validateBranchName(name); err != nil {
 		return err
 	}
 
-	// Check if it's the current branch
 	current, err := rs.Current()
 	if err != nil {
 		return fmt.Errorf("get current branch: %w", err)
@@ -137,7 +135,6 @@ func (rs *RefService) Delete(name string) error {
 	}
 
 	refPath := rs.branchRefPath(name)
-
 	deleted, err := rs.refManager.DeleteRef(refPath)
 	if err != nil {
 		return fmt.Errorf("delete branch ref: %w", err)
@@ -150,18 +147,16 @@ func (rs *RefService) Delete(name string) error {
 }
 
 // Rename renames a branch from oldName to newName
-func (rs *RefService) Rename(oldName, newName string, force bool) error {
-	if err := ValidateBranchName(oldName); err != nil {
-		return err
-	}
-	if err := ValidateBranchName(newName); err != nil {
-		return err
+func (rs *BranchRefManager) Rename(oldName, newName string, force bool) error {
+	for _, name := range []string{oldName, newName} {
+		if err := rs.validateBranchName(name); err != nil {
+			return err
+		}
 	}
 
 	oldRefPath := rs.branchRefPath(oldName)
 	newRefPath := rs.branchRefPath(newName)
 
-	// Check if old branch exists
 	exists, err := rs.refManager.Exists(oldRefPath)
 	if err != nil {
 		return fmt.Errorf("check old branch exists: %w", err)
@@ -170,7 +165,6 @@ func (rs *RefService) Rename(oldName, newName string, force bool) error {
 		return NewNotFoundError(oldName)
 	}
 
-	// Check if new branch already exists
 	newExists, err := rs.refManager.Exists(newRefPath)
 	if err != nil {
 		return fmt.Errorf("check new branch exists: %w", err)
@@ -179,13 +173,11 @@ func (rs *RefService) Rename(oldName, newName string, force bool) error {
 		return NewAlreadyExistsError(newName)
 	}
 
-	// Get the SHA that old branch points to
 	sha, err := rs.refManager.ResolveToSHA(oldRefPath)
 	if err != nil {
 		return fmt.Errorf("resolve old branch: %w", err)
 	}
 
-	// Create new branch
 	if err := rs.refManager.UpdateRef(newRefPath, sha); err != nil {
 		return fmt.Errorf("create new branch: %w", err)
 	}
@@ -210,8 +202,8 @@ func (rs *RefService) Rename(oldName, newName string, force bool) error {
 }
 
 // Exists checks if a branch exists
-func (rs *RefService) Exists(name string) (bool, error) {
-	if err := ValidateBranchName(name); err != nil {
+func (rs *BranchRefManager) Exists(name string) (bool, error) {
+	if err := rs.validateBranchName(name); err != nil {
 		return false, err
 	}
 
@@ -220,8 +212,8 @@ func (rs *RefService) Exists(name string) (bool, error) {
 }
 
 // Resolve resolves a branch name to its commit SHA
-func (rs *RefService) Resolve(name string) (objects.ObjectHash, error) {
-	if err := ValidateBranchName(name); err != nil {
+func (rs *BranchRefManager) Resolve(name string) (objects.ObjectHash, error) {
+	if err := rs.validateBranchName(name); err != nil {
 		return "", err
 	}
 
@@ -235,10 +227,9 @@ func (rs *RefService) Resolve(name string) (objects.ObjectHash, error) {
 }
 
 // List returns all branch names in the repository
-func (rs *RefService) List() ([]string, error) {
+func (rs *BranchRefManager) List() ([]string, error) {
 	branchDir := filepath.Join(rs.refManager.GetRefsPath().String(), BranchDirName)
 
-	// Check if branch directory exists
 	if _, err := os.Stat(branchDir); os.IsNotExist(err) {
 		return []string{}, nil
 	}
@@ -277,8 +268,8 @@ func (rs *RefService) List() ([]string, error) {
 }
 
 // SetHead updates HEAD to point to the given branch
-func (rs *RefService) SetHead(branchName string) error {
-	if err := ValidateBranchName(branchName); err != nil {
+func (rs *BranchRefManager) SetHead(branchName string) error {
+	if err := rs.validateBranchName(branchName); err != nil {
 		return err
 	}
 
@@ -301,7 +292,7 @@ func (rs *RefService) SetHead(branchName string) error {
 }
 
 // SetHeadDetached sets HEAD to point directly to a commit (detached state)
-func (rs *RefService) SetHeadDetached(sha objects.ObjectHash) error {
+func (rs *BranchRefManager) SetHeadDetached(sha objects.ObjectHash) error {
 	if err := sha.Validate(); err != nil {
 		return fmt.Errorf("invalid SHA: %w", err)
 	}
@@ -317,9 +308,8 @@ func (rs *RefService) SetHeadDetached(sha objects.ObjectHash) error {
 }
 
 // GetHeadSHA returns the SHA that HEAD points to
-func (rs *RefService) GetHeadSHA() (objects.ObjectHash, error) {
-	headRef := refs.RefPath(scpath.HeadFile)
-	sha, err := rs.refManager.ResolveToSHA(headRef)
+func (rs *BranchRefManager) GetHeadSHA() (objects.ObjectHash, error) {
+	sha, err := rs.refManager.ResolveToSHA(refs.RefHEAD)
 	if err != nil {
 		return "", fmt.Errorf("resolve HEAD: %w", err)
 	}
@@ -327,12 +317,13 @@ func (rs *RefService) GetHeadSHA() (objects.ObjectHash, error) {
 }
 
 // branchRefPath converts a branch name to its full ref path
-func (rs *RefService) branchRefPath(name string) refs.RefPath {
-	return refs.RefPath(fmt.Sprintf("refs/heads/%s", name))
+func (rs *BranchRefManager) branchRefPath(name string) refs.RefPath {
+	refPath, _ := refs.NewBranchRef(name)
+	return refPath
 }
 
 // ValidateBranchName validates a branch name according to Git rules
-func ValidateBranchName(name string) error {
+func (rs *BranchRefManager) validateBranchName(name string) error {
 	if name == "" {
 		return NewInvalidNameError(name, "branch name cannot be empty")
 	}
