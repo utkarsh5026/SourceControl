@@ -51,10 +51,11 @@ type Backup struct {
 
 // Status represents the state of the working directory relative to the index
 type Status struct {
-	Clean         bool
-	ModifiedFiles []scpath.RelativePath
-	DeletedFiles  []scpath.RelativePath
-	Details       []FileStatusDetail
+	Clean          bool
+	ModifiedFiles  []scpath.RelativePath
+	DeletedFiles   []scpath.RelativePath
+	UntrackedFiles []scpath.RelativePath
+	Details        []FileStatusDetail
 }
 
 // ChangeSummary provides statistics about detected changes

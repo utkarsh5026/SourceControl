@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	pool "github.com/utkarsh5026/SourceControl/pkg/common/concurrency"
 	"github.com/utkarsh5026/SourceControl/pkg/index"
@@ -73,41 +74,51 @@ func NewValidator(workDir scpath.RepositoryPath) *Validator {
 }
 
 // ValidateCleanState checks if the working directory has uncommitted changes.
-// It compares each index entry against the actual file on disk.
+// It compares each index entry against the actual file on disk and also
+// scans for untracked files not in the index.
 func (v *Validator) ValidateCleanState(idx *index.Index) (Status, error) {
 	status := Status{
-		Clean:         true,
-		ModifiedFiles: []scpath.RelativePath{},
-		DeletedFiles:  []scpath.RelativePath{},
-		Details:       []FileStatusDetail{},
+		Clean:          true,
+		ModifiedFiles:  []scpath.RelativePath{},
+		DeletedFiles:   []scpath.RelativePath{},
+		UntrackedFiles: []scpath.RelativePath{},
+		Details:        []FileStatusDetail{},
 	}
 
-	if len(idx.Entries) == 0 {
-		return status, nil
-	}
+	if len(idx.Entries) > 0 {
+		wp := pool.NewWorkerPool[*index.Entry, *FileStatusDetail]()
 
-	wp := pool.NewWorkerPool[*index.Entry, *FileStatusDetail]()
+		processFn := func(ctx context.Context, entry *index.Entry) (*FileStatusDetail, error) {
+			return v.checkFileStatus(entry)
+		}
 
-	processFn := func(ctx context.Context, entry *index.Entry) (*FileStatusDetail, error) {
-		return v.checkFileStatus(entry)
-	}
+		results, err := wp.Process(context.Background(), idx.Entries, processFn)
+		if err != nil {
+			return status, err
+		}
 
-	results, err := wp.Process(context.Background(), idx.Entries, processFn)
-	if err != nil {
-		return status, err
-	}
+		for _, detail := range results {
+			if detail != nil {
+				status.Clean = false
+				status.Details = append(status.Details, *detail)
 
-	for _, detail := range results {
-		if detail != nil {
-			status.Clean = false
-			status.Details = append(status.Details, *detail)
-
-			if detail.Status == FileDeleted {
-				status.DeletedFiles = append(status.DeletedFiles, detail.Path)
-			} else {
-				status.ModifiedFiles = append(status.ModifiedFiles, detail.Path)
+				if detail.Status == FileDeleted {
+					status.DeletedFiles = append(status.DeletedFiles, detail.Path)
+				} else {
+					status.ModifiedFiles = append(status.ModifiedFiles, detail.Path)
+				}
 			}
 		}
+	}
+
+	untrackedFiles, err := v.findUntrackedFiles(idx)
+	if err != nil {
+		return status, fmt.Errorf("scan for untracked files: %w", err)
+	}
+
+	if len(untrackedFiles) > 0 {
+		status.Clean = false
+		status.UntrackedFiles = untrackedFiles
 	}
 
 	return status, nil
@@ -227,4 +238,55 @@ func (v *Validator) isContentModified(entry *index.Entry) (bool, objects.ObjectH
 	}
 
 	return currentHash != entry.BlobHash, currentHash, nil
+}
+
+// findUntrackedFiles scans the working directory for files not in the index
+func (v *Validator) findUntrackedFiles(idx *index.Index) ([]scpath.RelativePath, error) {
+	var untracked []scpath.RelativePath
+
+	err := v.walkWorkingDir(func(relPath scpath.RelativePath, info os.FileInfo) error {
+		if _, exists := idx.Get(relPath); exists {
+			return nil
+		}
+
+		untracked = append(untracked, relPath)
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return untracked, nil
+}
+
+// walkWorkingDir walks through the working directory, calling the callback for each file
+func (v *Validator) walkWorkingDir(callback func(scpath.RelativePath, os.FileInfo) error) error {
+	gitDir := v.workDir.SourcePath()
+
+	return filepath.Walk(v.workDir.String(), func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if info.IsDir() && path == gitDir.String() {
+			return filepath.SkipDir
+		}
+
+		if info.IsDir() {
+			return nil
+		}
+
+		relPathStr, err := filepath.Rel(v.workDir.String(), path)
+		if err != nil {
+			return fmt.Errorf("get relative path: %w", err)
+		}
+
+		relPath, err := scpath.NewRelativePath(relPathStr)
+		if err != nil {
+			return err
+		}
+
+		return callback(relPath, info)
+	})
 }
