@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 	"github.com/utkarsh5026/SourceControl/pkg/repository/scpath"
 	"github.com/utkarsh5026/SourceControl/pkg/repository/sourcerepo"
@@ -39,10 +40,23 @@ This creates a .git directory with all necessary subdirectories and files.`,
 				return fmt.Errorf("failed to initialize repository: %w", err)
 			}
 
+			// Styled success message
+			successStyle := lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("10"))
+
+			checkMark := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("10")).
+				Render("✓")
+
+			pathStyle := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("12")).
+				Render(fmt.Sprintf("%s/%s", absPath, scpath.SourceDir))
+
 			if bare {
-				fmt.Printf("Initialized empty bare SourceControl repository in %s/%s\n", absPath, scpath.SourceDir)
+				fmt.Printf("%s %s %s\n", checkMark, successStyle.Render("Initialized empty bare SourceControl repository in"), pathStyle)
 			} else {
-				fmt.Printf("Initialized empty SourceControl repository in %s/%s\n", absPath, scpath.SourceDir)
+				fmt.Printf("%s %s %s\n", checkMark, successStyle.Render("Initialized empty SourceControl repository in"), pathStyle)
 			}
 
 			return nil
