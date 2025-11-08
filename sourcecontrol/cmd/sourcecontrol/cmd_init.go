@@ -16,7 +16,7 @@ func newInitCmd() *cobra.Command {
 		Use:   "init [path]",
 		Short: "Initialize a new SourceControl repository",
 		Long: `Initialize a new SourceControl repository in the current directory or specified path.
-This creates a .sc directory with all necessary subdirectories and files.`,
+This creates a .git directory with all necessary subdirectories and files.`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "."
@@ -40,9 +40,9 @@ This creates a .sc directory with all necessary subdirectories and files.`,
 			}
 
 			if bare {
-				fmt.Printf("Initialized empty bare SourceControl repository in %s/.sc\n", absPath)
+				fmt.Printf("Initialized empty bare SourceControl repository in %s/%s\n", absPath, scpath.SourceDir)
 			} else {
-				fmt.Printf("Initialized empty SourceControl repository in %s/.sc\n", absPath)
+				fmt.Printf("Initialized empty SourceControl repository in %s/%s\n", absPath, scpath.SourceDir)
 			}
 
 			return nil

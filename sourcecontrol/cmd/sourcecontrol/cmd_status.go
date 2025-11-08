@@ -55,6 +55,15 @@ Displays which files are modified, staged, untracked, etc.`,
 					fmt.Println()
 				}
 
+				if len(status.UntrackedFiles) > 0 {
+					hasChanges = true
+					fmt.Println(renderSection("Untracked files:"))
+					for _, path := range status.UntrackedFiles {
+						fmt.Println(formatUntracked(string(path)))
+					}
+					fmt.Println()
+				}
+
 				if hasChanges {
 					fmt.Println(colorYellow("  💡 Use 'sc add <file>' to stage changes for commit"))
 				}
