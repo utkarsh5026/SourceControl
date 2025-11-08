@@ -357,7 +357,10 @@ func (m *Manager) updateCurrentRef(ctx context.Context, commitSHA objects.Object
 
 	currentBranch, err := m.branchManager.Current()
 	if err == nil && currentBranch != "" {
-		if err := m.branchManager.Update(currentBranch, commitSHA, false); err != nil {
+		exists, _ := m.branchManager.Exists(currentBranch)
+		force := !exists
+
+		if err := m.branchManager.Update(currentBranch, commitSHA, force); err != nil {
 			return fmt.Errorf("update branch manager for %s: %w", currentBranch, err)
 		}
 		return nil
@@ -370,7 +373,7 @@ func (m *Manager) updateCurrentRef(ctx context.Context, commitSHA objects.Object
 		defaultBranch = branch.DefaultBranch
 	}
 
-	if err := m.branchManager.Update(defaultBranch, commitSHA, false); err != nil {
+	if err := m.branchManager.Update(defaultBranch, commitSHA, true); err != nil {
 		return fmt.Errorf("update branch manager for %s: %w", defaultBranch, err)
 	}
 
