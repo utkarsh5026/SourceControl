@@ -226,45 +226,6 @@ func TestBranchManager_RenameBranch(t *testing.T) {
 	}
 }
 
-// TestBranchManager_ValidateBranchName tests branch name validation
-func TestBranchManager_ValidateBranchName(t *testing.T) {
-	testCases := []struct {
-		name       string
-		branchName string
-		shouldErr  bool
-	}{
-		{"Valid simple name", "feature", false},
-		{"Valid with slash", "feature/new", false},
-		{"Valid with hyphen", "bug-fix", false},
-		{"Valid with underscore", "test_branch", false},
-		{"Empty name", "", true},
-		{"Starts with dot", ".hidden", true},
-		{"Ends with .lock", "branch.lock", true},
-		{"Contains space", "my branch", true},
-		{"Contains tilde", "branch~1", true},
-		{"Contains caret", "branch^", true},
-		{"Contains colon", "branch:name", true},
-		{"Contains question", "branch?", true},
-		{"Contains asterisk", "branch*", true},
-		{"Starts with slash", "/branch", true},
-		{"Ends with slash", "branch/", true},
-		{"Consecutive slashes", "feature//test", true},
-		{"Contains ..", "branch..name", true},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			err := ValidateBranchName(tc.branchName)
-			if tc.shouldErr && err == nil {
-				t.Errorf("Expected error for branch name '%s'", tc.branchName)
-			}
-			if !tc.shouldErr && err != nil {
-				t.Errorf("Unexpected error for branch name '%s': %v", tc.branchName, err)
-			}
-		})
-	}
-}
-
 // setupTestRepo creates a temporary test repository
 func setupTestRepo(t *testing.T) (*sourcerepo.SourceRepository, func()) {
 	t.Helper()

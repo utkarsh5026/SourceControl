@@ -5,23 +5,21 @@ import (
 	"fmt"
 
 	"github.com/utkarsh5026/SourceControl/pkg/objects"
-	"github.com/utkarsh5026/SourceControl/pkg/repository/refs"
 	"github.com/utkarsh5026/SourceControl/pkg/repository/sourcerepo"
+	"golang.org/x/sync/errgroup"
 )
 
 // InfoService provides branch information and metadata
 type InfoService struct {
-	repo       *sourcerepo.SourceRepository
-	refManager *refs.RefManager
-	refService *RefService
+	repo *sourcerepo.SourceRepository
+	rs   *BranchRefManager
 }
 
 // NewInfoService creates a new branch info service
-func NewInfoService(repo *sourcerepo.SourceRepository, refMgr *refs.RefManager, refSvc *RefService) *InfoService {
+func NewInfoService(repo *sourcerepo.SourceRepository, refSvc *BranchRefManager) *InfoService {
 	return &InfoService{
-		repo:       repo,
-		refManager: refMgr,
-		refService: refSvc,
+		repo: repo,
+		rs:   refSvc,
 	}
 }
 
@@ -33,37 +31,28 @@ func (is *InfoService) GetInfo(ctx context.Context, name string) (*BranchInfo, e
 	default:
 	}
 
-	if err := ValidateBranchName(name); err != nil {
+	if err := is.rs.ValidateExists(name); err != nil {
 		return nil, err
 	}
 
-	exists, err := is.refService.Exists(name)
-	if err != nil {
-		return nil, fmt.Errorf("check branch exists: %w", err)
-	}
-	if !exists {
-		return nil, NewNotFoundError(name)
-	}
-
-	sha, err := is.refService.Resolve(name)
+	branchSha, err := is.rs.Resolve(name)
 	if err != nil {
 		return nil, fmt.Errorf("resolve branch: %w", err)
 	}
 
-	currentBranch, err := is.refService.Current()
+	currentBranch, err := is.rs.Current()
 	if err != nil {
 		return nil, fmt.Errorf("get current branch: %w", err)
 	}
 
 	info := &BranchInfo{
 		Name:            name,
-		SHA:             sha,
+		SHA:             branchSha,
 		IsCurrentBranch: name == currentBranch,
 	}
 
-	// Get commit details
 	if err := is.enrichWithCommitInfo(ctx, info); err != nil {
-		return info, nil
+		return nil, fmt.Errorf("enrich branch info: %w", err)
 	}
 
 	return info, nil
@@ -77,12 +66,12 @@ func (is *InfoService) ListAll(ctx context.Context) ([]BranchInfo, error) {
 	default:
 	}
 
-	branchNames, err := is.refService.List()
+	branchNames, err := is.rs.List()
 	if err != nil {
 		return nil, fmt.Errorf("list branches: %w", err)
 	}
 
-	currentBranch, err := is.refService.Current()
+	currentBranch, err := is.rs.Current()
 	if err != nil {
 		return nil, fmt.Errorf("get current branch: %w", err)
 	}
@@ -108,7 +97,7 @@ func (is *InfoService) ListAll(ctx context.Context) ([]BranchInfo, error) {
 
 // getBranchInfoQuick gets basic branch info without expensive operations
 func (is *InfoService) getBranchInfoQuick(name, currentBranch string) (BranchInfo, error) {
-	sha, err := is.refService.Resolve(name)
+	sha, err := is.rs.Resolve(name)
 	if err != nil {
 		return BranchInfo{}, err
 	}
@@ -133,21 +122,25 @@ func (is *InfoService) enrichWithCommitInfo(ctx context.Context, info *BranchInf
 		return fmt.Errorf("read commit: %w", err)
 	}
 
-	if commit != nil {
-		info.LastCommitMessage = commit.Message
+	if commit == nil {
+		return nil
+	}
 
-		if commit.Author != nil {
-			timestamp := commit.Author.When.Time()
-			info.LastCommitDate = &timestamp
-		}
+	info.LastCommitMessage = commit.Message
+	if commit.Author != nil {
+		info.LastCommitDate = commit.Author.When.Time()
+	}
 
+	g, _ := errgroup.WithContext(ctx)
+	g.Go(func() error {
 		count, err := is.countCommits(ctx, info.SHA)
 		if err == nil {
 			info.CommitCount = count
 		}
-	}
+		return err
+	})
 
-	return nil
+	return g.Wait()
 }
 
 // countCommits counts the number of commits reachable from the given SHA
@@ -188,12 +181,12 @@ func (is *InfoService) CompareWithBase(ctx context.Context, branchName, baseName
 	default:
 	}
 
-	branchSHA, err := is.refService.Resolve(branchName)
+	branchSHA, err := is.rs.Resolve(branchName)
 	if err != nil {
 		return 0, 0, fmt.Errorf("resolve branch: %w", err)
 	}
 
-	baseSHA, err := is.refService.Resolve(baseName)
+	baseSHA, err := is.rs.Resolve(baseName)
 	if err != nil {
 		return 0, 0, fmt.Errorf("resolve base: %w", err)
 	}

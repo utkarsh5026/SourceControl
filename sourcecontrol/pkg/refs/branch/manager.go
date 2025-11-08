@@ -31,7 +31,7 @@ const (
 type Manager struct {
 	repo           *sourcerepo.SourceRepository
 	refManager     *refs.RefManager
-	branchRefSvc   *RefService
+	branchRefSvc   *BranchRefManager
 	branchInfoSvc  *InfoService
 	workdirManager *workdir.Manager
 }
@@ -50,7 +50,7 @@ type Manager struct {
 func NewManager(repo *sourcerepo.SourceRepository) *Manager {
 	refMgr := refs.NewRefManager(repo)
 	branchRefSvc := NewRefService(refMgr)
-	branchInfoSvc := NewInfoService(repo, refMgr, branchRefSvc)
+	branchInfoSvc := NewInfoService(repo, branchRefSvc)
 	workdirMgr := workdir.NewManager(repo)
 
 	return &Manager{
@@ -165,8 +165,7 @@ func (m *Manager) RenameBranch(ctx context.Context, oldName, newName string, opt
 		opt(config)
 	}
 
-	r := NewRename(m.branchRefSvc)
-	if err := r.Rename(ctx, oldName, newName, config); err != nil {
+	if err := m.branchRefSvc.Rename(oldName, newName, config.Force); err != nil {
 		return fmt.Errorf("rename branch %s to %s: %w", oldName, newName, err)
 	}
 	return nil
@@ -229,9 +228,4 @@ func (m *Manager) BranchExists(name string) (bool, error) {
 		return false, fmt.Errorf("check branch exists: %w", err)
 	}
 	return exists, nil
-}
-
-// ValidateBranchName validates a branch name according to Git rules.
-func (m *Manager) ValidateBranchName(name string) error {
-	return ValidateBranchName(name)
 }

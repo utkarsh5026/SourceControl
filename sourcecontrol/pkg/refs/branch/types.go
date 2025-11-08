@@ -21,7 +21,7 @@ type BranchInfo struct {
 	CommitCount int
 
 	// LastCommitDate is when the last commit was made
-	LastCommitDate *time.Time
+	LastCommitDate time.Time
 
 	// LastCommitMessage is the message of the last commit
 	LastCommitMessage string
