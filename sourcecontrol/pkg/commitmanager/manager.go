@@ -1,6 +1,7 @@
 package commitmanager
 
 import (
+	"container/list"
 	"context"
 	"fmt"
 	"log/slog"
@@ -36,7 +37,7 @@ type Manager struct {
 	repo          *sourcerepo.SourceRepository
 	treeBuilder   *TreeBuilder
 	refManager    *refs.RefManager
-	branchManager *branch.Manager
+	branchManager *branch.BranchRefManager
 	configManager *config.Manager
 	typedConfig   *config.TypedConfig
 	logger        *slog.Logger
@@ -51,7 +52,7 @@ type Manager struct {
 //	mgr := commitmanager.NewManager(repo)
 func NewManager(repo *sourcerepo.SourceRepository) *Manager {
 	refMgr := refs.NewRefManager(repo)
-	branchMgr := branch.NewManager(repo)
+	branchMgr := branch.NewBranchRefManager(refMgr)
 	configMgr := config.NewManager(repo.WorkingDirectory())
 	typedConfig := config.NewTypedConfig(configMgr)
 
@@ -110,53 +111,28 @@ func (m *Manager) Initialize(ctx context.Context) error {
 //  4. Determines parent commits
 //  5. Creates the commit object
 //  6. Updates the current branch reference
-//
-// Example:
-//
-//	result, err := mgr.CreateCommit(ctx, commitmanager.CommitOptions{
-//	    Message: "Add new feature",
-//	})
-//	if err != nil {
-//	    log.Fatal(err)
-//	}
-//	fmt.Printf("Created commit %s\n", result.SHA.Short())
-func (m *Manager) CreateCommit(ctx context.Context, options CommitOptions) (*CommitResult, error) {
-	// Check context cancellation
+func (m *Manager) CreateCommit(ctx context.Context, options CommitOptions) (*commit.Commit, error) {
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	default:
 	}
 
-	m.logger.Info("creating commit", "message", options.Message)
-
-	// Validate options
 	if err := options.Validate(); err != nil {
 		m.logger.Error("invalid commit options", "error", err)
 		return nil, err
 	}
 
-	// Read the index
-	indexPath := m.repo.SourceDirectory().IndexPath()
-	m.logger.Debug("reading index", "path", indexPath)
-	idx, err := index.Read(indexPath.ToAbsolutePath())
+	idx, err := m.readIndex(options.AllowEmpty)
 	if err != nil {
-		m.logger.Error("failed to read index", "error", err, "path", indexPath)
-		return nil, NewCommitError("read index", err, "")
+		return nil, err
 	}
 
-	// Check if there are changes to commit
-	if idx.Count() == 0 && !options.AllowEmpty {
-		return nil, NewCommitError("validate", ErrNoChanges, "")
-	}
-
-	// Build tree from index
 	treeSHA, err := m.treeBuilder.BuildFromIndex(ctx, idx)
 	if err != nil {
 		return nil, NewCommitError("build tree", err, "")
 	}
 
-	// Get parent commits
 	parentSHAs, err := m.getParentCommits(ctx, options.Amend)
 	if err != nil {
 		return nil, NewCommitError("get parents", err, "")
@@ -170,7 +146,41 @@ func (m *Manager) CreateCommit(ctx context.Context, options CommitOptions) (*Com
 		}
 	}
 
-	// Get author and committer
+	commitObj, err := m.createCommit(options, treeSHA, parentSHAs)
+	if err != nil {
+		return nil, NewCommitError("build commit", err, "")
+	}
+
+	commitSHA, err := m.repo.WriteObject(commitObj)
+	if err != nil {
+		return nil, NewCommitError("write commit", err, "")
+	}
+
+	if err := m.updateCurrentRef(ctx, commitSHA); err != nil {
+		return nil, NewCommitError("update ref", err, "")
+	}
+
+	return commitObj, nil
+}
+
+func (m *Manager) readIndex(allowEmpty bool) (*index.Index, error) {
+	indexPath := m.repo.SourceDirectory().IndexPath()
+	idx, err := index.Read(indexPath.ToAbsolutePath())
+	if err != nil {
+		m.logger.Error("failed to read index", "error", err, "path", indexPath)
+		return nil, NewCommitError("read index", err, "")
+	}
+
+	if idx.Count() == 0 && !allowEmpty {
+		return nil, NewCommitError("validate", ErrNoChanges, "")
+	}
+
+	return idx, nil
+}
+
+func (m *Manager) createCommit(options CommitOptions, treeSHA objects.ObjectHash, parentSHAs []objects.ObjectHash) (*commit.Commit, error) {
+	var err error
+
 	author := options.Author
 	if author == nil {
 		author, err = m.getCurrentUser()
@@ -184,7 +194,6 @@ func (m *Manager) CreateCommit(ctx context.Context, options CommitOptions) (*Com
 		committer = author
 	}
 
-	// Create the commit object
 	commitObj, err := commit.NewCommitBuilder().
 		TreeHash(treeSHA).
 		ParentHashes(parentSHAs...).
@@ -196,46 +205,11 @@ func (m *Manager) CreateCommit(ctx context.Context, options CommitOptions) (*Com
 		return nil, NewCommitError("build commit", err, "")
 	}
 
-	// Write the commit object
-	commitSHA, err := m.repo.WriteObject(commitObj)
-	if err != nil {
-		m.logger.Error("failed to write commit object", "error", err)
-		return nil, NewCommitError("write commit", err, "")
-	}
-
-	// Update the current reference
-	if err := m.updateCurrentRef(ctx, commitSHA); err != nil {
-		m.logger.Error("failed to update reference", "error", err, "commit", commitSHA.Short())
-		return nil, NewCommitError("update ref", err, "")
-	}
-
-	m.logger.Info("commit created successfully",
-		"sha", commitSHA.Short().String(),
-		"tree", treeSHA.Short().String(),
-		"author", author.Name,
-	)
-
-	return &CommitResult{
-		SHA:        commitSHA,
-		TreeSHA:    treeSHA,
-		ParentSHAs: parentSHAs,
-		Message:    options.Message,
-		Author:     author,
-		Committer:  committer,
-	}, nil
+	return commitObj, nil
 }
 
 // GetCommit retrieves information about a specific commit
-//
-// Example:
-//
-//	result, err := mgr.GetCommit(ctx, commitSHA)
-//	if err != nil {
-//	    log.Fatal(err)
-//	}
-//	fmt.Printf("Commit: %s\nAuthor: %s\n", result.SHA.Short(), result.Author.Name)
-func (m *Manager) GetCommit(ctx context.Context, sha objects.ObjectHash) (*CommitResult, error) {
-	// Check context cancellation
+func (m *Manager) GetCommit(ctx context.Context, sha objects.ObjectHash) (*commit.Commit, error) {
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
@@ -247,19 +221,7 @@ func (m *Manager) GetCommit(ctx context.Context, sha objects.ObjectHash) (*Commi
 		return nil, NewCommitError("read commit", err, sha.Short().String())
 	}
 
-	commitSHA, err := commitObj.Hash()
-	if err != nil {
-		return nil, NewCommitError("get hash", err, "")
-	}
-
-	return &CommitResult{
-		SHA:        commitSHA,
-		TreeSHA:    commitObj.TreeSHA,
-		ParentSHAs: commitObj.ParentSHAs,
-		Message:    commitObj.Message,
-		Author:     commitObj.Author,
-		Committer:  commitObj.Committer,
-	}, nil
+	return commitObj, nil
 }
 
 // GetHistory retrieves the commit history starting from a given commit
@@ -271,24 +233,19 @@ func (m *Manager) GetCommit(ctx context.Context, sha objects.ObjectHash) (*Commi
 //   - ctx: Context for cancellation
 //   - startSHA: Starting commit SHA (empty string for HEAD)
 //   - limit: Maximum number of commits to retrieve
-func (m *Manager) GetHistory(ctx context.Context, startSHA objects.ObjectHash, limit int) ([]*CommitResult, error) {
-	// Check context cancellation
+func (m *Manager) GetHistory(ctx context.Context, startSHA objects.ObjectHash, limit int) ([]*commit.Commit, error) {
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	default:
 	}
 
-	history := make([]*CommitResult, 0, limit)
-	visited := make(map[string]bool)
+	history := make([]*commit.Commit, 0, limit)
 
-	// Determine starting commit
 	var currentSHA objects.ObjectHash
 	if startSHA == "" {
-		// Get HEAD
-		sha, err := m.refManager.ResolveToSHA(refs.RefPath("HEAD"))
+		sha, err := m.branchManager.GetHeadSHA()
 		if err != nil {
-			// No commits yet
 			return history, nil
 		}
 		currentSHA = sha
@@ -296,40 +253,41 @@ func (m *Manager) GetHistory(ctx context.Context, startSHA objects.ObjectHash, l
 		currentSHA = startSHA
 	}
 
-	// BFS queue
-	queue := []objects.ObjectHash{currentSHA}
+	return m.bfsCommitHistory(ctx, currentSHA, limit)
+}
 
-	for len(queue) > 0 && len(history) < limit {
-		// Check context cancellation
+func (m *Manager) bfsCommitHistory(ctx context.Context, currentSHA objects.ObjectHash, limit int) ([]*commit.Commit, error) {
+	history := make([]*commit.Commit, 0, limit)
+	visited := make(map[string]bool)
+
+	queue := list.New()
+	queue.PushBack(currentSHA)
+
+	for queue.Len() > 0 && len(history) < limit {
 		select {
 		case <-ctx.Done():
 			return history, ctx.Err()
 		default:
 		}
 
-		// Dequeue
-		sha := queue[0]
-		queue = queue[1:]
+		elem := queue.Front()
+		sha := queue.Remove(elem).(objects.ObjectHash)
 
-		// Skip if already visited
 		if visited[sha.String()] {
 			continue
 		}
 		visited[sha.String()] = true
 
-		// Get commit
 		result, err := m.GetCommit(ctx, sha)
 		if err != nil {
-			// Skip commits we can't read
 			continue
 		}
 
 		history = append(history, result)
 
-		// Enqueue parents
 		for _, parentSHA := range result.ParentSHAs {
 			if !visited[parentSHA.String()] {
-				queue = append(queue, parentSHA)
+				queue.PushBack(parentSHA)
 			}
 		}
 	}
@@ -339,21 +297,17 @@ func (m *Manager) GetHistory(ctx context.Context, startSHA objects.ObjectHash, l
 
 // getParentCommits determines the parent commits for a new commit
 func (m *Manager) getParentCommits(ctx context.Context, amend bool) ([]objects.ObjectHash, error) {
-	// Check context cancellation
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	default:
 	}
 
-	// Try to get HEAD commit
-	headSHA, err := m.refManager.ResolveToSHA(refs.RefPath("HEAD"))
+	headSHA, err := m.branchManager.GetHeadSHA()
 	if err != nil {
-		// No HEAD - this is the initial commit
 		return []objects.ObjectHash{}, nil
 	}
 
-	// If amending, use the parent's parents
 	if amend {
 		headCommit, err := m.repo.ReadCommitObject(headSHA)
 		if err == nil {
@@ -361,7 +315,6 @@ func (m *Manager) getParentCommits(ctx context.Context, amend bool) ([]objects.O
 		}
 	}
 
-	// Normal commit - current HEAD is the parent
 	return []objects.ObjectHash{headSHA}, nil
 }
 
@@ -396,20 +349,16 @@ func (m *Manager) getCurrentUser() (*commit.CommitPerson, error) {
 
 // updateCurrentRef updates the current branch reference or HEAD
 func (m *Manager) updateCurrentRef(ctx context.Context, commitSHA objects.ObjectHash) error {
-	// Check context cancellation
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	default:
 	}
 
-	// Try to get current branch
-	currentBranch, err := m.branchManager.CurrentBranch()
+	currentBranch, err := m.branchManager.Current()
 	if err == nil && currentBranch != "" {
-		// Update branch reference
-		branchRef := refs.RefPath(fmt.Sprintf("refs/heads/%s", currentBranch))
-		if err := m.refManager.UpdateRef(branchRef, commitSHA); err != nil {
-			return fmt.Errorf("update branch %s: %w", currentBranch, err)
+		if err := m.branchManager.Update(currentBranch, commitSHA, false); err != nil {
+			return fmt.Errorf("update branch manager for %s: %w", currentBranch, err)
 		}
 		return nil
 	}
@@ -421,18 +370,9 @@ func (m *Manager) updateCurrentRef(ctx context.Context, commitSHA objects.Object
 		defaultBranch = branch.DefaultBranch
 	}
 
-	// Update branch reference
-	branchRef := refs.RefPath(fmt.Sprintf("refs/heads/%s", defaultBranch))
-	if err := m.refManager.UpdateRef(branchRef, commitSHA); err != nil {
-		return fmt.Errorf("update default branch %s: %w", defaultBranch, err)
+	if err := m.branchManager.Update(defaultBranch, commitSHA, false); err != nil {
+		return fmt.Errorf("update branch manager for %s: %w", defaultBranch, err)
 	}
 
-	// Update HEAD to point to the branch
-	headContent := fmt.Sprintf("ref: refs/heads/%s", defaultBranch)
-	headPath := m.repo.SourceDirectory().HeadPath()
-	if err := os.WriteFile(headPath.String(), []byte(headContent), 0644); err != nil {
-		return fmt.Errorf("update HEAD: %w", err)
-	}
-
-	return nil
+	return m.branchManager.SetHead(defaultBranch)
 }

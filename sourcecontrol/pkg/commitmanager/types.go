@@ -1,7 +1,6 @@
 package commitmanager
 
 import (
-	"github.com/utkarsh5026/SourceControl/pkg/objects"
 	"github.com/utkarsh5026/SourceControl/pkg/objects/commit"
 )
 
@@ -24,27 +23,6 @@ type CommitOptions struct {
 
 	// NoVerify skips pre-commit and commit-msg hooks (currently not used)
 	NoVerify bool
-}
-
-// CommitResult contains information about a created or retrieved commit
-type CommitResult struct {
-	// SHA is the commit's object hash
-	SHA objects.ObjectHash
-
-	// TreeSHA is the root tree object hash
-	TreeSHA objects.ObjectHash
-
-	// ParentSHAs are the parent commit hashes
-	ParentSHAs []objects.ObjectHash
-
-	// Message is the commit message
-	Message string
-
-	// Author is the commit author
-	Author *commit.CommitPerson
-
-	// Committer is the person who committed
-	Committer *commit.CommitPerson
 }
 
 // Validate validates CommitOptions

@@ -205,7 +205,8 @@ func TestCreateCommit_InitialCommit(t *testing.T) {
 		t.Fatalf("CreateCommit failed: %v", err)
 	}
 
-	if result.SHA == "" {
+	resultHash, _ := result.Hash()
+	if resultHash == "" {
 		t.Error("Expected commit SHA, got empty string")
 	}
 	if result.TreeSHA == "" {
@@ -258,7 +259,8 @@ func TestCreateCommit_SecondCommit(t *testing.T) {
 	if len(secondCommit.ParentSHAs) != 1 {
 		t.Errorf("Expected 1 parent, got %d", len(secondCommit.ParentSHAs))
 	}
-	if secondCommit.ParentSHAs[0] != firstCommit.SHA {
+	firstCommitHash, _ := firstCommit.Hash()
+	if secondCommit.ParentSHAs[0] != firstCommitHash {
 		t.Error("Second commit parent should be first commit")
 	}
 }
@@ -324,7 +326,8 @@ func TestCreateCommit_AllowEmpty(t *testing.T) {
 		t.Fatalf("CreateCommit failed: %v", err)
 	}
 
-	if result.SHA == "" {
+	resultHash, _ := result.Hash()
+	if resultHash == "" {
 		t.Error("Expected commit SHA, got empty string")
 	}
 }
@@ -351,12 +354,14 @@ func TestGetCommit(t *testing.T) {
 	}
 
 	// Get the commit
-	retrieved, err := mgr.GetCommit(ctx, created.SHA)
+	createdHash, _ := created.Hash()
+	retrieved, err := mgr.GetCommit(ctx, createdHash)
 	if err != nil {
 		t.Fatalf("GetCommit failed: %v", err)
 	}
 
-	if retrieved.SHA != created.SHA {
+	retrievedHash, _ := retrieved.Hash()
+	if retrievedHash != createdHash {
 		t.Error("Retrieved commit SHA doesn't match created")
 	}
 	if retrieved.Message != created.Message {
@@ -397,10 +402,14 @@ func TestGetHistory(t *testing.T) {
 	}
 
 	// History should be in reverse chronological order
-	if history[0].SHA != commit3.SHA {
+	commit3Hash, _ := commit3.Hash()
+	commit1Hash, _ := commit1.Hash()
+	history0Hash, _ := history[0].Hash()
+	history2Hash, _ := history[2].Hash()
+	if history0Hash != commit3Hash {
 		t.Error("First commit in history should be most recent")
 	}
-	if history[2].SHA != commit1.SHA {
+	if history2Hash != commit1Hash {
 		t.Error("Last commit in history should be oldest")
 	}
 }
