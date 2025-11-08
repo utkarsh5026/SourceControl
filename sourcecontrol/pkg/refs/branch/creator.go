@@ -2,7 +2,6 @@ package branch
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/utkarsh5026/SourceControl/pkg/objects"
@@ -53,6 +52,7 @@ func (c *Creator) Create(ctx context.Context, name string, config *CreateConfig)
 	}
 
 	return c.infoService.GetInfo(ctx, name)
+
 }
 
 func (c *Creator) createOrUpdate(name string, startSha objects.ObjectHash, force bool) error {
@@ -71,22 +71,21 @@ func (c *Creator) createOrUpdate(name string, startSha objects.ObjectHash, force
 
 // resolveStartPoint resolves the start point to a commit SHA
 func (c *Creator) resolveStartPoint(startPoint string) (objects.ObjectHash, error) {
-	if startPoint == "" {
-		return c.refService.GetHeadSHA()
+	headSHA, err := c.refService.GetHeadSHA()
+	if err != nil {
+		return "", fmt.Errorf("get HEAD SHA: %w", err)
 	}
 
-	if sha, err := c.refService.Resolve(startPoint); err != nil {
-		var notFoundErr *NotFoundError
-		if !errors.As(err, &notFoundErr) {
-			return sha, nil
-		}
+	options := ResolveOptions{
+		DefaultValue: headSHA,
 	}
 
-	if sha, err := objects.NewObjectHashFromString(startPoint); err == nil {
-		return sha, nil
+	result, err := ResolveRefOrCommit(startPoint, c.refService, c.repo, options)
+	if err != nil {
+		return "", err
 	}
 
-	return "", fmt.Errorf("invalid start point '%s': not a valid branch name or commit SHA", startPoint)
+	return result.SHA, nil
 }
 
 // verifyCommitExists checks if a commit object exists in the repository

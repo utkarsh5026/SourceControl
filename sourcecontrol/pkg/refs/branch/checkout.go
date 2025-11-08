@@ -9,11 +9,16 @@ import (
 	"github.com/utkarsh5026/SourceControl/pkg/workdir"
 )
 
+type branchResolve struct {
+	sha      objects.ObjectHash
+	isBranch bool
+}
+
 // Checkout handles branch checkout operations, including updating
 // the working directory and HEAD reference
 type Checkout struct {
 	repo           *sourcerepo.SourceRepository
-	refService     *RefService
+	refService     *BranchRefManager
 	creator        *Creator
 	workdirManager *workdir.Manager
 }
@@ -21,7 +26,7 @@ type Checkout struct {
 // NewCheckout creates a new checkout service
 func NewCheckout(
 	repo *sourcerepo.SourceRepository,
-	refSvc *RefService,
+	refSvc *BranchRefManager,
 	creator *Creator,
 	workdirMgr *workdir.Manager,
 ) *Checkout {
@@ -45,12 +50,12 @@ func (co *Checkout) Checkout(ctx context.Context, target string, config *Checkou
 		return co.checkoutOrphan(ctx, target)
 	}
 
-	targetSHA, isBranch, err := co.resolveTarget(target, config)
+	resolved, err := co.resolveTarget(target, config)
 	if err != nil {
 		return err
 	}
 
-	if err := co.checkAlreadyCheckedOut(target, isBranch); err != nil {
+	if err := co.checkAlreadyCheckedOut(target, resolved.isBranch); err != nil {
 		return err
 	}
 
@@ -59,7 +64,7 @@ func (co *Checkout) Checkout(ctx context.Context, target string, config *Checkou
 		updateOpts = append(updateOpts, workdir.WithForce())
 	}
 
-	result, err := co.workdirManager.UpdateToCommit(ctx, targetSHA, updateOpts...)
+	result, err := co.workdirManager.UpdateToCommit(ctx, resolved.sha, updateOpts...)
 	if err != nil {
 		return fmt.Errorf("update working directory: %w", err)
 	}
@@ -68,8 +73,8 @@ func (co *Checkout) Checkout(ctx context.Context, target string, config *Checkou
 		return fmt.Errorf("failed to update working directory: %v", result.Err)
 	}
 
-	if config.Detach || !isBranch {
-		if err := co.refService.SetHeadDetached(targetSHA); err != nil {
+	if config.Detach || !resolved.isBranch {
+		if err := co.refService.SetHeadDetached(resolved.sha); err != nil {
 			return fmt.Errorf("set detached HEAD: %w", err)
 		}
 	} else {
@@ -83,51 +88,36 @@ func (co *Checkout) Checkout(ctx context.Context, target string, config *Checkou
 
 // resolveTarget resolves a target (branch name or commit SHA) to a commit hash
 // Returns: (commitSHA, isBranch, error)
-func (co *Checkout) resolveTarget(target string, config *CheckoutConfig) (objects.ObjectHash, bool, error) {
-	if err := ValidateBranchName(target); err == nil {
-		exists, err := co.refService.Exists(target)
-		if err != nil {
-			return "", false, fmt.Errorf("check branch exists: %w", err)
+func (co *Checkout) resolveTarget(target string, config *CheckoutConfig) (*branchResolve, error) {
+	var options ResolveOptions
+	if config.Create {
+		options = ResolveOptions{
+			AllowCreate: true,
+			CreateFunc:  co.createBranch,
 		}
-
-		if exists {
-			sha, err := co.refService.Resolve(target)
-			if err != nil {
-				return "", false, fmt.Errorf("resolve branch: %w", err)
-			}
-			return sha, true, nil
-		}
-
-		// Branch doesn't exist
-		if config.Create {
-			// Create the branch
-			createConfig := &CreateConfig{
-				StartPoint: "",
-				Force:      false,
-			}
-			info, err := co.creator.Create(context.Background(), target, createConfig)
-			if err != nil {
-				return "", false, fmt.Errorf("create branch: %w", err)
-			}
-			return info.SHA, true, nil
-		}
-
-		return "", false, NewNotFoundError(target)
 	}
 
-	// Try to parse as a commit SHA
-	sha, err := objects.NewObjectHashFromString(target)
+	result, err := ResolveRefOrCommit(target, co.refService, co.repo, options)
 	if err != nil {
-		return "", false, fmt.Errorf("invalid target '%s': not a valid branch name or commit SHA", target)
+		return nil, err
 	}
 
-	// Verify the commit exists
-	_, err = co.repo.ReadCommitObject(sha)
+	return &branchResolve{
+		sha:      result.SHA,
+		isBranch: result.IsBranch,
+	}, nil
+}
+
+func (co *Checkout) createBranch(name string) (objects.ObjectHash, error) {
+	createConfig := &CreateConfig{
+		StartPoint: "",
+		Force:      false,
+	}
+	info, err := co.creator.Create(context.Background(), name, createConfig)
 	if err != nil {
-		return "", false, fmt.Errorf("commit %s does not exist: %w", sha.Short(), err)
+		return "", fmt.Errorf("create branch: %w", err)
 	}
-
-	return sha, false, nil
+	return info.SHA, nil
 }
 
 // checkAlreadyCheckedOut checks if we're already on the target
