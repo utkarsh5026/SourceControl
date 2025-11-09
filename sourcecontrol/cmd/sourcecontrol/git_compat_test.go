@@ -14,10 +14,10 @@ import (
 
 // GitCompatTestHelper provides utilities for comparing git and sc behavior
 type GitCompatTestHelper struct {
-	t       *testing.T
-	gitDir  string
-	scDir   string
-	scBin   string
+	t      *testing.T
+	gitDir string
+	scDir  string
+	scBin  string
 }
 
 // NewGitCompatTestHelper creates a new test helper with isolated git and sc repositories

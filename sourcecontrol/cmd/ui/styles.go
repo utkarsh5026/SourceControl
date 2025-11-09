@@ -50,17 +50,17 @@ var (
 
 // Icons
 const (
-	IconCheck      = "✓"
-	IconModified   = "◉"
-	IconDeleted    = "✗"
-	IconAdded      = "+"
-	IconUntracked  = "?"
-	IconBranch     = "⎇"
-	IconCommit     = "⊚"
-	IconAuthor     = "👤"
-	IconDate       = "📅"
-	IconSeparator  = "│"
-	IconCheckmark  = "✓"
+	IconCheck     = "✓"
+	IconModified  = "◉"
+	IconDeleted   = "✗"
+	IconAdded     = "+"
+	IconUntracked = "?"
+	IconBranch    = "⎇"
+	IconCommit    = "⊚"
+	IconAuthor    = "👤"
+	IconDate      = "📅"
+	IconSeparator = "│"
+	IconCheckmark = "✓"
 )
 
 // Color wrapper functions
