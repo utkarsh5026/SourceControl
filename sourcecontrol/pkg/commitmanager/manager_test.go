@@ -49,8 +49,8 @@ func setupTestConfig(t *testing.T, repo *sourcerepo.SourceRepository) {
 
 	// Use t.Setenv for test-scoped environment variables
 	// This is safe for parallel test execution and handles cleanup automatically
-	t.Setenv("HOME", tempHome)           // Unix/Linux
-	t.Setenv("USERPROFILE", tempHome)   // Windows
+	t.Setenv("HOME", tempHome)        // Unix/Linux
+	t.Setenv("USERPROFILE", tempHome) // Windows
 	t.Setenv("GIT_AUTHOR_NAME", "Test User")
 	t.Setenv("GIT_AUTHOR_EMAIL", "test@example.com")
 }
