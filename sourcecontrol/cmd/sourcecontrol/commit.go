@@ -46,8 +46,16 @@ Commits are snapshots of your project at a specific point in time.`,
 			}
 
 			commitHash, _ := result.Hash()
-			fmt.Printf("[%s] %s\n", commitHash.Short(), result.Message)
-			fmt.Printf("Author: %s <%s>\n", result.Author.Name, result.Author.Email)
+
+			// Format commit output with colors
+			fmt.Printf("%s [%s] %s\n",
+				ui.Green(ui.IconCommit),
+				ui.Yellow(string(commitHash.Short())),
+				ui.Cyan(result.Message))
+			fmt.Printf("%s %s <%s>\n",
+				ui.Cyan(ui.IconAuthor),
+				ui.Blue(result.Author.Name),
+				ui.Blue(result.Author.Email))
 
 			return nil
 		},

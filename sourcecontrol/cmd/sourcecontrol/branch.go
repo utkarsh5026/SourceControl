@@ -73,20 +73,18 @@ Examples:
 				opts = append(opts, branch.WithDetach())
 			}
 
-			// Perform checkout
 			if err := manager.Checkout(ctx, target, opts...); err != nil {
 				return fmt.Errorf("checkout failed: %w", err)
 			}
 
-			// Display success message
-			if orphan {
+			switch {
+			case orphan:
 				fmt.Printf("Switched to a new orphan branch '%s'\n", target)
-			} else if createBranch {
+			case createBranch:
 				fmt.Printf("Switched to a new branch '%s'\n", target)
-			} else if detach {
+			case detach:
 				fmt.Printf("HEAD is now at %s\n", target)
-			} else {
-				// Check if we're in detached HEAD state
+			default:
 				detached, _ := manager.IsDetached()
 				if detached {
 					commitSHA, _ := manager.CurrentCommit()
