@@ -6,14 +6,24 @@ import (
 )
 
 func TestRepositoryPath_IsValid(t *testing.T) {
+	// Use platform-appropriate absolute paths
+	var validAbsPath string
+	if filepath.Separator == '\\' {
+		// Windows
+		validAbsPath = "C:\\Users\\user\\repo"
+	} else {
+		// Unix-like (Linux, macOS)
+		validAbsPath = "/home/user/repo"
+	}
+
 	tests := []struct {
 		name  string
 		path  RepositoryPath
 		valid bool
 	}{
 		{
-			name:  "valid absolute windows path",
-			path:  RepositoryPath("C:\\Users\\user\\repo"),
+			name:  "valid absolute path",
+			path:  RepositoryPath(validAbsPath),
 			valid: true,
 		},
 		{
@@ -589,6 +599,18 @@ func TestRepositoryPath_JoinRelative(t *testing.T) {
 }
 
 func TestAbsolutePath_IsValid(t *testing.T) {
+	// Use platform-appropriate absolute paths
+	var validAbsPath, volumeRootPath string
+	if filepath.Separator == '\\' {
+		// Windows
+		validAbsPath = "C:\\Users\\user\\repo"
+		volumeRootPath = "C:\\"
+	} else {
+		// Unix-like (Linux, macOS)
+		validAbsPath = "/home/user/repo"
+		volumeRootPath = "/"
+	}
+
 	tests := []struct {
 		name  string
 		path  AbsolutePath
@@ -596,7 +618,7 @@ func TestAbsolutePath_IsValid(t *testing.T) {
 	}{
 		{
 			name:  "valid absolute path",
-			path:  AbsolutePath("C:\\Users\\user\\repo"),
+			path:  AbsolutePath(validAbsPath),
 			valid: true,
 		},
 		{
@@ -611,7 +633,7 @@ func TestAbsolutePath_IsValid(t *testing.T) {
 		},
 		{
 			name:  "volume root path",
-			path:  AbsolutePath("C:\\"),
+			path:  AbsolutePath(volumeRootPath),
 			valid: true,
 		},
 	}
