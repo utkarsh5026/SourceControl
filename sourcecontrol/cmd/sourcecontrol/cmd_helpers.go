@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/utkarsh5026/SourceControl/cmd/ui"
 	"github.com/utkarsh5026/SourceControl/pkg/refs/branch"
 	"github.com/utkarsh5026/SourceControl/pkg/repository/scpath"
 	"github.com/utkarsh5026/SourceControl/pkg/repository/sourcerepo"
@@ -63,17 +62,4 @@ func getCurrentBranchName(repo *sourcerepo.SourceRepository) (string, error) {
 	}
 
 	return branchName, nil
-}
-
-// Wrapper functions for backward compatibility - delegate to ui package
-func colorGreen(s string) string {
-	return ui.Green(s)
-}
-
-func colorRed(s string) string {
-	return ui.Red(s)
-}
-
-func colorYellow(s string) string {
-	return ui.Yellow(s)
 }

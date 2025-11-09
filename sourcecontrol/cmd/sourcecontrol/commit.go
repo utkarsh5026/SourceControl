@@ -85,7 +85,7 @@ Displays the commit history starting from the current HEAD.`,
 			}
 
 			if len(history) == 0 {
-				fmt.Println(colorYellow("📝 No commits yet"))
+				fmt.Println(ui.Yellow("📝 No commits yet"))
 				return nil
 			}
 
