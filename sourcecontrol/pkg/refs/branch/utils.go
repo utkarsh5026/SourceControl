@@ -2,24 +2,83 @@ package branch
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/utkarsh5026/SourceControl/pkg/objects"
+	"github.com/utkarsh5026/SourceControl/pkg/objects/commit"
 	"github.com/utkarsh5026/SourceControl/pkg/repository/sourcerepo"
 )
 
-// resolveCommit resolves a commit SHA string to an ObjectHash
-func resolveCommit(commit string, repo sourcerepo.SourceRepository) (objects.ObjectHash, error) {
-	sha, err := objects.NewObjectHashFromString(commit)
-	if err != nil {
-		return "", fmt.Errorf("invalid target '%s': not a valid branch name or commit SHA", commit)
+// resolveCommit resolves a commit SHA string (full or short) to an ObjectHash
+func resolveCommit(commitStr string, repo sourcerepo.SourceRepository) (objects.ObjectHash, error) {
+	sha, err := objects.NewObjectHashFromString(commitStr)
+	if err == nil {
+		_, err = repo.ObjectStore().HasObject(sha)
+		if err != nil {
+			return "", fmt.Errorf("commit %s does not exist: %w", sha.Short(), err)
+		}
+		return sha, nil
 	}
 
-	_, err = repo.ReadCommitObject(sha)
-	if err != nil {
-		return "", fmt.Errorf("commit %s does not exist: %w", sha.Short(), err)
+	if !(commit.LooksLikeCommitSHA(commitStr)) {
+		return "", fmt.Errorf("invalid target '%s': not a valid branch name or commit SHA", commitStr)
 	}
 
-	return sha, nil
+	fullSHA, err := resolveShortSHA(commitStr, repo)
+	if err != nil {
+		return "", err
+	}
+
+	return fullSHA, nil
+}
+
+// resolveShortSHA finds the full SHA for a short SHA prefix
+func resolveShortSHA(shortSHA string, repo sourcerepo.SourceRepository) (objects.ObjectHash, error) {
+	objectsPath := repo.ObjectsPath()
+
+	if len(shortSHA) < 4 {
+		return "", fmt.Errorf("short SHA must be at least 4 characters")
+	}
+
+	dirName := shortSHA[:2]
+	filePrefix := shortSHA[2:]
+
+	dirPath := objectsPath.Join(dirName)
+	entries, err := os.ReadDir(string(dirPath))
+	if err != nil {
+		return "", fmt.Errorf("commit %s does not exist", shortSHA)
+	}
+
+	var matches []objects.ObjectHash
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		fileName := entry.Name()
+		if len(fileName) >= len(filePrefix) && fileName[:len(filePrefix)] == filePrefix {
+			fullSHA := dirName + fileName
+			hash, err := objects.NewObjectHashFromString(fullSHA)
+			if err != nil {
+				continue
+			}
+
+			_, err = repo.ObjectStore().HasObject(hash)
+			if err == nil {
+				matches = append(matches, hash)
+			}
+		}
+	}
+
+	if len(matches) == 0 {
+		return "", fmt.Errorf("commit %s does not exist", shortSHA)
+	}
+
+	if len(matches) > 1 {
+		return "", fmt.Errorf("short SHA %s is ambiguous (matches %d commits)", shortSHA, len(matches))
+	}
+
+	return matches[0], nil
 }
 
 func resolveBranch(refService *BranchRefManager, target string) (objects.ObjectHash, error) {
@@ -52,14 +111,8 @@ type ResolveOptions struct {
 
 // ResolveResult contains the resolution result
 type ResolveResult struct {
-	// SHA is the resolved commit hash
-	SHA objects.ObjectHash
-
-	// IsBranch indicates if the target was resolved as a branch
-	IsBranch bool
-
-	// Created indicates if a new branch was created during resolution
-	Created bool
+	SHA               objects.ObjectHash
+	IsBranch, Created bool
 }
 
 func newResolveResult(sha objects.ObjectHash, isBranch, created bool) *ResolveResult {
@@ -71,7 +124,7 @@ func newResolveResult(sha objects.ObjectHash, isBranch, created bool) *ResolveRe
 }
 
 // ResolveRefOrCommit resolves a target as either a branch name or commit SHA
-// It first attempts branch resolution, then falls back to commit resolution
+// It checks if the target looks like a commit SHA first, then attempts branch resolution
 func ResolveRefOrCommit(
 	target string,
 	refService *BranchRefManager,
@@ -85,6 +138,18 @@ func ResolveRefOrCommit(
 		return nil, fmt.Errorf("target cannot be empty")
 	}
 
+	if commit.LooksLikeCommitSHA(target) {
+		sha, err := resolveCommit(target, *repo)
+		if err == nil {
+			return newResolveResult(sha, false, false), nil
+		}
+
+		if len(target) >= 4 && len(target) < 40 {
+			return nil, err
+		}
+	}
+
+	// Try to resolve as a branch name
 	if err := refService.validateBranchName(target); err == nil {
 		sha, err := resolveBranch(refService, target)
 		if err != nil {
@@ -104,18 +169,8 @@ func ResolveRefOrCommit(
 			return newResolveResult(sha, true, true), nil
 		}
 
-		sha, err = resolveCommit(target, *repo)
-		if err != nil {
-			return nil, NewNotFoundError(target)
-		}
-
-		return newResolveResult(sha, false, false), nil
+		return nil, NewNotFoundError(target)
 	}
 
-	sha, err := resolveCommit(target, *repo)
-	if err != nil {
-		return nil, err
-	}
-
-	return newResolveResult(sha, false, false), nil
+	return nil, fmt.Errorf("invalid target '%s': not a valid branch name or commit SHA", target)
 }
