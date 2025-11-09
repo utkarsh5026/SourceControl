@@ -3,7 +3,9 @@ package branch
 import (
 	"context"
 	"fmt"
+	"runtime"
 
+	pool "github.com/utkarsh5026/SourceControl/pkg/common/concurrency"
 	"github.com/utkarsh5026/SourceControl/pkg/objects"
 	"github.com/utkarsh5026/SourceControl/pkg/repository/sourcerepo"
 	"golang.org/x/sync/errgroup"
@@ -58,7 +60,9 @@ func (is *InfoService) GetInfo(ctx context.Context, name string) (*BranchInfo, e
 	return info, nil
 }
 
-// ListAll returns information about all branches in the repository
+// ListAll returns information about all branches in the repository.
+// It uses concurrent processing via WorkerPool to improve performance when
+// there are many branches, as branch resolution involves I/O operations.
 func (is *InfoService) ListAll(ctx context.Context) ([]BranchInfo, error) {
 	select {
 	case <-ctx.Done():
@@ -76,20 +80,18 @@ func (is *InfoService) ListAll(ctx context.Context) ([]BranchInfo, error) {
 		return nil, fmt.Errorf("get current branch: %w", err)
 	}
 
-	branches := make([]BranchInfo, 0, len(branchNames))
-	for _, name := range branchNames {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
-		}
+	// Create worker pool with more workers for I/O-bound operations
+	// Using 2x GOMAXPROCS as branch resolution is I/O-bound (filesystem access)
+	workerPool := pool.NewWorkerPool[string, BranchInfo](
+		pool.WithWorkerCount(runtime.GOMAXPROCS(0) * 2),
+	)
 
-		info, err := is.getBranchInfoQuick(name, currentBranch)
-		if err != nil {
-			continue
-		}
+	branches, err := workerPool.Process(ctx, branchNames, func(ctx context.Context, name string) (BranchInfo, error) {
+		return is.getBranchInfoQuick(name, currentBranch)
+	})
 
-		branches = append(branches, info)
+	if err != nil {
+		return nil, fmt.Errorf("process branches: %w", err)
 	}
 
 	return branches, nil
