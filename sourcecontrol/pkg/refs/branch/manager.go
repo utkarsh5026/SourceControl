@@ -154,9 +154,12 @@ func (m *Manager) RenameBranch(ctx context.Context, oldName, newName string, opt
 		opt(config)
 	}
 
-	if err := m.branchRefSvc.Rename(oldName, newName, config.Force); err != nil {
+	r := NewRenameService(m.branchRefSvc, newName, oldName, config.Force)
+
+	if err := r.Execute(ctx); err != nil {
 		return fmt.Errorf("rename branch %s to %s: %w", oldName, newName, err)
 	}
+
 	return nil
 }
 

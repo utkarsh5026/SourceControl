@@ -271,47 +271,6 @@ func TestRefService_DetachedHead(t *testing.T) {
 	}
 }
 
-// TestRefService_Rename tests renaming branches
-func TestRefService_Rename(t *testing.T) {
-	repo, cleanup := setupTestRepo(t)
-	defer cleanup()
-
-	refMgr := refs.NewRefManager(repo)
-	refSvc := NewBranchRefManager(refMgr)
-
-	testSHA := objects.ObjectHash("0123456789abcdef0123456789abcdef01234567")
-
-	// Create a branch
-	err := refSvc.Create("old-name", testSHA)
-	if err != nil {
-		t.Fatalf("Failed to create branch: %v", err)
-	}
-
-	// Test: Rename the branch
-	err = refSvc.Rename("old-name", "new-name", false)
-	if err != nil {
-		t.Fatalf("Failed to rename branch: %v", err)
-	}
-
-	// Verify old name doesn't exist
-	exists, err := refSvc.Exists("old-name")
-	if err != nil {
-		t.Fatalf("Failed to check old name: %v", err)
-	}
-	if exists {
-		t.Error("Old branch name should not exist")
-	}
-
-	// Verify new name exists and points to same SHA
-	newSHA, err := refSvc.Resolve("new-name")
-	if err != nil {
-		t.Fatalf("Failed to resolve new name: %v", err)
-	}
-	if newSHA != testSHA {
-		t.Errorf("Expected SHA %s, got %s", testSHA, newSHA)
-	}
-}
-
 // TestValidateBranchName tests the ValidateBranchName function
 func TestValidateBranchName(t *testing.T) {
 	repo, cleanup := setupTestRepo(t)

@@ -17,6 +17,9 @@ const (
 
 	// HeadFile is the name of the HEAD file
 	HeadFile = "HEAD"
+
+	// BranchRefPrefix is the prefix for branch references
+	BranchRefPrefix = "refs/heads/"
 )
 
 // BranchRefManager handles low-level branch reference operations.
@@ -58,7 +61,7 @@ func (rs *BranchRefManager) Current() (string, error) {
 	if after, ok := strings.CutPrefix(content, refs.SymbolicRefPrefix); ok {
 		refPath := strings.TrimSpace(after)
 		// Extract branch name from "refs/heads/branch-name"
-		if branchName, ok := strings.CutPrefix(refPath, "refs/heads/"); ok {
+		if branchName, ok := strings.CutPrefix(refPath, BranchRefPrefix); ok {
 			return branchName, nil
 		}
 		return "", fmt.Errorf("HEAD points to non-branch ref: %s", refPath)
@@ -120,15 +123,11 @@ func (rs *BranchRefManager) Update(name string, sha objects.ObjectHash, force bo
 	}
 
 	refPath := rs.branchRefPath(name)
-
-	// Check if branch exists
 	exists, err := rs.refManager.Exists(refPath)
 	if err != nil {
 		return fmt.Errorf("check branch exists: %w", err)
 	}
 
-	// If branch doesn't exist and force is false, return error
-	// If force is true, we allow creating the branch (used for initial commit)
 	if !exists && !force {
 		return NewNotFoundError(name)
 	}
@@ -161,61 +160,6 @@ func (rs *BranchRefManager) Delete(name string) error {
 	}
 	if !deleted {
 		return NewNotFoundError(name)
-	}
-
-	return nil
-}
-
-// Rename renames a branch from oldName to newName
-func (rs *BranchRefManager) Rename(oldName, newName string, force bool) error {
-	for _, name := range []string{oldName, newName} {
-		if err := rs.validateBranchName(name); err != nil {
-			return err
-		}
-	}
-
-	oldRefPath := rs.branchRefPath(oldName)
-	newRefPath := rs.branchRefPath(newName)
-
-	exists, err := rs.refManager.Exists(oldRefPath)
-	if err != nil {
-		return fmt.Errorf("check old branch exists: %w", err)
-	}
-	if !exists {
-		return NewNotFoundError(oldName)
-	}
-
-	newExists, err := rs.refManager.Exists(newRefPath)
-	if err != nil {
-		return fmt.Errorf("check new branch exists: %w", err)
-	}
-	if newExists && !force {
-		return NewAlreadyExistsError(newName)
-	}
-
-	sha, err := rs.refManager.ResolveToSHA(oldRefPath)
-	if err != nil {
-		return fmt.Errorf("resolve old branch: %w", err)
-	}
-
-	if err := rs.refManager.UpdateRef(newRefPath, sha); err != nil {
-		return fmt.Errorf("create new branch: %w", err)
-	}
-
-	// Update HEAD if renaming current branch
-	current, err := rs.Current()
-	if err != nil {
-		return fmt.Errorf("get current branch: %w", err)
-	}
-	if current == oldName {
-		if err := rs.SetHead(newName); err != nil {
-			return fmt.Errorf("update HEAD: %w", err)
-		}
-	}
-
-	// Delete old branch
-	if _, err := rs.refManager.DeleteRef(oldRefPath); err != nil {
-		return fmt.Errorf("delete old branch: %w", err)
 	}
 
 	return nil
