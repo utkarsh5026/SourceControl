@@ -29,6 +29,9 @@ func AtomicWrite(targetPath scpath.AbsolutePath, data []byte, mode os.FileMode) 
 	return renameTempFile(tmpFile.Name(), targetPath.String(), mode)
 }
 
+// writeTempFile writes the provided data to the supplied temporary file,
+// synchronizes it to underlying storage using fsync, and then closes the file.
+// It returns any encountered error wrapped with context.
 func writeTempFile(data []byte, tmpFile *os.File) error {
 	if _, err := tmpFile.Write(data); err != nil {
 		return fmt.Errorf("write data: %w", err)
@@ -45,6 +48,10 @@ func writeTempFile(data []byte, tmpFile *os.File) error {
 	return nil
 }
 
+// renameTempFile atomically replaces the target file with the temp file.
+// It applies the correct file mode to the temporary file before renaming,
+// ensuring file permissions are maintained as expected. Returns an error
+// if either the chmod or the rename fails.
 func renameTempFile(tmpPath string, targetPath string, mode os.FileMode) error {
 	if err := os.Chmod(tmpPath, mode); err != nil {
 		return fmt.Errorf("chmod: %w", err)
