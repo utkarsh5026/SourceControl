@@ -41,13 +41,17 @@ type Index struct {
 
 	// Entries contains all staged files, sorted by path
 	Entries []*Entry
+
+	// entryMap provides O(1) lookup by path
+	entryMap map[scpath.RelativePath]*Entry
 }
 
 // NewIndex creates a new empty index with the default version.
 func NewIndex() *Index {
 	return &Index{
-		Version: IndexVersion,
-		Entries: make([]*Entry, 0),
+		Version:  IndexVersion,
+		Entries:  make([]*Entry, 0),
+		entryMap: make(map[scpath.RelativePath]*Entry),
 	}
 }
 
@@ -81,16 +85,16 @@ func (idx *Index) Write(path scpath.AbsolutePath) error {
 // Parameters:
 //   - entry: The entry to add or update
 func (idx *Index) Add(entry *Entry) {
-	for i, e := range idx.Entries {
-		if e.Path == entry.Path {
-			idx.Entries[i] = entry
-			idx.sort()
-			return
-		}
-	}
+	pathKey := entry.Path.Normalize()
 
-	idx.Entries = append(idx.Entries, entry)
-	idx.sort()
+	if existingEntry, exists := idx.entryMap[pathKey]; exists {
+		*existingEntry = *entry
+		idx.entryMap[pathKey] = existingEntry
+	} else {
+		idx.Entries = append(idx.Entries, entry)
+		idx.entryMap[pathKey] = entry
+		idx.sort()
+	}
 }
 
 // Remove unstages a file by removing its entry from the index.
@@ -103,8 +107,15 @@ func (idx *Index) Add(entry *Entry) {
 //   - false if no entry with that path exists
 func (idx *Index) Remove(path scpath.RelativePath) bool {
 	normalizedPath := path.Normalize()
+
+	entry, exists := idx.entryMap[normalizedPath]
+	if !exists {
+		return false
+	}
+
+	delete(idx.entryMap, normalizedPath)
 	for i, e := range idx.Entries {
-		if e.Path == normalizedPath {
+		if e == entry { // pointer comparison
 			idx.Entries = append(idx.Entries[:i], idx.Entries[i+1:]...)
 			return true
 		}
@@ -122,12 +133,8 @@ func (idx *Index) Remove(path scpath.RelativePath) bool {
 //   - nil and false if not found
 func (idx *Index) Get(path scpath.RelativePath) (*Entry, bool) {
 	normalizedPath := path.Normalize()
-	for _, e := range idx.Entries {
-		if e.Path == normalizedPath {
-			return e, true
-		}
-	}
-	return nil, false
+	entry, ok := idx.entryMap[normalizedPath]
+	return entry, ok
 }
 
 // Has checks if a file is currently staged in the index.
@@ -144,6 +151,7 @@ func (idx *Index) Has(path scpath.RelativePath) bool {
 // Clear removes all entries from the index, effectively unstaging all files.
 func (idx *Index) Clear() {
 	idx.Entries = make([]*Entry, 0)
+	idx.entryMap = make(map[scpath.RelativePath]*Entry)
 }
 
 // Paths returns a slice of all staged file paths.
@@ -252,12 +260,15 @@ func (idx *Index) Deserialize(r io.Reader) error {
 		return fmt.Errorf("failed to read header: %w", err)
 	}
 
+	idx.entryMap = make(map[scpath.RelativePath]*Entry, len(idx.Entries))
+
 	for i := range idx.Entries {
 		entry := &Entry{}
 		if _, err := entry.Deserialize(buf); err != nil {
 			return fmt.Errorf("failed to deserialize entry %d: %w", i, err)
 		}
 		idx.Entries[i] = entry
+		idx.entryMap[entry.Path.Normalize()] = entry
 	}
 
 	return nil
