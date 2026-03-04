@@ -1,89 +1,85 @@
-.PHONY: build test clean install lint fmt help
+.PHONY: build build-all test test-coverage test-watch test-watch-tables bench \
+        clean install deps lint lint-fix fmt vet tidy coverage-html check \
+        run playground playground-clean \
+        security security-vuln security-scan \
+        install-tools help
 
-# Binary name
-BINARY_NAME=sourcecontrol
-BUILD_DIR=bin
-
-# Go parameters
-GOCMD=go
-GOBUILD=$(GOCMD) build
-GOTEST=$(GOCMD) test
-GOCLEAN=$(GOCMD) clean
-GOGET=$(GOCMD) get
-GOMOD=$(GOCMD) mod
-GOFMT=$(GOCMD) fmt
-GOVET=$(GOCMD) vet
-
-# Build parameters
-MAIN_PATH=./cmd/sourcecontrol
-LDFLAGS=-ldflags "-s -w"
-
-help: ## Display this help screen
-	@grep -h -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+# Python interpreter — override with: make <target> PYTHON=python3
+PYTHON := python
 
 build: ## Build the binary
-	@echo "Building..."
-	@mkdir -p $(BUILD_DIR)
-	$(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH)
-	@echo "Build complete: $(BUILD_DIR)/$(BINARY_NAME)"
+	@$(PYTHON) makefile.py build
 
 build-all: ## Build for all platforms
-	@echo "Building for all platforms..."
-	@mkdir -p $(BUILD_DIR)
-	GOOS=linux GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 $(MAIN_PATH)
-	GOOS=darwin GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 $(MAIN_PATH)
-	GOOS=darwin GOARCH=arm64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 $(MAIN_PATH)
-	GOOS=windows GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe $(MAIN_PATH)
-	@echo "Cross-platform build complete"
+	@$(PYTHON) makefile.py build-all
 
-test: ## Run tests
-	@echo "Running tests..."
-	$(GOTEST) -v -race -coverprofile=coverage.out ./...
-	@echo "Tests complete"
+test: ## Run tests with -race and coverage
+	@$(PYTHON) makefile.py test
 
-test-coverage: test ## Run tests with coverage report
-	@echo "Generating coverage report..."
-	$(GOCMD) tool cover -html=coverage.out -o coverage.html
-	@echo "Coverage report: coverage.html"
+test-coverage: ## Run tests and generate HTML coverage report
+	@$(PYTHON) makefile.py test-coverage
+
+test-watch: ## Watch and re-run tests on file change [uses gow]
+	@$(PYTHON) makefile.py test-watch
+
+test-watch-tables: ## Watch and re-run table tests [uses gow]
+	@$(PYTHON) makefile.py test-watch-tables
 
 bench: ## Run benchmarks
-	@echo "Running benchmarks..."
-	$(GOTEST) -bench=. -benchmem ./...
+	@$(PYTHON) makefile.py bench
 
-clean: ## Clean build artifacts
-	@echo "Cleaning..."
-	$(GOCLEAN)
-	rm -rf $(BUILD_DIR)
-	rm -f coverage.out coverage.html
-	@echo "Clean complete"
+coverage-html: ## Generate HTML coverage report
+	@$(PYTHON) makefile.py coverage-html
 
-install: ## Install the binary to $GOPATH/bin
-	@echo "Installing..."
-	$(GOCMD) install $(MAIN_PATH)
-	@echo "Install complete"
+check: ## Run fmt + vet + test
+	@$(PYTHON) makefile.py check
 
-deps: ## Download dependencies
-	@echo "Downloading dependencies..."
-	$(GOMOD) download
-	$(GOMOD) tidy
-	@echo "Dependencies downloaded"
+clean: ## Remove bin/, coverage files, and test cache
+	@$(PYTHON) makefile.py clean
 
-lint: ## Run linters
-	@echo "Running linters..."
-	@if command -v golangci-lint > /dev/null; then \
-		golangci-lint run ./...; \
-	else \
-		echo "golangci-lint not installed. Install from https://golangci-lint.run/"; \
-		$(GOVET) ./...; \
-	fi
+install: ## Install the binary to $$GOPATH/bin
+	@$(PYTHON) makefile.py install
 
-fmt: ## Format code
-	@echo "Formatting code..."
-	$(GOFMT) ./...
-	@echo "Format complete"
+deps: ## Download and tidy dependencies
+	@$(PYTHON) makefile.py deps
 
-run: ## Run the application
-	@echo "Running application..."
-	$(GOCMD) run $(MAIN_PATH) $(ARGS)
+lint: ## Run golangci-lint
+	@$(PYTHON) makefile.py lint
+
+lint-fix: ## Run golangci-lint with auto-fix
+	@$(PYTHON) makefile.py lint-fix
+
+fmt: ## Format code with gofmt
+	@$(PYTHON) makefile.py fmt
+
+vet: ## Run go vet
+	@$(PYTHON) makefile.py vet
+
+tidy: ## go mod tidy + go mod verify
+	@$(PYTHON) makefile.py tidy
+
+run: ## Run the application (e.g. make run ARGS="init .")
+	@$(PYTHON) makefile.py run $(ARGS)
+
+playground: ## Build and run the playground setup tool
+	@$(PYTHON) makefile.py playground $(ARGS)
+
+playground-clean: ## Rebuild playground from scratch
+	@$(PYTHON) makefile.py playground-clean $(ARGS)
+
+security: ## Full security check: govulncheck + gosec
+	@$(PYTHON) makefile.py security
+
+security-vuln: ## Run govulncheck (known CVEs)
+	@$(PYTHON) makefile.py security-vuln
+
+security-scan: ## Run gosec (static security analysis)
+	@$(PYTHON) makefile.py security-scan
+
+install-tools: ## Install dev tools (gow, govulncheck, gosec)
+	@$(PYTHON) makefile.py install-tools
+
+help: ## Display this help screen
+	@$(PYTHON) makefile.py help
 
 .DEFAULT_GOAL := help
