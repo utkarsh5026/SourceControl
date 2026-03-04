@@ -41,7 +41,7 @@ if not HAS_COLOR:
 
 BINARY_NAME = "sourcecontrol"
 MAIN_PATH = "./cmd/sourcecontrol"
-BUILD_DIR = "bin"
+BUILD_DIR = os.path.join(os.path.expanduser("~"), ".sourcecontrol", "bin")
 
 
 def print_header(title):
