@@ -50,7 +50,7 @@ jobs:
         working-directory: ./sourcecontrol
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           files: ./sourcecontrol/coverage.out
           flags: unittests
