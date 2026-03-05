@@ -1,0 +1,102 @@
+{
+  // ── Spell checker ────────────────────────────────────────────────────────────
+  "cSpell.words": [
+    "benchmem",
+    "charmbracelet",
+    "commitmanager",
+    "coverprofile",
+    "Errorf",
+    "fileops",
+    "GOARCH",
+    "GOBUILD",
+    "GOCLEAN",
+    "GOCMD",
+    "godoc",
+    "GOFMT",
+    "GOGET",
+    "golangci",
+    "GOMOD",
+    "GOPATH",
+    "gosec",
+    "GOTEST",
+    "GOVET",
+    "govulncheck",
+    "inotify",
+    "ldflags",
+    "lipgloss",
+    "mitranim",
+    "olekukonko",
+    "scpath",
+    "securego",
+    "sourcecontrol",
+    "sourcerepo",
+    "srcc",
+    "stretchr",
+    "tablewriter",
+    "testcache"
+  ],
+
+  // ── Go language server (gopls) ────────────────────────────────────────────────
+  "go.useLanguageServer": true,
+  "gopls": {
+    "ui.semanticTokens": true,
+    "analyses": {
+      "unusedparams": true,
+      "shadow": true,
+      "nilness": true,
+      "unusedwrite": true,
+      "useany": true
+    },
+    "staticcheck": true,
+    "hints": {
+      "parameterNames": true,
+      "assignVariableTypes": true,
+      "compositeLiteralFields": true,
+      "compositeLiteralTypes": true,
+      "constantValues": true,
+      "functionTypeParameters": true,
+      "rangeVariableTypes": true
+    }
+  },
+
+  // ── Format & lint on save ─────────────────────────────────────────────────────
+  "editor.formatOnSave": true,
+  "[go]": {
+    "editor.defaultFormatter": "golang.go",
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    }
+  },
+  "go.lintTool": "golangci-lint",
+  "go.lintFlags": ["--fast"],
+  "go.lintOnSave": "package",
+  "go.vetOnSave": "package",
+
+  // ── Test integration ──────────────────────────────────────────────────────────
+  "go.testFlags": ["-v", "-race"],
+  "go.testTimeout": "60s",
+  "go.coverOnSave": false,
+  "go.coverOnSingleTest": true,
+  "go.coverOnTestPackage": true,
+
+  // ── File explorer & search exclusions ────────────────────────────────────────
+  "files.exclude": {
+    "**/bin/": true,
+    "**/*.coverprofile": true,
+    "**/coverage.html": true,
+    "**/.source/": true
+  },
+  "search.exclude": {
+    "**/bin/": true,
+    "**/.source/": true,
+    "**/vendor/": true
+  },
+
+  // ── Editor quality-of-life ────────────────────────────────────────────────────
+  "editor.rulers": [100],
+  "editor.bracketPairColorization.enabled": true,
+  "editor.guides.bracketPairs": "active",
+  "editor.stickyScroll.enabled": true,
+
+  "go.toolsManagement.autoUpdate": true
+}
